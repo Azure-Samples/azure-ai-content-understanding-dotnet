@@ -1,4 +1,5 @@
-﻿using Management.Extensions;
+﻿using ContentUnderstanding.Common;
+using Management.Extensions;
 using Management.Interfaces;
 using Management.Services;
 using Microsoft.Extensions.Configuration;
@@ -30,7 +31,7 @@ namespace Management
                         opts.UserAgent = "";
                     });
                     services.AddTokenProvider();
-                    services.AddHttpClientRequest();
+                    services.AddHttpClient<AzureContentUnderstandingClient>();
                     services.AddSingleton<IManagementService, ManagementService>();
                 })
                 .Build();
@@ -42,11 +43,11 @@ namespace Management
             // 1. Create a simple analyzer
             var management_analyzerId = await service!.CreateAnalyzerAsync(analyzerId, analyzerTemplatePath);
 
-            // 2. List all analyzers
-            await service.ListAnalyzersAsync();
-
-            // 3. Get analyzer details
+            // 2. Get analyzer details
             await service.GetAnalyzerDetailsAsync(management_analyzerId);
+
+            // 3. List all analyzers
+            await service.ListAnalyzersAsync();
 
             // 4. Delete analyzer
             await service.DeleteAnalyzerAsync(management_analyzerId);

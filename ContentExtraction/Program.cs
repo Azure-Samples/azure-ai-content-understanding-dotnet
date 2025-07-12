@@ -1,6 +1,7 @@
 ﻿using ContentExtraction.Extensions;
 using ContentExtraction.Interfaces;
 using ContentExtraction.Services;
+using ContentUnderstanding.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -30,7 +31,7 @@ namespace ContentExtraction
                         opts.UserAgent = "";
                     });
                     services.AddTokenProvider();
-                    services.AddHttpClientRequest();
+                    services.AddHttpClient<AzureContentUnderstandingClient>();
                     services.AddSingleton<IContentExtractionService, ContentExtractionService>();
 
                 })

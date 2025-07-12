@@ -1,4 +1,5 @@
-﻿using ConversationalFieldExtraction.Extensions;
+﻿using ContentUnderstanding.Common;
+using ConversationalFieldExtraction.Extensions;
 using ConversationalFieldExtraction.Interfaces;
 using ConversationalFieldExtraction.Services;
 using Microsoft.Extensions.Configuration;
@@ -30,7 +31,7 @@ namespace ConversationalFieldExtraction
                         opts.UserAgent = "";
                     });
                     services.AddTokenProvider();
-                    services.AddHttpClientRequest();
+                    services.AddHttpClient<AzureContentUnderstandingClient>();
                     services.AddSingleton<IConversationalFieldExtractionService, ConversationalFieldExtractionService>();
 
                 })

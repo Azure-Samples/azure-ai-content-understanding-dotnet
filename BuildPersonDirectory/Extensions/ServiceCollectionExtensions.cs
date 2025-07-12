@@ -2,7 +2,6 @@
 using Azure.Identity;
 using ContentUnderstanding.Common;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace BuildPersonDirectory.Extensions
 {
@@ -27,22 +26,6 @@ namespace BuildPersonDirectory.Extensions
                     var token = await credential.GetTokenAsync(tokenRequestContext, CancellationToken.None);
                     return token.Token;
                 };
-            });
-
-            return services;
-        }
-        public static IServiceCollection AddHttpClientRequest(this IServiceCollection services)
-        {
-            services.AddHttpClient<AzureContentUnderstandingFaceClient>((provider, client) =>
-            {
-                var options = provider.GetRequiredService<IOptions<ContentUnderstandingOptions>>().Value;
-                client.BaseAddress = new Uri(options.Endpoint);
-                client.DefaultRequestHeaders.Add("x-ms-useragent", options.UserAgent);
-
-                if (!string.IsNullOrEmpty(options.SubscriptionKey))
-                {
-                    client.DefaultRequestHeaders.Add("Apim-Subscription-id", options.SubscriptionKey);
-                }
             });
 
             return services;

@@ -56,7 +56,7 @@ namespace Management.Services
             Console.WriteLine("\nFirst 3 analyzers:");
             for (int i = 0; i < Math.Min(3, analyzers.Length); i++)
             {
-                Console.WriteLine($"- {analyzers[i].AnalyzerId} ({analyzers[i].Description})");
+                Console.WriteLine($"- {analyzers[i].GetProperty("analyzerId")} ({analyzers[i].GetProperty("description")})");
             }
 
             if (analyzers.Length > 0)

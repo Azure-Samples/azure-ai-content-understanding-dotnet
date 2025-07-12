@@ -39,14 +39,14 @@ namespace ContentUnderstanding.Common
                 ["kind"] = "blob",
                 ["prefix"] = storageContainerPathPrefix
             };
-        private async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string url, HttpContent content = null)
+        private async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string url, HttpContent? content = null)
         {
             var request = new HttpRequestMessage(method, url);
 
             // add authorization
             if (!string.IsNullOrEmpty(_options.Value.SubscriptionKey))
             {
-                request.Headers.Add("Apim-Subscription-id", _options.Value.SubscriptionKey);
+                request.Headers.Add("Ocp-Apim-Subscription-Key", _options.Value.SubscriptionKey);
             }
             else if (_tokenProvider != null)
             {
@@ -59,17 +59,17 @@ namespace ContentUnderstanding.Common
             return request;
         }
 
-        public async Task<AnalyzerInfo[]> GetAllAnalyzersAsync()
+        public async Task<JsonElement[]?> GetAllAnalyzersAsync()
         {
             var url = GetAnalyzerListUrl();
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await _tokenProvider());
+            var request = await CreateRequestAsync(HttpMethod.Get, url).ConfigureAwait(false);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
 
-            var response = await _httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<AnalyzerListResponse>(content)?.Value ?? Array.Empty<AnalyzerInfo>();
+            var jsonArray = JsonSerializer.Deserialize<AnalyzerListResponse>(content);
+            return jsonArray.Value;
         }
 
         /// <summary>
@@ -78,18 +78,17 @@ namespace ContentUnderstanding.Common
         /// </summary>
         /// <param name="analyzerId">The unique identifier for the analyzer.</param>
         /// <returns>A dictionary containing the JSON response from the service, which includes the target analyzer detail.</returns>
-        public async Task<AnalyzerDetail?> GetAnalyzerDetailByIdAsync(string analyzerId)
+        public async Task<dynamic?> GetAnalyzerDetailByIdAsync(string analyzerId)
         {
-            var url = $"{_options.Value.Endpoint}/contentunderstanding/analyzers/{analyzerId}?api-version={_options.Value.ApiVersion}";
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await _tokenProvider());
+            var url = GetAnalyzerUrl(analyzerId);
+            var request = await CreateRequestAsync(HttpMethod.Get, url).ConfigureAwait(false);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
 
-            var response = await _httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync();
             
-            return JsonSerializer.Deserialize<AnalyzerDetail>(content);
+            return JsonSerializer.Deserialize<dynamic>(content);
         }
 
         /// <summary>
@@ -129,19 +128,14 @@ namespace ContentUnderstanding.Common
                 jsonObject["trainingData"] = trainingConfig;
             }
 
-            using var request = new HttpRequestMessage(
-                HttpMethod.Put,
-                GetAnalyzerUrl(analyzerId))
-            {
-                Content = new StringContent(
+            var url = GetAnalyzerUrl(analyzerId);
+            var content = new StringContent(
                     JsonSerializer.Serialize(jsonObject),
                     Encoding.UTF8,
-                    "application/json")
-            };
-
-            await EnsureAuthorizationAsync(request).ConfigureAwait(false);
-
+                    "application/json");
+            var request = await CreateRequestAsync(HttpMethod.Put, url, content).ConfigureAwait(false);
             var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
             response.EnsureSuccessStatusCode();
 
             return response;
@@ -155,10 +149,9 @@ namespace ContentUnderstanding.Common
         public async Task<HttpResponseMessage> DeleteAnalyzerAsync(string analyzerId)
         {
             var url = GetAnalyzerUrl(analyzerId);
-            var request = new HttpRequestMessage(HttpMethod.Delete, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await _tokenProvider());
+            var request = await CreateRequestAsync(HttpMethod.Delete, url).ConfigureAwait(false);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
 
-            var response = await _httpClient.SendAsync(request);
             return response;
         }
 
@@ -274,25 +267,6 @@ namespace ContentUnderstanding.Common
 
             throw new TimeoutException(
                 $"Operation timed out after {timeoutSeconds} seconds.");
-        }
-
-        /// <summary>
-        /// Http request authorization helper method.
-        /// </summary>
-        /// <param name="request"></param>
-        /// <returns></returns>
-        /// <exception cref="AuthException"></exception>
-        private async Task EnsureAuthorizationAsync(HttpRequestMessage request)
-        {
-            try
-            {
-                var token = await _tokenProvider().ConfigureAwait(false);
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            }
-            catch (Exception ex)
-            {
-                throw new AuthException("Failed to get authorization token", ex);
-            }
         }
 
         /// <summary>

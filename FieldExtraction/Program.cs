@@ -1,4 +1,5 @@
-﻿using FieldExtraction.Extensions;
+﻿using ContentUnderstanding.Common;
+using FieldExtraction.Extensions;
 using FieldExtraction.Interfaces;
 using FieldExtraction.Services;
 using Microsoft.Extensions.Configuration;
@@ -30,7 +31,7 @@ namespace FieldExtraction
                         opts.UserAgent = "";
                     });
                     services.AddTokenProvider();
-                    services.AddHttpClientRequest();
+                    services.AddHttpClient<AzureContentUnderstandingClient>();
                     services.AddSingleton<IFieldExtractionService, FieldExtractionService>();
 
                 })

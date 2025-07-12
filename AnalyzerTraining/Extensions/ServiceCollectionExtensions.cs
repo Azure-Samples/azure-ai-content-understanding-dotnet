@@ -31,21 +31,5 @@ namespace AnalyzerTraining.Extensions
 
             return services;
         }
-        public static IServiceCollection AddHttpClientRequest(this IServiceCollection services)
-        {
-            services.AddHttpClient<AzureContentUnderstandingClient>((provider, client) =>
-            {
-                var options = provider.GetRequiredService<IOptions<ContentUnderstandingOptions>>().Value;
-                client.BaseAddress = new Uri(options.Endpoint);
-                client.DefaultRequestHeaders.Add("x-ms-useragent", options.UserAgent);
-
-                if (!string.IsNullOrEmpty(options.SubscriptionKey))
-                {
-                    client.DefaultRequestHeaders.Add("Apim-Subscription-id", options.SubscriptionKey);
-                }
-            });
-
-            return services;
-        }
     }
 }

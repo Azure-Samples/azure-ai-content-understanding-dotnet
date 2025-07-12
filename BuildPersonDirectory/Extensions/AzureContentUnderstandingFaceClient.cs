@@ -1,6 +1,8 @@
 ﻿using BuildPersonDirectory.Models;
 using ContentUnderstanding.Common;
 using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
@@ -38,10 +40,7 @@ namespace BuildPersonDirectory.Extensions
         /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task CreatePersonDirectoryAsync(string personDirectoryId)
         {
-            var request = CreateRequest(
-                HttpMethod.Put,
-                $"personDirectories/{personDirectoryId}",
-                null);
+            var request = await CreateRequestAsync(HttpMethod.Put, $"personDirectories/{personDirectoryId}");
             await SendRequestAsync(request);
         }
 
@@ -64,10 +63,11 @@ namespace BuildPersonDirectory.Extensions
                 tags
             };
 
-            var request = CreateRequest(
+            var request = await CreateRequestAsync(
                 HttpMethod.Patch,
                 $"personDirectories/{personDirectoryId}",
-                requestBody);
+                JsonContent.Create(requestBody));
+
             await SendRequestAsync(request);
         }
 
@@ -87,10 +87,10 @@ namespace BuildPersonDirectory.Extensions
             Dictionary<string, string> tags)
         {
             var requestBody = new { tags };
-            var request = CreateRequest(
+            var request = await CreateRequestAsync(
                 HttpMethod.Post,
                 $"personDirectories/{personDirectoryId}/persons",
-                requestBody);
+                JsonContent.Create(requestBody));
             return await SendRequestAsync<PersonResponse>(request);
         }
 
@@ -108,14 +108,14 @@ namespace BuildPersonDirectory.Extensions
         public async Task UpdatePersonAsync(
             string personDirectoryId,
             string personId,
-            Dictionary<string, string> tags = null,
-            List<string> faceIds = null)
+            Dictionary<string, string>? tags = null,
+            List<string>? faceIds = null)
         {
             var requestBody = new { tags, faceIds };
-            var request = CreateRequest(
+            var request = await CreateRequestAsync(
                 HttpMethod.Patch,
                 $"personDirectories/{personDirectoryId}/persons/{personId}",
-                requestBody);
+                JsonContent.Create(requestBody));
             await SendRequestAsync(request);
         }
 
@@ -134,7 +134,7 @@ namespace BuildPersonDirectory.Extensions
         public async Task<FaceResponse> AddFaceAsync(
             string personDirectoryId,
             string imageData,
-            string personId = null)
+            string? personId = null)
         {
             var requestBody = new
             {
@@ -142,10 +142,10 @@ namespace BuildPersonDirectory.Extensions
                 personId
             };
 
-            var request = CreateRequest(
+            var request = await CreateRequestAsync(
                 HttpMethod.Post,
                 $"personDirectories/{personDirectoryId}/faces",
-                requestBody);
+                JsonContent.Create(requestBody));
             return await SendRequestAsync<FaceResponse>(request);
         }
 
@@ -157,10 +157,10 @@ namespace BuildPersonDirectory.Extensions
         public async Task<FaceDetectionResponse> DetectFacesAsync(string data)
         {
             var requestBody = new { data };
-            var request = CreateRequest(
+            var request = await CreateRequestAsync(
                 HttpMethod.Post,
                 $"faces:detect",
-                requestBody);
+                JsonContent.Create(requestBody));
             return await SendRequestAsync<FaceDetectionResponse>(request);
         }
 
@@ -191,10 +191,10 @@ namespace BuildPersonDirectory.Extensions
                 }
             };
 
-            var request = CreateRequest(
+            var request = await CreateRequestAsync(
                 HttpMethod.Post,
                 $"personDirectories/{personDirectoryId}/persons:identify",
-                requestBody);
+                JsonContent.Create(requestBody));
             return await SendRequestAsync<PersonIdentificationResponse>(request);
         }
 
@@ -208,10 +208,7 @@ namespace BuildPersonDirectory.Extensions
         /// <returns>A <see cref="PersonResponse"/> object containing the details of the requested person.</returns>
         public async Task<PersonResponse> GetPersonAsync(string personDirectoryId, string personId)
         {
-            var request = CreateRequest(
-                HttpMethod.Get,
-                $"personDirectories/{personDirectoryId}/persons/{personId}",
-                null);
+            var request = await CreateRequestAsync(HttpMethod.Get, $"personDirectories/{personDirectoryId}/persons/{personId}");
             return await SendRequestAsync<PersonResponse>(request);
         }
 
@@ -221,10 +218,10 @@ namespace BuildPersonDirectory.Extensions
             string personId)
         {
             var requestBody = new { personId };
-            var request = CreateRequest(
+            var request = await CreateRequestAsync(
                 HttpMethod.Patch,
                 $"personDirectories/{personDirectoryId}/faces/{faceId}",
-                requestBody);
+                JsonContent.Create(requestBody)).ConfigureAwait(false);
             await SendRequestAsync(request);
         }
 
@@ -239,7 +236,7 @@ namespace BuildPersonDirectory.Extensions
         /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task DeleteFaceAsync(string personDirectoryId, string faceId)
         {
-            var request = CreateRequest(
+            var request = await CreateRequestAsync(
                 HttpMethod.Delete,
                 $"personDirectories/{personDirectoryId}/faces/{faceId}",
                 null);
@@ -257,27 +254,25 @@ namespace BuildPersonDirectory.Extensions
         /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task DeletePersonAsync(string personDirectoryId, string personId)
         {
-            var request = CreateRequest(
-                HttpMethod.Delete,
-                $"personDirectories/{personDirectoryId}/persons/{personId}",
-                null);
+            var request = await CreateRequestAsync(HttpMethod.Delete, $"personDirectories/{personDirectoryId}/persons/{personId}");
             await SendRequestAsync(request);
         }
 
         #region Helper Methods
-        private HttpRequestMessage CreateRequest(
-            HttpMethod method,
-            string path,
-            object content)
+        private async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string path, HttpContent? content = null)
         {
             var url = $"{_options.Value.Endpoint}/contentunderstanding/{path}?api-version={_options.Value.ApiVersion}";
             var request = new HttpRequestMessage(method, url);
 
             // Add authentication
-            var token = _tokenProvider?.Invoke().Result;
-            if (!string.IsNullOrEmpty(token))
+            if (!string.IsNullOrEmpty(_options.Value.SubscriptionKey))
             {
-                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                request.Headers.Add("Ocp-Apim-Subscription-Key", _options.Value.SubscriptionKey);
+            }
+            else if (_tokenProvider != null)
+            {
+                var token = await _tokenProvider().ConfigureAwait(false);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             }
 
             // Add user agent

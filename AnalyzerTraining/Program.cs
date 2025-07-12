@@ -1,6 +1,7 @@
 ﻿using AnalyzerTraining.Extensions;
 using AnalyzerTraining.Interfaces;
 using AnalyzerTraining.Services;
+using ContentUnderstanding.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -30,7 +31,7 @@ namespace AnalyzerTraining
                         opts.UserAgent = "";
                     });
                     services.AddTokenProvider();
-                    services.AddHttpClientRequest();
+                    services.AddHttpClient<AzureContentUnderstandingClient>();
                     services.AddSingleton<IAnalyzerTrainingService, AnalyzerTrainingService>();
 
                 })

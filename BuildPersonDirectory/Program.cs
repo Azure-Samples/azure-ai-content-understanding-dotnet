@@ -1,6 +1,7 @@
 ﻿using BuildPersonDirectory.Extensions;
 using BuildPersonDirectory.Interfaces;
 using BuildPersonDirectory.Services;
+using ContentUnderstanding.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -30,7 +31,7 @@ namespace BuildPersonDirectory
                         opts.UserAgent = "";
                     });
                     services.AddTokenProvider();
-                    services.AddHttpClientRequest();
+                    services.AddHttpClient<AzureContentUnderstandingFaceClient>();
                     services.AddSingleton<IBuildPersonDirectoryService, BuildPersonDirectoryService>();
 
                 })

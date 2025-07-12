@@ -1,7 +1,11 @@
-﻿namespace ContentUnderstanding.Common.Models
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace ContentUnderstanding.Common.Models
 {
     public class AnalyzerListResponse
     {
-        public AnalyzerInfo[] Value { get; set; }
+        [JsonPropertyName("value")]
+        public JsonElement[]? Value { get; set; }
     }
 }
