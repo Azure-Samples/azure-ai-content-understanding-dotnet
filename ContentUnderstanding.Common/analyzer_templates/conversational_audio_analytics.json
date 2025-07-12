@@ -1,0 +1,27 @@
+{
+    "description": "Sample conversational audio analytics",
+    "baseAnalyzerId": "prebuilt-audioAnalyzer",
+    "config": {
+      "returnDetails": true,
+      "locales": ["en-US"]
+    },
+    "fieldSchema": {
+      "fields": {
+        "Summary": {
+          "type": "string",
+          "method": "generate",
+          "description": "A one-paragraph summary"
+        },
+        "Sentiment": {
+          "type": "string",
+          "method": "classify",
+          "description": "Overall sentiment",
+          "enum": [
+            "Positive",
+            "Neutral",
+            "Negative"
+          ]
+        }
+      }
+    }
+  }
