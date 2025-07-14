@@ -13,8 +13,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalyzerTraining", "Analyze
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BuildPersonDirectory", "BuildPersonDirectory\BuildPersonDirectory.csproj", "{EBA548F1-93A3-49D9-99FB-3FE67542C971}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConversationalFieldExtraction", "ConversationalFieldExtraction\ConversationalFieldExtraction.csproj", "{1AB677AF-0AC4-4974-A955-31CD91644653}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FieldExtraction", "FieldExtraction\FieldExtraction.csproj", "{28B876F8-650A-4A24-AAE6-FE2ED2E77A68}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Management", "Management\Management.csproj", "{3514F71F-07DA-4272-838D-B0A63927896B}"
@@ -41,10 +39,6 @@ Global
 		{EBA548F1-93A3-49D9-99FB-3FE67542C971}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EBA548F1-93A3-49D9-99FB-3FE67542C971}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EBA548F1-93A3-49D9-99FB-3FE67542C971}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1AB677AF-0AC4-4974-A955-31CD91644653}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1AB677AF-0AC4-4974-A955-31CD91644653}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1AB677AF-0AC4-4974-A955-31CD91644653}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1AB677AF-0AC4-4974-A955-31CD91644653}.Release|Any CPU.Build.0 = Release|Any CPU
 		{28B876F8-650A-4A24-AAE6-FE2ED2E77A68}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{28B876F8-650A-4A24-AAE6-FE2ED2E77A68}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{28B876F8-650A-4A24-AAE6-FE2ED2E77A68}.Release|Any CPU.ActiveCfg = Release|Any CPU
