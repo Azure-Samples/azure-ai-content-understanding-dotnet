@@ -1,9 +1,13 @@
 ﻿using Azure.Core;
 using Azure.Identity;
-using ContentUnderstanding.Common;
 using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace BuildPersonDirectory.Extensions
+namespace ContentUnderstanding.Common.Extensions
 {
     public static class ServiceCollectionExtensions
     {

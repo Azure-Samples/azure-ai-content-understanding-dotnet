@@ -1,7 +1,7 @@
-﻿using ContentExtraction.Extensions;
-using ContentExtraction.Interfaces;
+﻿using ContentExtraction.Interfaces;
 using ContentExtraction.Services;
 using ContentUnderstanding.Common;
+using ContentUnderstanding.Common.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

@@ -1,5 +1,5 @@
 ﻿using ContentUnderstanding.Common;
-using FieldExtraction.Extensions;
+using ContentUnderstanding.Common.Extensions;
 using FieldExtraction.Interfaces;
 using FieldExtraction.Services;
 using Microsoft.Extensions.Configuration;

@@ -1,5 +1,5 @@
 ﻿using ContentUnderstanding.Common;
-using Management.Extensions;
+using ContentUnderstanding.Common.Extensions;
 using Management.Interfaces;
 using Management.Services;
 using Microsoft.Extensions.Configuration;
