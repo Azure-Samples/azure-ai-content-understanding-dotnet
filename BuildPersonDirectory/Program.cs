@@ -28,7 +28,7 @@ namespace BuildPersonDirectory
                     services.AddConfigurations(opts =>
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
-                        opts.UserAgent = "";
+                        opts.UserAgent = "azure-ai-content-understanding-dotnet/build_person_directory";
                     });
                     services.AddTokenProvider();
                     services.AddHttpClient<AzureContentUnderstandingFaceClient>();

@@ -28,7 +28,7 @@ namespace ConversationalFieldExtraction
                     services.AddConfigurations(opts =>
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
-                        opts.UserAgent = "";
+                        opts.UserAgent = "azure-ai-content-understanding-dotnet/conversational_field_extraction";
                     });
                     services.AddTokenProvider();
                     services.AddHttpClient<AzureContentUnderstandingClient>();

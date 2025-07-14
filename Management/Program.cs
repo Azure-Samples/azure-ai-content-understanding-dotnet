@@ -28,7 +28,7 @@ namespace Management
                     services.AddConfigurations(opts =>
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
-                        opts.UserAgent = "";
+                        opts.UserAgent = "azure-ai-content-understanding-dotnet/management";
                     });
                     services.AddTokenProvider();
                     services.AddHttpClient<AzureContentUnderstandingClient>();

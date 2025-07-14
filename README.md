@@ -76,7 +76,7 @@ code .
 
 3. Press `F1` → select `Dev Containers: Reopen in Container`.
 
-4. "Wait for the setup to complete. Follow the instructions in [Configure Azure AI service resource](#configure-azure-ai-service-resource), then use the integrated terminal in Visual Studio Code to run:"
+4. Wait for the setup to complete. Follow the instructions in [Configure Azure AI service resource](#configure-azure-ai-service-resource), then use the integrated terminal in Visual Studio Code to run:
 
 ```bash
 cd {ProjectName}
@@ -158,13 +158,45 @@ Azure AI Content Understanding is a new Generative AI-based [Azure AI service](h
 ---
 
 ## Sample Console Output
-
+Here is an example of the console output from the **ContentExtraction** project.
 ```
-Loading document...
-Analyzing with Azure Content Understanding...
-OCR Results:
- - Table Detected: Invoice ID, Date, Amount
- - Text: "Thank you for your purchase"
+$ dotnet ContentExtraction.dll
+Please enter a number to run sample: 
+[1] - Extract Document Content
+[2] - Extract Audio Content
+[3] - Extract Video Content
+[4] - Extract Video Content With Face 
+1
+Document Content Extraction Sample is running...
+Use prebuilt-documentAnalyzer to extract document content from the file: ./data/invoice.pdf
+
+===== Document Extraction has been saved to the following output file path =====
+
+./outputs/content_extraction/AnalyzeDocumentAsync_20250714034618.json
+
+===== The markdown output contains layout information, which is very useful for Retrieval-Augmented Generation (RAG) scenarios. You can paste the markdown into a viewer such as Visual Studio Code and preview the layout structure. =====
+CONTOSO LTD.
+
+
+# INVOICE
+
+Contoso Headquarters
+123 456th St
+New York, NY, 10001
+
+INVOICE: INV-100
+
+INVOICE DATE: 11/15/2019
+
+DUE DATE: 12/15/2019
+
+CUSTOMER NAME: MICROSOFT CORPORATION
+
+SERVICE PERIOD: 10/14/2019 - 11/14/2019
+
+CUSTOMER ID: CID-12345
+
+<<< Truncated for brevity >>>
 ```
 
 ---
