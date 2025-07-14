@@ -95,6 +95,8 @@ dotnet {ProjectName}.dll
 
 - [.NET SDK 8.0+](https://dotnet.microsoft.com/en-us/download)
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
+- [Azure Developer CLI (azd)](https://aka.ms/install-azd)
+- [Git LFS](https://git-lfs.com/)
 
 1. Clone the repo using Git or from Visual Studio:
 
