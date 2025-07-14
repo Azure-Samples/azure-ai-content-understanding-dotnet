@@ -28,6 +28,7 @@ namespace ConversationalFieldExtraction
                     services.AddConfigurations(opts =>
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
+                        // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/conversational_field_extraction";
                     });
                     services.AddTokenProvider();

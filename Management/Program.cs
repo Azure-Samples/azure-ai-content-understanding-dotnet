@@ -28,6 +28,7 @@ namespace Management
                     services.AddConfigurations(opts =>
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
+                        // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/management";
                     });
                     services.AddTokenProvider();
