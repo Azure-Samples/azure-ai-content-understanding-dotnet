@@ -45,9 +45,6 @@
     <None Update="analyzer_templates\marketing_video.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="analyzer_templates\README.md">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="analyzer_templates\receipt.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
