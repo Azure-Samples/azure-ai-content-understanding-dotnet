@@ -2,7 +2,7 @@
 {
     public interface IBuildPersonDirectoryService
     {
-        string CreatePersonDirectory();
+        Task<string> CreatePersonDirectoryAsync(string directoryId);
 
         Task BuildPersonDirectoryAsync(string directoryId);
 

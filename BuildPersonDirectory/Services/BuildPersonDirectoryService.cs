@@ -1,5 +1,6 @@
 ﻿using BuildPersonDirectory.Extensions;
 using BuildPersonDirectory.Interfaces;
+using System.Threading.Tasks;
 
 namespace BuildPersonDirectory.Services
 {
@@ -19,10 +20,11 @@ namespace BuildPersonDirectory.Services
             }
         }
 
-        public string CreatePersonDirectory()
+        public async Task<string> CreatePersonDirectoryAsync(string directoryId)
         {
             Console.WriteLine("Creating Person Directory...");
-            var directoryId = $"person_directory_id_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+
+            await _client.CreatePersonDirectoryAsync(directoryId);
 
             Console.WriteLine($"Created person directory with ID: {directoryId}");
             return directoryId;
@@ -46,7 +48,7 @@ namespace BuildPersonDirectory.Services
                 // Create person
                 var personResponse = await _client.AddPersonAsync(
                     directoryId,
-                    new Dictionary<string, string> { ["name"] = personName }
+                    new Dictionary<string, object> { ["name"] = personName }
                 );
 
                 var personId = personResponse.PersonId;
@@ -217,7 +219,7 @@ namespace BuildPersonDirectory.Services
                 await _client.UpdatePersonDirectoryAsync(
                     directoryId,
                     "Updated directory description",
-                    new Dictionary<string, string>
+                    new Dictionary<string, object>
                     {
                         ["updated"] = "true",
                         ["sample"] = "true"
@@ -231,7 +233,7 @@ namespace BuildPersonDirectory.Services
                     await _client.UpdatePersonAsync(
                         directoryId,
                         personId,
-                        new Dictionary<string, string>
+                        new Dictionary<string, object>
                         {
                             ["role"] = "demo-subject",
                             ["status"] = "active"

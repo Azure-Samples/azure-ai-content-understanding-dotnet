@@ -1,8 +1,8 @@
 ﻿using BuildPersonDirectory.Models;
 using ContentUnderstanding.Common;
 using Microsoft.Extensions.Options;
+using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
@@ -24,12 +24,6 @@ namespace BuildPersonDirectory.Extensions
             _tokenProvider = tokenProvider;
         }
 
-        private readonly JsonSerializerOptions _jsonOptions = new()
-        {
-            PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
         /// <summary>
         /// Creates a new person directory with the specified identifier.
         /// </summary>
@@ -38,9 +32,15 @@ namespace BuildPersonDirectory.Extensions
         /// request.</remarks>
         /// <param name="personDirectoryId">The unique identifier for the person directory to be created.  This value cannot be null or empty.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task CreatePersonDirectoryAsync(string personDirectoryId)
+        public async Task CreatePersonDirectoryAsync(string personDirectoryId, string? description = null, Dictionary<string, dynamic>? tags = null)
         {
-            var request = await CreateRequestAsync(HttpMethod.Put, $"personDirectories/{personDirectoryId}");
+            var requestBody = new Dictionary<string, dynamic>
+            {
+                ["description"] = description,
+                ["tags"] = tags
+            };
+
+            var request = await CreateRequestAsync(HttpMethod.Put, $"personDirectories/{personDirectoryId}", requestBody);
             await SendRequestAsync(request);
         }
 
@@ -55,18 +55,18 @@ namespace BuildPersonDirectory.Extensions
         public async Task UpdatePersonDirectoryAsync(
             string personDirectoryId,
             string description,
-            Dictionary<string, string> tags)
+            Dictionary<string, dynamic>? tags)
         {
-            var requestBody = new
+            var requestBody = new Dictionary<string, dynamic>
             {
-                description,
-                tags
+                ["description"] = description,
+                ["tags"] = tags
             };
 
             var request = await CreateRequestAsync(
                 HttpMethod.Patch,
                 $"personDirectories/{personDirectoryId}",
-                JsonContent.Create(requestBody));
+                requestBody);
 
             await SendRequestAsync(request);
         }
@@ -84,13 +84,16 @@ namespace BuildPersonDirectory.Extensions
         /// <returns>A <see cref="PersonResponse"/> object containing details about the newly added person.</returns>
         public async Task<PersonResponse> AddPersonAsync(
             string personDirectoryId,
-            Dictionary<string, string> tags)
+            Dictionary<string, dynamic> tags)
         {
-            var requestBody = new { tags };
+            var requestBody = new Dictionary<string, dynamic>
+            {
+                ["tags"] = tags
+            };
             var request = await CreateRequestAsync(
                 HttpMethod.Post,
                 $"personDirectories/{personDirectoryId}/persons",
-                JsonContent.Create(requestBody));
+                requestBody);
             return await SendRequestAsync<PersonResponse>(request);
         }
 
@@ -108,14 +111,18 @@ namespace BuildPersonDirectory.Extensions
         public async Task UpdatePersonAsync(
             string personDirectoryId,
             string personId,
-            Dictionary<string, string>? tags = null,
+            Dictionary<string, dynamic>? tags = null,
             List<string>? faceIds = null)
         {
-            var requestBody = new { tags, faceIds };
+            var requestBody = new Dictionary<string, dynamic>
+            {
+                ["tags"] = tags,
+                ["faceIds"] = faceIds
+            };
             var request = await CreateRequestAsync(
                 HttpMethod.Patch,
                 $"personDirectories/{personDirectoryId}/persons/{personId}",
-                JsonContent.Create(requestBody));
+                requestBody);
             await SendRequestAsync(request);
         }
 
@@ -136,16 +143,16 @@ namespace BuildPersonDirectory.Extensions
             string imageData,
             string? personId = null)
         {
-            var requestBody = new
+            var requestBody = new Dictionary<string, dynamic>
             {
-                faceSource = new { data = imageData },
-                personId
+                ["faceSource"] = new { data = imageData },
+                ["personId"] = personId
             };
 
             var request = await CreateRequestAsync(
                 HttpMethod.Post,
                 $"personDirectories/{personDirectoryId}/faces",
-                JsonContent.Create(requestBody));
+                requestBody);
             return await SendRequestAsync<FaceResponse>(request);
         }
 
@@ -156,11 +163,15 @@ namespace BuildPersonDirectory.Extensions
         /// <returns>A task representing the asynchronous operation, containing a <see cref="FaceDetectionResponse"/> object with the results.</returns>
         public async Task<FaceDetectionResponse> DetectFacesAsync(string data)
         {
-            var requestBody = new { data };
+            var requestBody = new Dictionary<string, dynamic>
+            {
+                ["data"] = data            
+            };
+
             var request = await CreateRequestAsync(
                 HttpMethod.Post,
                 $"faces:detect",
-                JsonContent.Create(requestBody));
+                requestBody);
             return await SendRequestAsync<FaceDetectionResponse>(request);
         }
 
@@ -180,11 +191,11 @@ namespace BuildPersonDirectory.Extensions
         public async Task<PersonIdentificationResponse> IdentifyPersonAsync(
             string personDirectoryId,
             string imageData,
-            Dictionary<string, object> boundingBox)
+            Dictionary<string, dynamic> boundingBox)
         {
-            var requestBody = new
+            var requestBody = new Dictionary<string, dynamic>
             {
-                faceSource = new
+                ["faceSource"] = new
                 {
                     data = imageData,
                     targetBoundingBox = boundingBox
@@ -194,7 +205,7 @@ namespace BuildPersonDirectory.Extensions
             var request = await CreateRequestAsync(
                 HttpMethod.Post,
                 $"personDirectories/{personDirectoryId}/persons:identify",
-                JsonContent.Create(requestBody));
+                requestBody);
             return await SendRequestAsync<PersonIdentificationResponse>(request);
         }
 
@@ -217,11 +228,14 @@ namespace BuildPersonDirectory.Extensions
             string faceId,
             string personId)
         {
-            var requestBody = new { personId };
+            var requestBody = new Dictionary<string, dynamic>
+            {
+                ["personId"] = personId
+            };
             var request = await CreateRequestAsync(
                 HttpMethod.Patch,
                 $"personDirectories/{personDirectoryId}/faces/{faceId}",
-                JsonContent.Create(requestBody)).ConfigureAwait(false);
+                requestBody).ConfigureAwait(false);
             await SendRequestAsync(request);
         }
 
@@ -259,7 +273,7 @@ namespace BuildPersonDirectory.Extensions
         }
 
         #region Helper Methods
-        private async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string path, HttpContent? content = null)
+        private async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string path, object? content = null)
         {
             var url = $"{_options.Value.Endpoint}/contentunderstanding/{path}?api-version={_options.Value.ApiVersion}";
             var request = new HttpRequestMessage(method, url);
@@ -281,7 +295,7 @@ namespace BuildPersonDirectory.Extensions
             // Serialize content if provided
             if (content != null)
             {
-                var json = JsonSerializer.Serialize(content, _jsonOptions);
+                var json = JsonSerializer.Serialize(content);
                 request.Content = new StringContent(json, Encoding.UTF8, "application/json");
             }
 
@@ -290,11 +304,18 @@ namespace BuildPersonDirectory.Extensions
 
         private async Task SendRequestAsync(HttpRequestMessage request)
         {
-            var response = await _httpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw new Exception($"API error {response.StatusCode}: {errorContent}");
+                var response = await _httpClient.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new Exception($"API error {response.StatusCode}: {errorContent}");
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine(ex.Message);
             }
         }
 
@@ -303,12 +324,21 @@ namespace BuildPersonDirectory.Extensions
             var response = await _httpClient.SendAsync(request);
             var content = await response.Content.ReadAsStringAsync();
 
-            if (!response.IsSuccessStatusCode)
+            if (response.StatusCode == HttpStatusCode.BadRequest)
             {
-                throw new Exception($"API error {response.StatusCode}: {content}");
+                var errorDetail = JsonSerializer.Deserialize<dynamic>(content);
+                throw new HttpRequestException($"Validation failed: {errorDetail?.Message}", errorDetail);
             }
 
-            return JsonSerializer.Deserialize<T>(content, _jsonOptions);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"API error {(int)response.StatusCode} {response.StatusCode}: {content}",
+                    null,
+                    response.StatusCode);
+            }
+
+            return JsonSerializer.Deserialize<T>(content);
         }
 
         public static string ReadFileToBase64(string filePath)

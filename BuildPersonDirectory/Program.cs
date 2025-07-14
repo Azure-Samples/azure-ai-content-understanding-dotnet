@@ -41,7 +41,9 @@ namespace BuildPersonDirectory
 
             var service = host.Services.GetService<IBuildPersonDirectoryService>()!;
 
-            var directoryId = service.CreatePersonDirectory();
+            // 1. Create Person Directory
+            var directoryId = $"person_directory_id_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+            await service.CreatePersonDirectoryAsync(directoryId);
             var imagePath = "./data/face/family.jpg";
             // 2. Build Directory from Enrollment Data
             await service.BuildPersonDirectoryAsync(directoryId);

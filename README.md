@@ -117,7 +117,7 @@ git clone https://github.com/Azure-Samples/azure-ai-content-understanding-dotnet
 ---
 
 ## <a name="configure-azure-ai-service-resource">Configure Azure AI service resource</a>
-### (Option 1) Use `azd` commands to auto create temporal resources to run sample
+### (Option 1) [UNDER CONSTRUCTION] Use `azd` commands to auto create temporal resources to run sample
 1. Make sure you have permission to grant roles under subscription
 1. Login Azure
     ```shell
