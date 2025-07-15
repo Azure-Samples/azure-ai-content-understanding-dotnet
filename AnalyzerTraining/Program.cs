@@ -38,10 +38,34 @@ namespace AnalyzerTraining
                 })
                 .Build();
 
-            IAnalyzerTrainingService service = host.Services.GetService<IAnalyzerTrainingService>()!;
-            var analyzerTemplatePath = "./analyzer_templates/receipt.json";
+            Console.WriteLine("# Enhance your analyzer with labeled data");
+            Console.WriteLine("> #################################################################################");
+            Console.WriteLine(">");
+            Console.WriteLine("> Note: Currently this feature is only available for analyzer scenario is `document`");
+            Console.WriteLine(">");
+            Console.WriteLine("> #################################################################################");
+            Console.WriteLine("Labeled data is a group of samples that have been tagged with one or more labels to add context or meaning, which is used to improve analyzer's performance.\n");
+            Console.WriteLine("Please go to [Azure AI Foundry] to use the labling tool to annotate your data.\n");
+            Console.WriteLine("In this notebook we will demonstrate after you have the labeled data, how to create analyzer with them and analyze your files.\n");
+            Console.WriteLine("## Prerequisites\n");
+            Console.WriteLine("1. Ensure Azure AI service is configured following [steps](../README.md#configure-azure-ai-service-resource)\n");
+            Console.WriteLine("2. Follow steps in [Set labeled data](../docs/set_env_for_labeled_data.md) to add training data related variables in ContentUnderstanding.Common/appsettings.json.\n");
+            Console.WriteLine("3. Install packages needed to run the sample.\n");
 
-            var analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath);
+            Console.WriteLine("Press [yes] to continue.");
+
+            string? input = Console.ReadLine();
+            
+            if(input?.ToLower() != "yes")
+            {
+                Console.WriteLine("Exiting the sample.");
+                return;
+            }
+
+            var service = host.Services.GetService<IAnalyzerTrainingService>()!;
+            var options = host.Services.GetService<ContentUnderstandingOptions>()!;
+            var analyzerTemplatePath = "./analyzer_templates/receipt.json";
+            var analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, options.TrainingDataSasUrl, options.TrainingDataPath);
 
             var customAnalyzerSampleFilePath = "./data/receipt.png";
             await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);

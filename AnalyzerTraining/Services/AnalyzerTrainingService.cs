@@ -31,7 +31,7 @@ namespace AnalyzerTraining.Services
         /// will use a default value.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation. The result contains the unique identifier
         /// of the created analyzer.</returns>
-        public async Task<string> CreateAnalyzerAsync(string analyzerTemplatePath, string trainingStorageContainerSasUrl = "", string trainingStorageContainerPathPrefix = "")
+        public async Task<string> CreateAnalyzerAsync(string analyzerTemplatePath, string trainingStorageContainerSasUrl, string trainingStorageContainerPathPrefix)
         {
             Console.WriteLine("Creating Custom Analyzer with Training Data...");
 
@@ -44,8 +44,8 @@ namespace AnalyzerTraining.Services
                 var createResponse = await _client.BeginCreateAnalyzerAsync(
                     analyzerId: analyzerId,
                     analyzerTemplatePath: analyzerTemplatePath,
-                    trainingStorageContainerSasUrl: trainingStorageContainerSasUrl, // Environment.GetEnvironmentVariable("TRAINING_DATA_SAS_URL"),
-                    trainingStorageContainerPathPrefix: trainingStorageContainerPathPrefix // Environment.GetEnvironmentVariable("TRAINING_DATA_PATH")
+                    trainingStorageContainerSasUrl: trainingStorageContainerSasUrl, // TrainingDataSasUrl
+                    trainingStorageContainerPathPrefix: trainingStorageContainerPathPrefix // TrainingDataPath
                 );
 
                 // Poll for creation result

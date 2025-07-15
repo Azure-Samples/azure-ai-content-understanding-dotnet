@@ -14,7 +14,7 @@
         /// will use a default value.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation. The result contains the unique identifier
         /// of the created analyzer.</returns>
-        Task<string> CreateAnalyzerAsync(string analyzerTemplatePath, string trainingStorageContainerSasUrl = "", string trainingStorageContainerPathPrefix = "");
+        Task<string> CreateAnalyzerAsync(string analyzerTemplatePath, string trainingStorageContainerSasUrl, string trainingStorageContainerPathPrefix);
 
         /// <summary>
         /// ## Use created analyzer to extract document content.

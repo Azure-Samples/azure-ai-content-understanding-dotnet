@@ -16,5 +16,9 @@ namespace ContentUnderstanding.Common
 
         public string UserAgent { get; set; } = "";
 
+        public string TrainingDataSasUrl { get; set; } = "";
+
+        public string TrainingDataPath { get; set; } = "";
+
     }
 }

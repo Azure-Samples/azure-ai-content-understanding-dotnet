@@ -32,7 +32,7 @@ namespace BuildPersonDirectory.Extensions
         /// request.</remarks>
         /// <param name="personDirectoryId">The unique identifier for the person directory to be created.  This value cannot be null or empty.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task CreatePersonDirectoryAsync(string personDirectoryId, string? description = null, Dictionary<string, dynamic>? tags = null)
+        public async Task CreatePersonDirectoryAsync(string personDirectoryId, string description = "", Dictionary<string, dynamic>? tags = null)
         {
             var requestBody = new Dictionary<string, dynamic>
             {
@@ -296,7 +296,7 @@ namespace BuildPersonDirectory.Extensions
             if (content != null)
             {
                 var json = JsonSerializer.Serialize(content);
-                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                request.Content = new StringContent(json, Encoding.UTF8, new MediaTypeHeaderValue("application/json"));
             }
 
             return request;
@@ -304,18 +304,12 @@ namespace BuildPersonDirectory.Extensions
 
         private async Task SendRequestAsync(HttpRequestMessage request)
         {
-            try
+            var response = await _httpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
             {
-                var response = await _httpClient.SendAsync(request);
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new Exception($"API error {response.StatusCode}: {errorContent}");
-                }
-            }
-            catch (HttpRequestException ex)
-            {
-                Console.WriteLine(ex.Message);
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"API error {response.StatusCode}: {errorContent}");
             }
         }
 
