@@ -1,5 +1,4 @@
-﻿using BuildPersonDirectory.Extensions;
-using BuildPersonDirectory.Interfaces;
+﻿using BuildPersonDirectory.Interfaces;
 using BuildPersonDirectory.Services;
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
@@ -51,19 +50,19 @@ namespace BuildPersonDirectory
             // 3. Identify Persons in Test Image
             await service.IdentifyPersonsInImageAsync(directoryId, imagePath);
 
-            // 4. AddNewFaceToPerson
+            // PLEASE UPDATE THE "person_id" and "new_face_image_path" to your own data
             await service.AddNewFaceToPersonAsync(directoryId, "person_id", "new_face_image_path");
 
-            // 5. AssociateExistingFaces
+            // PLEASE UPDATE THE "person_id", "face_id_1" and "face_id_2" to your own data
             await service.AssociateExistingFacesAsync(directoryId, "person_id", new List<string> { "face_id_1", "face_id_2" });
 
-            // 6. UpdateFaceAssociation
+            // PLEASE UPDATE THE "face_id" and "new_person_id" to your own data
             await service.UpdateFaceAssociationAsync(directoryId, "face_id", "new_person_id");
 
-            // 7. UpdateMetadata
+            // PLEASE UPDATE THE "person_id" to your own data
             await service.UpdateMetadataAsync(directoryId, "person_id");
 
-            // 8. DeleteFaceAndPerson
+            // PLEASE UPDATE THE "person_id" to your own data
             await service.DeleteFaceAndPersonAsync(directoryId, "person_id");
 
         }

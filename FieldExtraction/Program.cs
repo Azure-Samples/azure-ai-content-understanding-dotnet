@@ -40,7 +40,7 @@ namespace FieldExtraction
 
             var service = host.Services.GetService<IFieldExtractionService>()!;
 
-            Dictionary<string, (string, string)> ExtractionTemplates = new Dictionary<string, (string, string)>
+            var ExtractionTemplates = new Dictionary<string, (string, string)>
             {
                 { "invoice", ("./analyzer_templates/invoice.json", "./data/invoice.pdf") },
                 { "call_recording", ("./analyzer_templates/call_recording_analytics.json", "./data/callCenterRecording.mp3") },

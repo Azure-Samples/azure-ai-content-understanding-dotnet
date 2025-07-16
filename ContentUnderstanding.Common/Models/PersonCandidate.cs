@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace BuildPersonDirectory.Models
+namespace ContentUnderstanding.Common.Models
 {
     public class PersonCandidate
     {

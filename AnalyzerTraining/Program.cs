@@ -5,6 +5,7 @@ using ContentUnderstanding.Common.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace AnalyzerTraining
 {
@@ -44,12 +45,11 @@ namespace AnalyzerTraining
             Console.WriteLine("> Note: Currently this feature is only available for analyzer scenario is `document`");
             Console.WriteLine(">");
             Console.WriteLine("> #################################################################################");
-            Console.WriteLine("Labeled data is a group of samples that have been tagged with one or more labels to add context or meaning, which is used to improve analyzer's performance.\n");
-            Console.WriteLine("Please go to [Azure AI Foundry] to use the labling tool to annotate your data.\n");
-            Console.WriteLine("In this notebook we will demonstrate after you have the labeled data, how to create analyzer with them and analyze your files.\n");
+            Console.WriteLine("In your own project, you will use [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/use-ai-foundry) to use the labeling tool to annotate your data.\n");
+            Console.WriteLine("In this sample we will demonstrate after you have the labeled data, how to create analyzer with them and analyze your files.\n");
             Console.WriteLine("## Prerequisites\n");
             Console.WriteLine("1. Ensure Azure AI service is configured following [steps](../README.md#configure-azure-ai-service-resource)\n");
-            Console.WriteLine("2. Follow steps in [Set labeled data](../docs/set_env_for_labeled_data.md) to add training data related variables in ContentUnderstanding.Common/appsettings.json.\n");
+            Console.WriteLine("2. Follow steps in [Set labeled data](../docs/set_env_for_labeled_data.md) to add training data related 'TrainingDataSasUrl' and 'TrainingDataPath' in ContentUnderstanding.Common/appsettings.json.\n");
             Console.WriteLine("3. Install packages needed to run the sample.\n");
 
             Console.WriteLine("Press [yes] to continue.");
@@ -63,9 +63,13 @@ namespace AnalyzerTraining
             }
 
             var service = host.Services.GetService<IAnalyzerTrainingService>()!;
-            var options = host.Services.GetService<ContentUnderstandingOptions>()!;
+            var options = host.Services.GetService<IOptions<ContentUnderstandingOptions>>()!;
+
+            Console.WriteLine($"\nTrainingDataSasUrl: {options.Value.TrainingDataSasUrl}");
+            Console.WriteLine($"TrainingDataPath: {options.Value.TrainingDataPath}\n");
+
             var analyzerTemplatePath = "./analyzer_templates/receipt.json";
-            var analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, options.TrainingDataSasUrl, options.TrainingDataPath);
+            var analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, options.Value.TrainingDataSasUrl, options.Value.TrainingDataPath);
 
             var customAnalyzerSampleFilePath = "./data/receipt.png";
             await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);

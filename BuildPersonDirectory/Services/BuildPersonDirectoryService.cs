@@ -1,6 +1,5 @@
-﻿using BuildPersonDirectory.Extensions;
-using BuildPersonDirectory.Interfaces;
-using System.Threading.Tasks;
+﻿using BuildPersonDirectory.Interfaces;
+using ContentUnderstanding.Common;
 
 namespace BuildPersonDirectory.Services
 {

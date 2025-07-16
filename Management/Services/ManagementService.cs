@@ -61,8 +61,8 @@ namespace Management.Services
 
             if (analyzers.Length > 0)
             {
-                Console.WriteLine("\nMost recent analyzer:");
-                Console.WriteLine(JsonSerializer.Serialize(analyzers[1], new JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine("\nThe last analyzer details:");
+                Console.WriteLine(JsonSerializer.Serialize(analyzers.Last(), new JsonSerializerOptions { WriteIndented = true }));
             }
         }
 

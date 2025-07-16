@@ -1,12 +1,11 @@
-﻿using BuildPersonDirectory.Models;
-using ContentUnderstanding.Common;
+﻿using ContentUnderstanding.Common.Models;
 using Microsoft.Extensions.Options;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-namespace BuildPersonDirectory.Extensions
+namespace ContentUnderstanding.Common
 {
     /// <summary>
     /// AzureContentUnderstandingFaceClient
