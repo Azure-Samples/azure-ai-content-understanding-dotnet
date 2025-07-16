@@ -102,12 +102,14 @@ namespace BuildPersonDirectory.Services
                 var boundingBox = face.BoundingBox;
 
                 // Extract values correctly from dictionary
-                float top = boundingBox.ContainsKey("top") ? (float)Convert.ToDouble(boundingBox["top"]) : 0;
-                float left = boundingBox.ContainsKey("left") ? (float)Convert.ToDouble(boundingBox["left"]) : 0;
-                float width = boundingBox.ContainsKey("width") ? (float)Convert.ToDouble(boundingBox["width"]) : 0;
-                float height = boundingBox.ContainsKey("height") ? (float)Convert.ToDouble(boundingBox["height"]) : 0;
+                string faceAt = $"Face at ";
 
-                Console.WriteLine($"- Face at [Top: {top}, Left: {left}, Width: {width}, Height: {height}]");
+                foreach(var item in boundingBox)
+                {
+                    faceAt += $"[{item.Key}]: {item.Value}, ";
+                }
+
+                Console.WriteLine($"{faceAt.Remove(faceAt.Length - 1)}");
 
                 try
                 {
