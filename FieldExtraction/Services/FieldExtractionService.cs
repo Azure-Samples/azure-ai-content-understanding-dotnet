@@ -77,8 +77,6 @@ namespace FieldExtraction.Services
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            Console.WriteLine($"The full result from the content extraction and field extraction have been saved to the output file path: {output}");
-
             Console.WriteLine("\nField Extraction Results:");
             try
             {
