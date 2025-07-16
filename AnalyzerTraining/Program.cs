@@ -50,7 +50,6 @@ namespace AnalyzerTraining
             Console.WriteLine("## Prerequisites\n");
             Console.WriteLine("1. Ensure Azure AI service is configured following [steps](../README.md#configure-azure-ai-service-resource)\n");
             Console.WriteLine("2. Follow steps in [Set labeled data](../docs/set_env_for_labeled_data.md) to add training data related 'TrainingDataSasUrl' and 'TrainingDataPath' in ContentUnderstanding.Common/appsettings.json.\n");
-            Console.WriteLine("3. Install packages needed to run the sample.\n");
 
             Console.WriteLine("Press [yes] to continue.");
 
