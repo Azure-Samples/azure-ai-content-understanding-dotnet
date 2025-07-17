@@ -35,7 +35,7 @@ var tags = {
 }
 
 // Organize resources in a resource group
-resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+resource resourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
     name: '${resourcePrefix}-rg'
     location: location
     tags: tags
