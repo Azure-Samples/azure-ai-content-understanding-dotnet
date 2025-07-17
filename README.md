@@ -18,7 +18,7 @@ You can run this sample in **GitHub Codespaces** or on your **local machine**.
 
 You can run this repo virtually in a cloud-based development environment.
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?skip_quickstart=true&machine=basicLinux32gb&repo=YOUR_REPO_ID&ref=main&geo=UsEast&devcontainer_path=.devcontainer%2Fdevcontainer.json)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?skip_quickstart=true&machine=basicLinux32gb&repo=1012664126&ref=main&geo=UsEast&devcontainer_path=.devcontainer%2Fdevcontainer.json)
 
 ### Steps:
 
@@ -117,7 +117,7 @@ git clone https://github.com/Azure-Samples/azure-ai-content-understanding-dotnet
 ---
 
 ## <a name="configure-azure-ai-service-resource">Configure Azure AI service resource</a>
-### (Option 1) [UNDER CONSTRUCTION] Use `azd` commands to auto create temporal resources to run sample
+### (Option 1) Use `azd` commands to auto create temporal resources to run sample
 1. Make sure you have permission to grant roles under subscription
 1. Login Azure
     ```shell
