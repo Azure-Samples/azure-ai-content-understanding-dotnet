@@ -6,7 +6,7 @@ Welcome! Content Understanding is a solution that analyzes and comprehends vario
 - This repo will provide more samples for new functionalities in Preview.2 **2025-05-01-preview** soon.
 - As of 2025/05, 2025-05-01-preview is only available in the regions documented in [Content Understanding region and language support](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/language-region-support).
 
-:point_right: If you are looking for python samples, check out [this repo](https://github.com/Azure-Samples/azure-ai-content-understanding-python)
+:point_right: If you are looking for **python samples**, check out [this repo](https://github.com/Azure-Samples/azure-ai-content-understanding-python)
 
 ---
 
