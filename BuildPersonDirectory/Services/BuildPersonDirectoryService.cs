@@ -1,5 +1,6 @@
 ﻿using BuildPersonDirectory.Interfaces;
 using ContentUnderstanding.Common;
+using ContentUnderstanding.Common.Models;
 
 namespace BuildPersonDirectory.Services
 {
@@ -29,9 +30,11 @@ namespace BuildPersonDirectory.Services
             return directoryId;
         }
 
-        public async Task BuildPersonDirectoryAsync(string directoryId)
+        public async Task<IList<Person>> BuildPersonDirectoryAsync(string directoryId)
         {
             Console.WriteLine("\nBuilding Person Directory...");
+
+            IList<Person> persons = new List<Person>();
 
             if (!Directory.Exists(EnrollmentDataPath))
                 throw new Exception($"Enrollment data directory not found: {EnrollmentDataPath}");
@@ -41,6 +44,7 @@ namespace BuildPersonDirectory.Services
 
             foreach (var subfolder in subfolders)
             {
+                var person = new Person();
                 var personName = Path.GetFileName(subfolder);
                 Console.WriteLine($"Processing person: {personName}");
 
@@ -49,8 +53,10 @@ namespace BuildPersonDirectory.Services
                     directoryId,
                     new Dictionary<string, object> { ["name"] = personName }
                 );
-
                 var personId = personResponse.PersonId;
+                person.PersonId = personId;
+                person.Name = personName;
+
                 Console.WriteLine($"Created person with ID: {personId}");
 
                 // Process face images
@@ -71,6 +77,7 @@ namespace BuildPersonDirectory.Services
                     {
                         var imageData = AzureContentUnderstandingFaceClient.ReadFileToBase64(imageFile);
                         var faceResponse = await _client.AddFaceAsync(directoryId, imageData, personId);
+                        person.Faces.Add(faceResponse.FaceId);
                         Console.WriteLine($"success! Face ID: {faceResponse.FaceId}");
                     }
                     catch (Exception ex)
@@ -78,9 +85,12 @@ namespace BuildPersonDirectory.Services
                         Console.WriteLine($"failed: {ex.Message}");
                     }
                 }
+
+                persons.Add(person);
             }
 
             Console.WriteLine($"\nCompleted building person directory with {subfolders.Length} persons");
+            return persons;
         }
 
         public async Task IdentifyPersonsInImageAsync(string directoryId, string imagePath)

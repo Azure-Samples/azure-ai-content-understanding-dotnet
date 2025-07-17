@@ -1,10 +1,12 @@
-﻿namespace BuildPersonDirectory.Interfaces
+﻿using ContentUnderstanding.Common.Models;
+
+namespace BuildPersonDirectory.Interfaces
 {
     public interface IBuildPersonDirectoryService
     {
         Task<string> CreatePersonDirectoryAsync(string directoryId);
 
-        Task BuildPersonDirectoryAsync(string directoryId);
+        Task<IList<Person>> BuildPersonDirectoryAsync(string directoryId);
 
         Task IdentifyPersonsInImageAsync(string directoryId, string imagePath);
 

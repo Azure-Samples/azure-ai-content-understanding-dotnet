@@ -2,6 +2,7 @@
 using BuildPersonDirectory.Services;
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
+using ContentUnderstanding.Common.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -45,25 +46,27 @@ namespace BuildPersonDirectory
             await service.CreatePersonDirectoryAsync(directoryId);
             var imagePath = "./data/face/family.jpg";
             // 2. Build Directory from Enrollment Data
-            await service.BuildPersonDirectoryAsync(directoryId);
+            IList<Person> persons = await service.BuildPersonDirectoryAsync(directoryId);
+            Person person = persons.First();
+            Person lastPerson = persons.Last();
 
             // 3. Identify Persons in Test Image
             await service.IdentifyPersonsInImageAsync(directoryId, imagePath);
 
             // PLEASE UPDATE THE "person_id" and "new_face_image_path" to your own data
-            await service.AddNewFaceToPersonAsync(directoryId, "person_id", "new_face_image_path");
+            await service.AddNewFaceToPersonAsync(directoryId, person.PersonId, imagePath);
 
             // PLEASE UPDATE THE "person_id", "face_id_1" and "face_id_2" to your own data
-            await service.AssociateExistingFacesAsync(directoryId, "person_id", new List<string> { "face_id_1", "face_id_2" });
+            await service.AssociateExistingFacesAsync(directoryId, person.PersonId, person.Faces);
 
             // PLEASE UPDATE THE "face_id" and "new_person_id" to your own data
-            await service.UpdateFaceAssociationAsync(directoryId, "face_id", "new_person_id");
+            await service.UpdateFaceAssociationAsync(directoryId, person.Faces[0], lastPerson.PersonId);
 
             // PLEASE UPDATE THE "person_id" to your own data
-            await service.UpdateMetadataAsync(directoryId, "person_id");
+            await service.UpdateMetadataAsync(directoryId, person.PersonId);
 
             // PLEASE UPDATE THE "person_id" to your own data
-            await service.DeleteFaceAndPersonAsync(directoryId, "person_id");
+            await service.DeleteFaceAndPersonAsync(directoryId, person.PersonId);
 
         }
     }
