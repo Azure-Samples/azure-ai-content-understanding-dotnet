@@ -50,8 +50,19 @@ namespace AnalyzerTraining
             Console.WriteLine("## Prerequisites\n");
             Console.WriteLine("1. Ensure Azure AI service is configured following [steps](../README.md#configure-azure-ai-service-resource)\n");
             Console.WriteLine("2. Follow steps in [Set labeled data](../docs/set_env_for_labeled_data.md) to add training data related 'TrainingDataSasUrl' and 'TrainingDataPath' in ContentUnderstanding.Common/appsettings.json.\n");
+            
+            Console.WriteLine("TrainingDataSasUrl: Please paste the SAS URL that you have created in the last step and hit the [Enter] key.");
 
-            Console.WriteLine("Press [yes] to continue.");
+            string trainingDataSasUrl = Console.ReadLine() ?? string.Empty;
+
+            Console.WriteLine("TrainingDataPath: Please write the folder name that you have created in the last step, such as labeling-data");
+            
+            string trainingDataPath = Console.ReadLine() ?? string.Empty;
+
+            Console.WriteLine($"\nTrainingDataSasUrl: {trainingDataSasUrl}");
+            Console.WriteLine($"TrainingDataPath: {trainingDataPath}\n");
+
+            Console.WriteLine("Type yes and hit [Enter] to continue.");
 
             string? input = Console.ReadLine();
             
@@ -62,13 +73,8 @@ namespace AnalyzerTraining
             }
 
             var service = host.Services.GetService<IAnalyzerTrainingService>()!;
-            var options = host.Services.GetService<IOptions<ContentUnderstandingOptions>>()!;
-
-            Console.WriteLine($"\nTrainingDataSasUrl: {options.Value.TrainingDataSasUrl}");
-            Console.WriteLine($"TrainingDataPath: {options.Value.TrainingDataPath}\n");
-
             var analyzerTemplatePath = "./analyzer_templates/receipt.json";
-            var analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, options.Value.TrainingDataSasUrl, options.Value.TrainingDataPath);
+            var analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
 
             var customAnalyzerSampleFilePath = "./data/receipt.png";
             await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);

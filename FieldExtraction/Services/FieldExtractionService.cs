@@ -53,7 +53,7 @@ namespace FieldExtraction.Services
             JsonDocument analyzeResult = await _client.PollResultAsync(analyzeResponse);
 
             Console.WriteLine("\n===== Extraction Results =====");
-            await PrintExtractionResultsAsync(analyzeResult, sampleFilePath);
+            PrintExtractionResults(analyzeResult, sampleFilePath);
 
             // // Optionally, delete the sample analyzer from your resource. In typical usage scenarios, you would analyze multiple files using the same analyzer.
             Console.WriteLine("\n===== Cleaning Up =====");
@@ -61,7 +61,7 @@ namespace FieldExtraction.Services
             Console.WriteLine($"Analyzer {analyzerId} deleted");
         }
 
-        public async Task PrintExtractionResultsAsync(JsonDocument result, string filePath)
+        public void PrintExtractionResults(JsonDocument result, string filePath)
         {
             string extension = Path.GetExtension(filePath).ToLower();
             string fileName = Path.GetFileName(filePath);
