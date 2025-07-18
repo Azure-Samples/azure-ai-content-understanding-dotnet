@@ -275,7 +275,8 @@ namespace BuildPersonDirectory.Services
                     "Disassociated" : "Associated";
 
                 Console.WriteLine($"{action} face {faceId} to person: {personId ?? "None"}");
-                Console.WriteLine($"The face information with the new person association: {JsonSerializer.Serialize(await _client.GetFaceAsync(directoryId, faceId))}");
+                var json = await _client.GetFaceAsync(directoryId, faceId);
+                Console.WriteLine($"The face information with the new person association: {JsonSerializer.Serialize(json)}");
             }
             catch (Exception ex)
             {

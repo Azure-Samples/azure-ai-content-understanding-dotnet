@@ -182,7 +182,7 @@ namespace ContentUnderstanding.Common
         /// <summary>
         /// Retrieves information about a specific face associated with a given person directory.
         /// </summary>
-        /// <remarks>This method sends a PATCH request to the specified endpoint to retrieve the face
+        /// <remarks>This method sends a GET request to the specified endpoint to retrieve the face
         /// information. Ensure that the identifiers provided are valid and correspond to existing entries in the
         /// system.</remarks>
         /// <param name="personDirectoryId">The unique identifier of the person directory containing the face.</param>
@@ -191,7 +191,7 @@ namespace ContentUnderstanding.Common
         public async Task<FaceResponse> GetFaceAsync(string personDirectoryId, string faceId)
         {
             var request = await CreateRequestAsync(
-                HttpMethod.Patch,
+                HttpMethod.Get,
                 $"personDirectories/{personDirectoryId}/faces/{faceId}").ConfigureAwait(false);
 
             var result = await SendRequestAsync<FaceResponse>(request);

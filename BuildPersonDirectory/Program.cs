@@ -63,7 +63,7 @@ namespace BuildPersonDirectory
             IList<Person> persons = await service.BuildPersonDirectoryAsync(directoryId);
             Person? person_Alex = persons.Where(s => s.Name == "Alex").FirstOrDefault();
             Person? person_Bill = persons.Where(s => s.Name == "Bill").FirstOrDefault();
-            Person? person_Jodan = persons.Where(s => s.Name == "Jodan").FirstOrDefault();
+            Person? person_Jordan = persons.Where(s => s.Name == "Jordan").FirstOrDefault();
             Person? person_Mary = persons.Where(s => s.Name == "Mary").FirstOrDefault();
 
             // Identify Persons in Test Image
@@ -88,11 +88,11 @@ namespace BuildPersonDirectory
             {
                 throw new Exception("Person Mary or her faces not found in the directory.");
             }
-            if (person_Jodan == null)
+            if (person_Jordan == null)
             {
-                throw new Exception("Person Jodan not found in the directory.");
+                throw new Exception("Person Jordan not found in the directory.");
             }
-            await service.UpdateFaceAssociationAsync(directoryId, person_Mary.Faces.First(), person_Jodan.PersonId);
+            await service.UpdateFaceAssociationAsync(directoryId, person_Mary.Faces.First(), person_Jordan.PersonId);
 
             // Updating metadata (tags and descriptions)
             // You can add or update tags for individual persons, and both descriptions and tags for the Person Directory. These metadata fields help organize, filter, and manage your directory.
