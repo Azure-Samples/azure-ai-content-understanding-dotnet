@@ -47,7 +47,7 @@ namespace BuildPersonDirectory
             Console.WriteLine("> This sample demonstrates how to identify faces in an image against a known set of persons.");
             Console.WriteLine("> It begins by building a Person Directory, where each subfolder in a specified directory represents an individual.");
             Console.WriteLine("> For each subfolder, a person is created and all face images within it are enrolled to that person.");
-            Console.WriteLine("> If you want to know more details about Person Directory, you can refer to the Jupyter notebooks in python, following the link is [https://github.com/Azure-Samples/azure-ai-content-understanding-python/blob/main/notebooks/build_person_directory.ipynb]");
+            Console.WriteLine("> For the concept, you can refer to the Jupyter notebooks in python, following the link is [https://github.com/Azure-Samples/azure-ai-content-understanding-python/blob/main/notebooks/build_person_directory.ipynb]");
             Console.WriteLine(">");
             Console.WriteLine("> #################################################################################");
             Console.WriteLine("Enrollment image path: ./data/face/PD_enrollment.png");
