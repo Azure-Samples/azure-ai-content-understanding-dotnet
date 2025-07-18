@@ -109,69 +109,26 @@ namespace ContentUnderstanding.Common
         /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task UpdatePersonAsync(
             string personDirectoryId,
-            string personId,
+            string? personId,
             Dictionary<string, dynamic>? tags = null,
             List<string>? faceIds = null)
         {
+            if (string.IsNullOrWhiteSpace(personId))
+            {
+                Console.WriteLine("Person ID is null or empty, cannot associate faces");
+                return;
+            }
+
             var requestBody = new Dictionary<string, dynamic>
             {
-                ["tags"] = tags,
-                ["faceIds"] = faceIds
+                ["tags"] = tags ?? new Dictionary<string, dynamic>(),
+                ["faceIds"] = faceIds ?? new List<string>()
             };
             var request = await CreateRequestAsync(
                 HttpMethod.Patch,
                 $"personDirectories/{personDirectoryId}/persons/{personId}",
                 requestBody);
             await SendRequestAsync(request);
-        }
-
-        /// <summary>
-        /// Adds a face to a specified person directory using the provided image data.
-        /// </summary>
-        /// <remarks>This method sends an asynchronous HTTP POST request to add a face to the specified person
-        /// directory. Ensure that the <paramref name="imageData"/> is properly formatted as a base64 string and that the
-        /// <paramref name="personDirectoryId"/> corresponds to an existing directory.</remarks>
-        /// <param name="personDirectoryId">The unique identifier of the person directory to which the face will be added.</param>
-        /// <param name="imageData">The base64-encoded image data representing the face to be added.</param>
-        /// <param name="personId">The optional unique identifier of the person to associate with the face. If not provided, the face will be added
-        /// without a specific person association.</param>
-        /// <returns>A <see cref="FaceResponse"/> object containing details about the added face, including its unique identifier and
-        /// associated metadata.</returns>
-        public async Task<FaceResponse> AddFaceAsync(
-            string personDirectoryId,
-            string imageData,
-            string? personId = null)
-        {
-            var requestBody = new Dictionary<string, dynamic>
-            {
-                ["faceSource"] = new { data = imageData },
-                ["personId"] = personId
-            };
-
-            var request = await CreateRequestAsync(
-                HttpMethod.Post,
-                $"personDirectories/{personDirectoryId}/faces",
-                requestBody);
-            return await SendRequestAsync<FaceResponse>(request);
-        }
-
-        /// <summary>
-        /// Detects faces in the provided image data using the Azure Content Understanding service.
-        /// </summary>
-        /// <param name="data">The base64-encoded image data representing the image to be analyzed.</param>
-        /// <returns>A task representing the asynchronous operation, containing a <see cref="FaceDetectionResponse"/> object with the results.</returns>
-        public async Task<FaceDetectionResponse> DetectFacesAsync(string data)
-        {
-            var requestBody = new Dictionary<string, dynamic>
-            {
-                ["data"] = data            
-            };
-
-            var request = await CreateRequestAsync(
-                HttpMethod.Post,
-                $"faces:detect",
-                requestBody);
-            return await SendRequestAsync<FaceDetectionResponse>(request);
         }
 
         /// <summary>
@@ -222,6 +179,84 @@ namespace ContentUnderstanding.Common
             return await SendRequestAsync<PersonResponse>(request);
         }
 
+        /// <summary>
+        /// Retrieves information about a specific face associated with a given person directory.
+        /// </summary>
+        /// <remarks>This method sends a PATCH request to the specified endpoint to retrieve the face
+        /// information. Ensure that the identifiers provided are valid and correspond to existing entries in the
+        /// system.</remarks>
+        /// <param name="personDirectoryId">The unique identifier of the person directory containing the face.</param>
+        /// <param name="faceId">The unique identifier of the face to retrieve information for.</param>
+        /// <returns>A task representing the asynchronous operation, containing a dynamic object with the face information.</returns>
+        public async Task<FaceResponse> GetFaceAsync(string personDirectoryId, string faceId)
+        {
+            var request = await CreateRequestAsync(
+                HttpMethod.Patch,
+                $"personDirectories/{personDirectoryId}/faces/{faceId}").ConfigureAwait(false);
+
+            var result = await SendRequestAsync<FaceResponse>(request);
+            return result;
+        }
+
+        /// <summary>
+        /// Adds a face to a specified person directory using the provided image data.
+        /// </summary>
+        /// <remarks>This method sends an asynchronous HTTP POST request to add a face to the specified person
+        /// directory. Ensure that the <paramref name="imageData"/> is properly formatted as a base64 string and that the
+        /// <paramref name="personDirectoryId"/> corresponds to an existing directory.</remarks>
+        /// <param name="personDirectoryId">The unique identifier of the person directory to which the face will be added.</param>
+        /// <param name="imageData">The base64-encoded image data representing the face to be added.</param>
+        /// <param name="personId">The optional unique identifier of the person to associate with the face. If not provided, the face will be added
+        /// without a specific person association.</param>
+        /// <returns>A <see cref="FaceResponse"/> object containing details about the added face, including its unique identifier and
+        /// associated metadata.</returns>
+        public async Task<FaceResponse> AddFaceAsync(
+            string personDirectoryId,
+            string imageData,
+            string? personId = null)
+        {
+            var requestBody = new Dictionary<string, dynamic>
+            {
+                ["faceSource"] = new { data = imageData },
+                ["personId"] = personId ?? string.Empty
+            };
+
+            var request = await CreateRequestAsync(
+                HttpMethod.Post,
+                $"personDirectories/{personDirectoryId}/faces",
+                requestBody);
+            return await SendRequestAsync<FaceResponse>(request);
+        }
+
+        /// <summary>
+        /// Detects faces in the provided image data using the Azure Content Understanding service.
+        /// </summary>
+        /// <param name="data">The base64-encoded image data representing the image to be analyzed.</param>
+        /// <returns>A task representing the asynchronous operation, containing a <see cref="FaceDetectionResponse"/> object with the results.</returns>
+        public async Task<FaceDetectionResponse> DetectFacesAsync(string data)
+        {
+            var requestBody = new Dictionary<string, dynamic>
+            {
+                ["data"] = data
+            };
+
+            var request = await CreateRequestAsync(
+                HttpMethod.Post,
+                $"faces:detect",
+                requestBody);
+            return await SendRequestAsync<FaceDetectionResponse>(request);
+        }
+
+        /// <summary>
+        /// Updates the face information associated with a specific person in a person directory.
+        /// </summary>
+        /// <remarks>This method sends a PATCH request to update the association of a face with a person
+        /// in the specified person directory. Ensure that the identifiers provided are valid and that the person
+        /// directory and face exist.</remarks>
+        /// <param name="personDirectoryId">The identifier of the person directory containing the face to update. Cannot be null or empty.</param>
+        /// <param name="faceId">The identifier of the face to update. Cannot be null or empty.</param>
+        /// <param name="personId">The identifier of the person to associate with the face. Cannot be null or empty.</param>
+        /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task UpdateFaceAsync(
             string personDirectoryId,
             string faceId,
@@ -331,7 +366,7 @@ namespace ContentUnderstanding.Common
                     response.StatusCode);
             }
 
-            return JsonSerializer.Deserialize<T>(content);
+            return JsonSerializer.Deserialize<T>(content) ?? throw new InvalidOperationException("Deserialization returned null");
         }
 
         public static string ReadFileToBase64(string filePath)

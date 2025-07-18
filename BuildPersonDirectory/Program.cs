@@ -41,33 +41,70 @@ namespace BuildPersonDirectory
 
             var service = host.Services.GetService<IBuildPersonDirectoryService>()!;
 
-            // 1. Create Person Directory
+            Console.WriteLine("# Person Directory");
+            Console.WriteLine("> #################################################################################");
+            Console.WriteLine(">");
+            Console.WriteLine("> This sample demonstrates how to identify faces in an image against a known set of persons.");
+            Console.WriteLine("> It begins by building a Person Directory, where each subfolder in a specified directory represents an individual.");
+            Console.WriteLine("> For each subfolder, a person is created and all face images within it are enrolled to that person.");
+            Console.WriteLine("> If you want to know more details about Person Directory, you can refer to the Jupyter notebooks in python, following the link is [https://github.com/Azure-Samples/azure-ai-content-understanding-python/blob/main/notebooks/build_person_directory.ipynb]");
+            Console.WriteLine(">");
+            Console.WriteLine("> #################################################################################");
+            Console.WriteLine("Enrollment image path: ./data/face/PD_enrollment.png");
+            Console.WriteLine("Searching image path: ./data/face/PD_searching.png");
+
+            // Create Person Directory
             var directoryId = $"person_directory_id_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
             await service.CreatePersonDirectoryAsync(directoryId);
-            var imagePath = "./data/face/family.jpg";
-            // 2. Build Directory from Enrollment Data
+            var testImagePath = "./data/face/family.jpg";
+            var newFaceImagePath = "./data/face/NewFace_Bill.jpg";
+
+            // Build Directory from Enrollment Data
             IList<Person> persons = await service.BuildPersonDirectoryAsync(directoryId);
-            Person person = persons.First();
-            Person lastPerson = persons.Last();
+            Person? person_Alex = persons.Where(s => s.Name == "Alex").FirstOrDefault();
+            Person? person_Bill = persons.Where(s => s.Name == "Bill").FirstOrDefault();
+            Person? person_Jodan = persons.Where(s => s.Name == "Jodan").FirstOrDefault();
+            Person? person_Mary = persons.Where(s => s.Name == "Mary").FirstOrDefault();
 
-            // 3. Identify Persons in Test Image
-            await service.IdentifyPersonsInImageAsync(directoryId, imagePath);
+            // Identify Persons in Test Image
+            // Detect multiple faces in an image and identify each one by matching it against enrolled persons in the Person Directory.
+            await service.IdentifyPersonsInImageAsync(directoryId, testImagePath);
 
-            // PLEASE UPDATE THE "person_id" and "new_face_image_path" to your own data
-            await service.AddNewFaceToPersonAsync(directoryId, person.PersonId, imagePath);
+            // Adding and associating a new face
+            // You can add a new face to the Person Directory and associate it with an existing person.
+            if (person_Bill == null)
+            {
+                throw new Exception("Person Alex not found in the directory.");
+            }
+            await service.AddNewFaceToPersonAsync(directoryId, person_Bill.PersonId, newFaceImagePath);
 
-            // PLEASE UPDATE THE "person_id", "face_id_1" and "face_id_2" to your own data
-            await service.AssociateExistingFacesAsync(directoryId, person.PersonId, person.Faces);
+            // Associating a list of already enrolled faces
+            // You can associate a list of already enrolled faces in the Person Directory with their respective persons. This is useful if you have existing face IDs to link to specific persons.
+            await service.AssociateExistingFacesAsync(directoryId, person_Bill.PersonId, person_Bill.Faces);
 
-            // PLEASE UPDATE THE "face_id" and "new_person_id" to your own data
-            await service.UpdateFaceAssociationAsync(directoryId, person.Faces[0], lastPerson.PersonId);
+            // Associating and disassociating a face from a person
+            // You can associate or disassociate a face from a person in the Person Directory. Associating a face links it to a specific person, while disassociating removes this link.
+            if (person_Mary == null || person_Mary.Faces.Count == 0)
+            {
+                throw new Exception("Person Mary or her faces not found in the directory.");
+            }
+            if (person_Jodan == null)
+            {
+                throw new Exception("Person Jodan not found in the directory.");
+            }
+            await service.UpdateFaceAssociationAsync(directoryId, person_Mary.Faces.First(), person_Jodan.PersonId);
 
-            // PLEASE UPDATE THE "person_id" to your own data
-            await service.UpdateMetadataAsync(directoryId, person.PersonId);
+            // Updating metadata (tags and descriptions)
+            // You can add or update tags for individual persons, and both descriptions and tags for the Person Directory. These metadata fields help organize, filter, and manage your directory.
+            await service.UpdateMetadataAsync(directoryId, person_Bill.PersonId);
 
-            // PLEASE UPDATE THE "person_id" to your own data
-            await service.DeleteFaceAndPersonAsync(directoryId, person.PersonId);
-
+            // Deleting a face
+            // You can also delete a specific face. Once the face is deleted, the association between the face and its associated person is removed.
+            if (person_Mary.PersonId == null)
+            {
+                throw new Exception("Person Mary not found in the directory.");
+            }
+            await service.DeleteFaceAndPersonAsync(directoryId, person_Mary.PersonId);
         }
     }
 }
