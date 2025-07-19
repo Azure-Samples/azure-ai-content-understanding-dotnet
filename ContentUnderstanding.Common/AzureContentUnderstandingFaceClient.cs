@@ -36,7 +36,7 @@ namespace ContentUnderstanding.Common
             var requestBody = new Dictionary<string, dynamic>
             {
                 ["description"] = description,
-                ["tags"] = tags
+                ["tags"] = tags ?? new Dictionary<string, dynamic>()
             };
 
             var request = await CreateRequestAsync(HttpMethod.Put, $"personDirectories/{personDirectoryId}", requestBody);
@@ -54,12 +54,12 @@ namespace ContentUnderstanding.Common
         public async Task UpdatePersonDirectoryAsync(
             string personDirectoryId,
             string description,
-            Dictionary<string, dynamic>? tags)
+            Dictionary<string, dynamic>? tags = null)
         {
             var requestBody = new Dictionary<string, dynamic>
             {
                 ["description"] = description,
-                ["tags"] = tags
+                ["tags"] = tags ?? new Dictionary<string, dynamic>()
             };
 
             var request = await CreateRequestAsync(

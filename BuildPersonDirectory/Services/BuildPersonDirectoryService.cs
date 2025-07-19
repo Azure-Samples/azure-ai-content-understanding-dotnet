@@ -93,10 +93,13 @@ namespace BuildPersonDirectory.Services
                         var imageData = AzureContentUnderstandingFaceClient.ReadFileToBase64(imageFile);
                         // Add a face to the Person Directory and associate it to the added person
                         var faceResponse = await _client.AddFaceAsync(directoryId, imageData, personId);
-                        person.Faces.Add(faceResponse.FaceId);
-                        Console.WriteLine($"Added face from {filename} with face_id: {faceResponse.FaceId} to person_id: {personId}");
+                        if (faceResponse != null && !string.IsNullOrWhiteSpace(faceResponse.FaceId))
+                        {
+                            person.Faces.Add(faceResponse.FaceId);
+                            Console.WriteLine($"Added face from {filename} with face_id: {faceResponse.FaceId} to person_id: {personId}");
+                        }
                     }
-                    catch (Exception ex)
+                    catch
                     {
                         Console.WriteLine($"Failed to add face from {filename} to person_id: {personId}");
                     }
@@ -155,20 +158,28 @@ namespace BuildPersonDirectory.Services
                     {
                         var candidate = identifyResponse.PersonCandidates[0];
 
-                        // Get person details to get name tag
-                        var person = await _client.GetPersonAsync(directoryId, candidate.PersonId);
-                        var name = person.Tags.TryGetValue("name", out var n) ? n : "Unknown";
+                        if (candidate.PersonId != null)
+                        {
+                            // Get person details to get name tag
+                            var person = await _client.GetPersonAsync(directoryId, candidate.PersonId);
+                            var name = person.Tags.TryGetValue("name", out var n) ? n : "Unknown";
 
-                        Console.WriteLine($"  Identified as: {name} (Confidence: {candidate.Confidence}, Person ID: {candidate.PersonId})");
+                            Console.WriteLine($"Identified as: {name} (Confidence: {candidate.Confidence}, Person ID: {candidate.PersonId})");
+                        }
+                        else
+                        {
+                            Console.WriteLine("No person identified in directory");
+                            continue;
+                        }
                     }
                     else
                     {
-                        Console.WriteLine("  Person not identified in directory");
+                        Console.WriteLine("Person not identified in directory");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"  Error identifying person: {ex.Message}");
+                    Console.WriteLine($"Error identifying person: {ex.Message}");
                 }
             }
 
@@ -202,7 +213,7 @@ namespace BuildPersonDirectory.Services
                 var faceResponse = await _client.AddFaceAsync(directoryId, imageData, personId);
                 Console.WriteLine($"Added face from {newFaceImagePath} with face_id: {faceResponse.FaceId} to person_id: {personId}");
             }
-            catch (Exception ex)
+            catch
             {
                 Console.WriteLine($"Failed to add face from {newFaceImagePath} to person_id: {personId}");
             }

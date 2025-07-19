@@ -51,6 +51,13 @@ namespace Management.Services
             Console.WriteLine("\n===== Listing All Analyzers =====");
 
             var analyzers = await _client.GetAllAnalyzersAsync();
+
+            if(analyzers == null || analyzers.Length == 0)
+            {
+                Console.WriteLine("No analyzers found.");
+                return;
+            }
+
             Console.WriteLine($"Number of analyzers: {analyzers.Length}");
 
             Console.WriteLine("\nFirst 3 analyzers:");
