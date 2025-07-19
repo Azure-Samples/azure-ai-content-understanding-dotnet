@@ -69,7 +69,7 @@ namespace ContentUnderstanding.Common
 
             var content = await response.Content.ReadAsStringAsync();
             var jsonArray = JsonSerializer.Deserialize<AnalyzerListResponse>(content);
-            return jsonArray.Value;
+            return jsonArray?.Value;
         }
 
         /// <summary>
