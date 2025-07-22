@@ -124,9 +124,9 @@ namespace Classifier.Services
 
             Console.WriteLine($"Creating enhanced classifier: {enhancedClassifierId}");
             Console.WriteLine($"\nConfiguration: ");
-            Console.WriteLine($"  - Loan application documents → Custom analyzer with field extraction");
-            Console.WriteLine($"  - Invoice documents → Prebuilt invoice analyzer");
-            Console.WriteLine($"  - Bank_Statement documents → Standard processing");
+            Console.WriteLine($"  - Loan application documents =====> Custom analyzer with field extraction");
+            Console.WriteLine($"  - Invoice documents =====> Prebuilt invoice analyzer");
+            Console.WriteLine($"  - Bank_Statement documents =====> Standard processing");
 
             var enhancedSchemaJson = await File.ReadAllTextAsync(enhancedSchemaPath);
             var enhancedSchemaContent = enhancedSchemaJson.Replace("{analyzerId}", analyzerId);
