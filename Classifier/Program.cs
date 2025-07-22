@@ -62,7 +62,11 @@ namespace Classifier {
             // Process a document using the enhanced classifier
             await service.ProcessDocumentWithEnhancedClassifierAsync(enhancedClassifierId, analyzerTemplatePath);
 
-
+            Console.WriteLine("## Summary and Next Steps");
+            Console.WriteLine("Congratulations! You've successfully:");
+            Console.WriteLine("1. Created a basic classifier to categorize documents.");
+            Console.WriteLine("2. Created a custom analyzer to extract specific fields.");
+            Console.WriteLine("3. Combined them into an enhanced classifier for intelligent document processing.\n");
         }
     }
 }
