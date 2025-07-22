@@ -1,0 +1,46 @@
+{
+  "description": "Loan application analyzer - extracts key information from loan application",
+  "baseAnalyzerId": "prebuilt-documentAnalyzer",
+  "config": {
+    "returnDetails": true,
+    "enableLayout": true,
+    "enableBarcode": false,
+    "enableFormula": false,
+    "estimateFieldSourceAndConfidence": true,
+    "disableContentFiltering": false
+  },
+  "fieldSchema": {
+    "fields": {
+      "ApplicationDate": {
+        "type": "date",
+        "method": "generate",
+        "description": "The date when the loan application was submitted."
+      },
+      "ApplicantName": {
+        "type": "string",
+        "method": "generate",
+        "description": "The full name of the loan applicant or company."
+      },
+      "LoanAmountRequested": {
+        "type": "number",
+        "method": "generate",
+        "description": "The total amount of loan money requested by the applicant."
+      },
+      "LoanPurpose": {
+        "type": "string",
+        "method": "generate",
+        "description": "The stated purpose or reason for the loan."
+      },
+      "CreditScore": {
+        "type": "number",
+        "method": "generate",
+        "description": "The credit score of the applicant, if available."
+      },
+      "Summary": {
+        "type": "string",
+        "method": "generate",
+        "description": "A brief overview of the loan application details."
+      }
+    }
+  }
+}

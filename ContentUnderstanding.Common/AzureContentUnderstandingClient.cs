@@ -32,6 +32,12 @@ namespace ContentUnderstanding.Common
         private string GetAnalyzeUrl(string analyzerId) =>
             $"{_options.Value.Endpoint}/contentunderstanding/analyzers/{analyzerId}:analyze?api-version={_options.Value.ApiVersion}";
 
+        private string GetClassifierUrl(string classifierId) =>
+            $"{_options.Value.Endpoint}/contentunderstanding/classifiers/{classifierId}?api-version={_options.Value.ApiVersion}";
+
+        private string GetClassifyUrl(string classifierId) =>
+            $"{_options.Value.Endpoint}/contentunderstanding/classifiers/{classifierId}:classify?api-version={_options.Value.ApiVersion}";
+
         private Dictionary<string, string> GetTrainingDataConfig(string storageContainerSasUrl, string storageContainerPathPrefix) =>
             new Dictionary<string, string>
             {
@@ -104,12 +110,13 @@ namespace ContentUnderstanding.Common
         /// <exception cref="ArgumentException">If neither `analyzerTemplate` nor `analyzerTemplatePath` is provided.</exception>
         public async Task<HttpResponseMessage> BeginCreateAnalyzerAsync(
             string analyzerId,
-            JsonDocument? analyzerTemplate = null,
             string analyzerTemplatePath = "",
             string trainingStorageContainerSasUrl = "",
             string trainingStorageContainerPathPrefix = "",
             CancellationToken cancellationToken = default)
         {
+            JsonDocument? analyzerTemplate = null;
+
             if (!string.IsNullOrEmpty(analyzerTemplatePath) && File.Exists(analyzerTemplatePath))
             {
                 var jsonString = await File.ReadAllTextAsync(analyzerTemplatePath, cancellationToken).ConfigureAwait(false);
@@ -267,6 +274,89 @@ namespace ContentUnderstanding.Common
 
             throw new TimeoutException(
                 $"Operation timed out after {timeoutSeconds} seconds.");
+        }
+
+        /// <summary>
+        /// Initiates the creation of an classifier with the given ID and schema.
+        /// </summary>
+        /// <param name="classifierId">The unique identifier for the classifier. Cannot be null or whitespace.</param>
+        /// <param name="classifierSchema">The JSON schema defining the classifier. Cannot be null or whitespace.</param>
+        /// <returns>A task representing the asynchronous operation, with a <see cref="HttpResponseMessage"/> indicating the
+        /// result of the HTTP request.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="classifierId"/> or <paramref name="classifierSchema"/> is null or whitespace.</exception>
+        public async Task<HttpResponseMessage> BeginCreateClassifierAsync(
+            string classifierId,
+            string classifierSchema)
+        {
+            if (string.IsNullOrWhiteSpace(classifierId))
+            {
+                throw new ArgumentException("Classifier id must be provided.");
+            }
+
+            if (string.IsNullOrWhiteSpace(classifierSchema))
+            {
+                throw new ArgumentException("Classifier schema must be provided.");
+            }
+
+            var url = GetClassifierUrl(classifierId);
+            var content = new StringContent(
+                classifierSchema,
+                Encoding.UTF8,
+                "application/json");
+
+            var request = await CreateRequestAsync(HttpMethod.Put, url, content).ConfigureAwait(false);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+
+            response.EnsureSuccessStatusCode();
+
+            return response;
+        }
+
+        /// <summary>
+        /// Begins the analysis of a file or URL using the specified classifier.
+        /// </summary>
+        /// <param name="classifierId">The unique identifier of the classifier to be used. Cannot be null or empty.</param>
+        /// <param name="fileLocation">The location of the file to be classified. This can be a valid file path or a well-formed URL.</param>
+        /// <param name="apiNameDescription">An optional description of the API operation. If provided, it will be logged to the console.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains the HTTP response message from
+        /// the classification request.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="classifierId"/> is null or empty.</exception>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="fileLocation"/> is neither a valid file path nor a well-formed URL.</exception>
+        public async Task<HttpResponseMessage> BeginClassifierAsync(
+            string classifierId,
+            string fileLocation,
+            string apiNameDescription)
+        {
+            if (string.IsNullOrEmpty(classifierId)) throw new ArgumentNullException("Parameters 'classifierId' can't be null or empty.");
+
+            HttpContent content;
+            if (File.Exists(fileLocation))
+            {
+                var bytes = await File.ReadAllBytesAsync(fileLocation).ConfigureAwait(false);
+                content = new ByteArrayContent(bytes);
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            }
+            else if (Uri.IsWellFormedUriString(fileLocation, UriKind.Absolute))
+            {
+                var data = new Dictionary<string, string> { ["url"] = fileLocation };
+                content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            }
+            else
+            {
+                throw new ArgumentException("File location must be a valid path or URL. Please update fileLocation to point to your PDF file.");
+            }
+
+            var url = GetClassifyUrl(classifierId);
+            var request = await CreateRequestAsync(HttpMethod.Post, url, content).ConfigureAwait(false);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+
+            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            {
+                Console.WriteLine($"Use {classifierId} to {apiNameDescription} from the file: {fileLocation}");
+            }
+
+            return response;
         }
 
         /// <summary>
