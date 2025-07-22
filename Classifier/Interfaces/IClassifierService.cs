@@ -16,9 +16,7 @@ namespace Classifier.Interfaces
         /// <summary>
         /// Initiates the classification of a document using a specified classifier.
         /// </summary>
-        /// <remarks>This method asynchronously processes the document classification and outputs the
-        /// result to the console. It handles any exceptions that occur during the classification process by logging an
-        /// error message.</remarks>
+        /// <remarks>Use the classifier to categorize your document.</remarks>
         /// <param name="classifierId">The identifier of the classifier to be used for document classification. Cannot be null or empty.</param>
         /// <param name="fileLocation">The file path of the document to be classified. Must be a valid path to an existing file.</param>
         /// <returns></returns>
@@ -40,9 +38,7 @@ namespace Classifier.Interfaces
         /// <summary>
         /// Processes a document using an enhanced classifier asynchronously.
         /// </summary>
-        /// <remarks>This method initiates the classification and field extraction process on the
-        /// specified document using the provided enhanced classifier. It logs the progress and outputs the results upon
-        /// completion.</remarks>
+        /// <remarks>Process the document again using our enhanced classifier. Invoices and loan application documents will now have additional fields extracted.</remarks>
         /// <param name="enhancedClassifierId">The identifier of the enhanced classifier to be used for processing.</param>
         /// <param name="fileLocation">The file path of the document to be processed.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>

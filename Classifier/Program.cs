@@ -34,20 +34,35 @@ namespace Classifier {
                 })
                 .Build();
 
+            Console.WriteLine("# Classifier and Analyzer sample");
+            Console.WriteLine("This sample demonstrates how to use Azure AI Content Understanding service to:\n");
+            Console.WriteLine("1. Create a classifier to categorize documents\n");
+            Console.WriteLine("2. Create a custom analyzer to extract specific fields\n");
+            Console.WriteLine("3. Combine classifier and analyzers to classify, optionally split, and analyze documents in a flexible processing pipeline\n");
+            Console.WriteLine("If you'd like to learn more before getting started, see the official documentation:\r\n[Understanding Classifiers in Azure AI Services](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/concepts/classifier)");
+            Console.WriteLine("## Prerequisites\n");
+            Console.WriteLine("Ensure Azure AI service is configured following [steps](../README.md#configure-azure-ai-service-resource)\n");
+
             var service = host.Services.GetService<IClassifierService>()!;
+            var analyzerTemplatePath = "./data/mixed_financial_docs.pdf";
+            var (analyzerSchemaPath, enhancedSchemaPath) = ("./analyzer_templates/analyzer_schema.json", "./data/classifier/enhanced_schema.json");
+            
             var classifierId = $"classifier-sample-{Guid.NewGuid()}";
             var classifierSchemaPath = "./data/classifier/schema.json";
 
+            // Create a basic classifier
             await service.CreateClassifierAsync(classifierId, classifierSchemaPath);
 
-            var analyzerTemplatePath = "./data/mixed_financial_docs.pdf";
+            // Classify a document using the created classifier
             await service.ClassifyDocumentAsync(classifierId, analyzerTemplatePath);
 
             var analyzerId = $"analyzer-loan-application-{Guid.NewGuid()}";
-            var (analyzerSchemaPath, enhancedSchemaPath) = ("./analyzer_templates/analyzer_schema.json", "./data/classifier/enhanced_schema.json");
             var enhancedClassifierId = await service.CreateEnhancedClassifierWithCustomAnalyzerAsync(analyzerId, analyzerSchemaPath, enhancedSchemaPath);
-            
+
+            // Process a document using the enhanced classifier
             await service.ProcessDocumentWithEnhancedClassifierAsync(enhancedClassifierId, analyzerTemplatePath);
+
+
         }
     }
 }

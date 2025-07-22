@@ -62,9 +62,7 @@ namespace Classifier.Services
         /// <summary>
         /// Initiates the classification of a document using a specified classifier.
         /// </summary>
-        /// <remarks>This method asynchronously processes the document classification and outputs the
-        /// result to the console. It handles any exceptions that occur during the classification process by logging an
-        /// error message.</remarks>
+        /// <remarks>Use the classifier to categorize your document.</remarks>
         /// <param name="classifierId">The identifier of the classifier to be used for document classification. Cannot be null or empty.</param>
         /// <param name="fileLocation">The file path of the document to be classified. Must be a valid path to an existing file.</param>
         /// <returns></returns>
@@ -141,9 +139,7 @@ namespace Classifier.Services
         /// <summary>
         /// Processes a document using an enhanced classifier asynchronously.
         /// </summary>
-        /// <remarks>This method initiates the classification and field extraction process on the
-        /// specified document using the provided enhanced classifier. It logs the progress and outputs the results upon
-        /// completion.</remarks>
+        /// <remarks>Process the document again using our enhanced classifier. Invoices and loan application documents will now have additional fields extracted.</remarks>
         /// <param name="enhancedClassifierId">The identifier of the enhanced classifier to be used for processing.</param>
         /// <param name="fileLocation">The file path of the document to be processed.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
@@ -168,6 +164,14 @@ namespace Classifier.Services
             Console.WriteLine($"\n{output}");
         }
 
+        /// <summary>
+        /// Prints the sections contained within a JSON document to the console.
+        /// </summary>
+        /// <remarks>This method extracts and prints the category and page range for each section found in
+        /// the JSON document. If a section contains fields, they are serialized and printed as well. If no fields are
+        /// present, a message indicating the absence of fields is printed.</remarks>
+        /// <param name="resultJson">The JSON document containing the sections to be printed. Must not be <see langword="null"/>.</param>
+        /// <param name="title">An optional title to be printed before the sections. Defaults to an empty string if not provided.</param>
         private void PrintSections(JsonDocument resultJson, string title = "")
         {
             if (resultJson != null && resultJson.RootElement.TryGetProperty("result", out JsonElement result) && result.TryGetProperty("contents", out JsonElement contents))
