@@ -120,12 +120,6 @@
     <None Update="data\face\family.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="data\face\PD_enrollment.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="data\face\PD_searching.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="data\fast_pretranscribed.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

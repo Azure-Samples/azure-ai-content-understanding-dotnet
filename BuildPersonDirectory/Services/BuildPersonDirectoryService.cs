@@ -100,7 +100,9 @@ namespace BuildPersonDirectory.Services
                         }
                         else
                         {
-                            Console.WriteLine($"Failed to add face from {filename} to person_id: {personId}");
+                            Console.Error.WriteLine($"Error: Failed to add face from {filename} to person_id: {personId}. FaceId was not returned.");
+                            // Stop execution as a valid FaceId is required for further processing.
+                            throw new Exception($"Failed to add face from {filename} to person_id: {personId}. FaceId was not returned.");
                         }
                     }
                     catch
