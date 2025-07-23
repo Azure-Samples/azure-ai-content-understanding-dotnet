@@ -327,7 +327,10 @@ namespace ContentUnderstanding.Common
             string fileLocation,
             string apiNameDescription)
         {
-            if (string.IsNullOrEmpty(classifierId)) throw new ArgumentNullException("Parameters 'classifierId' can't be null or empty.");
+            if (string.IsNullOrEmpty(classifierId))
+            {
+                throw new ArgumentNullException("Parameters 'classifierId' can't be null or empty.");
+            }
 
             HttpContent content;
             if (File.Exists(fileLocation))

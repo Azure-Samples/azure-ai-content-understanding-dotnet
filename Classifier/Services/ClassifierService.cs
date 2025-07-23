@@ -1,11 +1,4 @@
-﻿using Classifier.Interfaces;
-using ContentUnderstanding.Common;
-using ContentUnderstanding.Common.Models;
-using System;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
-namespace Classifier.Services
+﻿namespace Classifier.Services
 {
     public class ClassifierService : IClassifierService
     {
@@ -55,6 +48,15 @@ namespace Classifier.Services
                     Console.WriteLine("   1. Use a different classifier ID");
                     Console.WriteLine("   2. Delete the existing classifier first");
                     Console.WriteLine("   3. Skip to document classification");
+
+                    // Re-throw the exception to stop execution, since subsequent steps may not be valid
+                    throw;
+                }
+                else
+                { 
+                    // Print out other exceptions and stop execution to avoid masking unexpected errors
+                    Console.Error.WriteLine($"Error: {ex.Message}");
+                    throw;  
                 }
             }
         }
@@ -72,6 +74,8 @@ namespace Classifier.Services
             {
                 Console.WriteLine("Classifying document...");
                 Console.WriteLine("Processing... This may take a few minutes for large documents.");
+                // Print out the file location so the user knows the input file source
+                Console.WriteLine($"Input file location: {fileLocation}");
                 
                 string apiNameDescription = "classifier document";
                 var response = await _client.BeginClassifierAsync(classifierId, fileLocation, apiNameDescription);
@@ -110,6 +114,9 @@ namespace Classifier.Services
         public async Task<string> CreateEnhancedClassifierWithCustomAnalyzerAsync(string analyzerId, string analyzerSchemaPath, string enhancedSchemaPath)
         {
             Console.WriteLine("Creating custom analyzer...");
+            string analyzerSchema = await File.ReadAllTextAsync(analyzerSchemaPath);
+            Console.WriteLine("Analyzer schema used for creation:");
+            Console.WriteLine(analyzerSchema);
             Console.WriteLine("Analyzer will extract: ");
 
             var createResponse = await _client.BeginCreateAnalyzerAsync(analyzerId, analyzerSchemaPath);
@@ -128,6 +135,10 @@ namespace Classifier.Services
 
             var enhancedSchemaJson = await File.ReadAllTextAsync(enhancedSchemaPath);
             var enhancedSchemaContent = enhancedSchemaJson.Replace("{analyzerId}", analyzerId);
+            Console.WriteLine($"Using enhanced schema: {enhancedSchemaContent}");
+            Console.WriteLine(enhancedSchemaContent);
+            Console.WriteLine($"Creating enhanced classifier: {enhancedClassifierId}");
+
             var classifierResponse = await _client.BeginCreateClassifierAsync(enhancedClassifierId, enhancedSchemaContent);
             await _client.PollResultAsync(classifierResponse);
             
@@ -155,9 +166,7 @@ namespace Classifier.Services
             var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
             Console.WriteLine("Enhanced processing completed!");
-
-            PrintSections(resultJson);
-
+            
             var output = $"{Path.Combine(OutputPath, $"{nameof(ProcessDocumentWithEnhancedClassifierAsync)}_{DateTime.Now.ToString("yyyyMMddHHmmss")}.json")}";
             await File.WriteAllTextAsync(output, serializedJson);
             Console.WriteLine("\n===== Document With Enhanced Classifier has been saved to the following output file path =====");
