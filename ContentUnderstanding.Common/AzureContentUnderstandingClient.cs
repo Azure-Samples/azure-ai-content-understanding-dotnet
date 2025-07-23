@@ -168,7 +168,7 @@ namespace ContentUnderstanding.Common
         /// <param name="analyzerId">The ID of the analyzer to use.</param>
         /// <param name="fileLocation">The path to the file or the URL to analyze.</param>
         /// <returns>The response from the analysis request.</returns>
-        public async Task<HttpResponseMessage> BeginAnalyzeAsync(string analyzerId, string fileLocation, string apiNameDescription = "")
+        public async Task<HttpResponseMessage> BeginAnalyzeAsync(string analyzerId, string fileLocation)
         {
             if (string.IsNullOrEmpty(analyzerId)) throw new ArgumentNullException("Parameters 'analyzerId' can't be null or empty.");
 
@@ -193,11 +193,6 @@ namespace ContentUnderstanding.Common
             var request = await CreateRequestAsync(HttpMethod.Post, url, content).ConfigureAwait(false);
             var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-
-            if (!string.IsNullOrWhiteSpace(apiNameDescription))
-            {
-                Console.WriteLine($"Use {analyzerId} to {apiNameDescription} from the file: {fileLocation}");
-            }
 
             return response;
         }
@@ -317,15 +312,13 @@ namespace ContentUnderstanding.Common
         /// </summary>
         /// <param name="classifierId">The unique identifier of the classifier to be used. Cannot be null or empty.</param>
         /// <param name="fileLocation">The location of the file to be classified. This can be a valid file path or a well-formed URL.</param>
-        /// <param name="apiNameDescription">An optional description of the API operation. If provided, it will be logged to the console.</param>
         /// <returns>A task that represents the asynchronous operation. The task result contains the HTTP response message from
         /// the classification request.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="classifierId"/> is null or empty.</exception>
         /// <exception cref="ArgumentException">Thrown if <paramref name="fileLocation"/> is neither a valid file path nor a well-formed URL.</exception>
         public async Task<HttpResponseMessage> BeginClassifierAsync(
             string classifierId,
-            string fileLocation,
-            string apiNameDescription)
+            string fileLocation)
         {
             if (string.IsNullOrEmpty(classifierId))
             {
@@ -353,11 +346,6 @@ namespace ContentUnderstanding.Common
             var request = await CreateRequestAsync(HttpMethod.Post, url, content).ConfigureAwait(false);
             var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-
-            if (!string.IsNullOrWhiteSpace(apiNameDescription))
-            {
-                Console.WriteLine($"Use {classifierId} to {apiNameDescription} from the file: {fileLocation}");
-            }
 
             return response;
         }

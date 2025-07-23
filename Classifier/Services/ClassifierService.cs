@@ -1,4 +1,8 @@
-﻿namespace Classifier.Services
+﻿using Classifier.Interfaces;
+using ContentUnderstanding.Common;
+using System.Text.Json;
+
+namespace Classifier.Services
 {
     public class ClassifierService : IClassifierService
     {
@@ -78,7 +82,13 @@
                 Console.WriteLine($"Input file location: {fileLocation}");
                 
                 string apiNameDescription = "classifier document";
-                var response = await _client.BeginClassifierAsync(classifierId, fileLocation, apiNameDescription);
+
+                if (!string.IsNullOrWhiteSpace(apiNameDescription))
+                {
+                    Console.WriteLine($"Use {classifierId} to {apiNameDescription} from the file: {fileLocation}");
+                }
+
+                var response = await _client.BeginClassifierAsync(classifierId, fileLocation);
                 JsonDocument? resultJson = await _client.PollResultAsync(response);
                 var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
@@ -161,7 +171,13 @@
             Console.WriteLine($"Processing with classification + field extraction...");
 
             var apiNameDescription = "process document with enhanced classifier";
-            var response = await _client.BeginClassifierAsync(enhancedClassifierId, fileLocation, apiNameDescription);
+
+            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            {
+                Console.WriteLine($"Use {enhancedClassifierId} to {apiNameDescription} from the file: {fileLocation}");
+            }
+
+            var response = await _client.BeginClassifierAsync(enhancedClassifierId, fileLocation);
             JsonDocument resultJson = await _client.PollResultAsync(response);
             var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
