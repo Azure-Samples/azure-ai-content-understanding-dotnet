@@ -47,11 +47,9 @@ namespace BuildPersonDirectory
             Console.WriteLine("> This sample demonstrates how to identify faces in an image against a known set of persons.");
             Console.WriteLine("> It begins by building a Person Directory, where each subfolder in a specified directory represents an individual.");
             Console.WriteLine("> For each subfolder, a person is created and all face images within it are enrolled to that person.");
-            Console.WriteLine("> For the concept, you can refer to the Jupyter notebooks in python, following the link is [https://github.com/Azure-Samples/azure-ai-content-understanding-python/blob/main/notebooks/build_person_directory.ipynb]");
+            Console.WriteLine("> For more context, see the related Jupyter notebook in Python: https://github.com/Azure-Samples/azure-ai-content-understanding-python/blob/main/notebooks/build_person_directory.ipynb");
             Console.WriteLine(">");
             Console.WriteLine("> #################################################################################");
-            Console.WriteLine("Enrollment image path: ./data/face/PD_enrollment.png");
-            Console.WriteLine("Searching image path: ./data/face/PD_searching.png");
 
             // Create Person Directory
             var directoryId = $"person_directory_id_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
@@ -59,7 +57,9 @@ namespace BuildPersonDirectory
             var testImagePath = "./data/face/family.jpg";
             var newFaceImagePath = "./data/face/NewFace_Bill.jpg";
 
-            // Build Directory from Enrollment Data
+            // Builds the person directory for the given directory ID and returns a list of all enrolled persons.
+            // The returned value 'persons' is a collection of Person objects, where each Person contains details such as name, ID, and associated face metadata.
+            // For example, persons[0].Name is the person's name, and persons[0].Faces is the list of face IDs associated with that person.
             IList<Person> persons = await service.BuildPersonDirectoryAsync(directoryId);
             Person? person_Alex = persons.Where(s => s.Name == "Alex").FirstOrDefault();
             Person? person_Bill = persons.Where(s => s.Name == "Bill").FirstOrDefault();
@@ -70,11 +70,11 @@ namespace BuildPersonDirectory
             // Detect multiple faces in an image and identify each one by matching it against enrolled persons in the Person Directory.
             await service.IdentifyPersonsInImageAsync(directoryId, testImagePath);
 
-            // Adding and associating a new face
             // You can add a new face to the Person Directory and associate it with an existing person.
+            // In this example, we add an additional face image for the person "Bill" to improve the accuracy of face recognition.
             if (person_Bill == null)
             {
-                throw new Exception("Person Alex not found in the directory.");
+                throw new Exception("Person Bill not found in the directory.");
             }
             await service.AddNewFaceToPersonAsync(directoryId, person_Bill.PersonId, newFaceImagePath);
 
@@ -83,7 +83,10 @@ namespace BuildPersonDirectory
             await service.AssociateExistingFacesAsync(directoryId, person_Bill.PersonId, person_Bill.Faces);
 
             // Associating and disassociating a face from a person
-            // You can associate or disassociate a face from a person in the Person Directory. Associating a face links it to a specific person, while disassociating removes this link.
+            // You can associate or disassociate a face with a person in the Person Directory.
+            // Associating a face links it to a specific person, while disassociating removes that link.
+            // In the previous step, one of the daughter Jordan's face images was incorrectly added to the person "Mary".
+            // We will now re-associate this face with the correct person, "Jordan".
             if (person_Mary == null || person_Mary.Faces.Count == 0)
             {
                 throw new Exception("Person Mary or her faces not found in the directory.");

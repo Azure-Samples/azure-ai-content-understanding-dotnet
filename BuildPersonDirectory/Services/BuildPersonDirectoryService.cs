@@ -61,7 +61,7 @@ namespace BuildPersonDirectory.Services
                 var personName = Path.GetFileName(subfolder);
                 Console.WriteLine($"Processing person: {personName}");
 
-                // Add a person for each subfolder
+                // Adds a person to the Person Directory, using the name of the subfolder as the person's name.
                 var personResponse = await _client.AddPersonAsync(
                     directoryId,
                     new Dictionary<string, object> { ["name"] = personName }
@@ -97,6 +97,10 @@ namespace BuildPersonDirectory.Services
                         {
                             person.Faces.Add(faceResponse.FaceId);
                             Console.WriteLine($"Added face from {filename} with face_id: {faceResponse.FaceId} to person_id: {personId}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Failed to add face from {filename} to person_id: {personId}");
                         }
                     }
                     catch
