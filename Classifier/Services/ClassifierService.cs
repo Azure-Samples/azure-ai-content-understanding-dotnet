@@ -77,9 +77,8 @@ namespace Classifier.Services
             try
             {
                 Console.WriteLine("Classifying document...");
-                Console.WriteLine("Processing... This may take a few minutes for large documents.");
-                // Print out the file location so the user knows the input file source
                 Console.WriteLine($"Input file location: {fileLocation}");
+                Console.WriteLine("Processing... This may take a few minutes for large documents.");
                 
                 string apiNameDescription = "classifier document";
 
