@@ -355,7 +355,7 @@ namespace ContentUnderstanding.Common
             string storageContainerSasUrl,
             string storageContainerPathPrefix)
         {
-            if(!storageContainerPathPrefix.EndsWith("/"))
+            if (!storageContainerPathPrefix.EndsWith("/"))
             {
                 storageContainerPathPrefix += "/";
             }
@@ -393,6 +393,7 @@ namespace ContentUnderstanding.Common
                     }
                 }
             }
+        }
 
         /// Initiates the creation of an classifier with the given ID and schema.
         /// </summary>
