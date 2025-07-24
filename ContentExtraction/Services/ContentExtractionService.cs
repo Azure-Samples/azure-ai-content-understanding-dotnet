@@ -40,7 +40,11 @@ namespace ContentExtraction.Services
 
             const string analyzerId = "prebuilt-documentAnalyzer";
             var apiNameDescription = "extract document content";
-            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath, apiNameDescription);
+            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            {
+                Console.WriteLine($"Use {analyzerId} to {apiNameDescription} from the file: {filePath}");
+            }
+            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath);
             var resultJson = await _client.PollResultAsync(response);
             var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
@@ -86,7 +90,11 @@ namespace ContentExtraction.Services
 
             const string analyzerId = "prebuilt-audioAnalyzer";
             var apiNameDescription = "extract audio content";
-            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath, apiNameDescription);
+            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            {
+                Console.WriteLine($"Use {analyzerId} to {apiNameDescription} from the file: {filePath}");
+            }
+            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath);
             var resultJson = await _client.PollResultAsync(response);
             var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
@@ -119,7 +127,11 @@ namespace ContentExtraction.Services
 
             const string analyzerId = "prebuilt-videoAnalyzer";
             var apiNameDescription = "extract video content";
-            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath, apiNameDescription);
+            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            {
+                Console.WriteLine($"Use {analyzerId} to {apiNameDescription} from the file: {filePath}");
+            }
+            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath);
             var resultJson = await _client.PollResultAsync(response);
             var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
@@ -149,7 +161,11 @@ namespace ContentExtraction.Services
 
             const string analyzerId = "prebuilt-videoAnalyzer";
             var apiNameDescription = "extract video content with face";
-            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath, apiNameDescription);
+            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            {
+                Console.WriteLine($"Use {analyzerId} to {apiNameDescription} from the file: {filePath}");
+            }
+            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath);
             var resultJson = await _client.PollResultAsync(response);
             var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
