@@ -1,24 +1,27 @@
 ﻿using BuildPersonDirectory.Interfaces;
 using ContentUnderstanding.Common;
+using ContentUnderstanding.Common.Models;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BuildPersonDirectory.Services
 {
     public class BuildPersonDirectoryService : IBuildPersonDirectoryService
     {
         private readonly AzureContentUnderstandingFaceClient _client;
-        private readonly string OutputPath = "./outputs/build_person_directory/";
         private const string EnrollmentDataPath = "./data/face/enrollment_data";
 
         public BuildPersonDirectoryService(AzureContentUnderstandingFaceClient client)
         {
             _client = client;
-
-            if (!Directory.Exists(OutputPath))
-            {
-                Directory.CreateDirectory(OutputPath);
-            }
         }
 
+        /// <summary>
+        /// Asynchronously creates a person directory with the specified identifier.
+        /// </summary>
+        /// <param name="directoryId">The unique identifier for the directory to be created. Cannot be null or empty.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains the identifier of the created
+        /// directory.</returns>
         public async Task<string> CreatePersonDirectoryAsync(string directoryId)
         {
             Console.WriteLine("Creating Person Directory...");
@@ -29,9 +32,21 @@ namespace BuildPersonDirectory.Services
             return directoryId;
         }
 
-        public async Task BuildPersonDirectoryAsync(string directoryId)
+        /// <summary>
+        /// Asynchronously builds a directory of persons by processing subfolders containing face images.
+        /// </summary>
+        /// <remarks>This method processes each subfolder in the enrollment data directory as a separate
+        /// person. Each subfolder's name is used as the person's name, and all image files within the subfolder are
+        /// processed as face images for that person.</remarks>
+        /// <param name="directoryId">The identifier of the directory where persons will be added.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains a list of <see cref="Person"/>
+        /// objects, each representing a person added to the directory.</returns>
+        /// <exception cref="Exception">Thrown if the enrollment data directory does not exist.</exception>
+        public async Task<IList<Person>> BuildPersonDirectoryAsync(string directoryId)
         {
             Console.WriteLine("\nBuilding Person Directory...");
+
+            IList<Person> persons = new List<Person>();
 
             if (!Directory.Exists(EnrollmentDataPath))
                 throw new Exception($"Enrollment data directory not found: {EnrollmentDataPath}");
@@ -39,18 +54,22 @@ namespace BuildPersonDirectory.Services
             var subfolders = Directory.GetDirectories(EnrollmentDataPath);
             Console.WriteLine($"Found {subfolders.Length} subfolders in enrollment data");
 
+            // Iterate through all subfolders in the EnrollmentDataPath
             foreach (var subfolder in subfolders)
             {
+                var person = new Person();
                 var personName = Path.GetFileName(subfolder);
                 Console.WriteLine($"Processing person: {personName}");
 
-                // Create person
+                // Adds a person to the Person Directory, using the name of the subfolder as the person's name.
                 var personResponse = await _client.AddPersonAsync(
                     directoryId,
                     new Dictionary<string, object> { ["name"] = personName }
                 );
-
                 var personId = personResponse.PersonId;
+                person.PersonId = personId;
+                person.Name = personName;
+
                 Console.WriteLine($"Created person with ID: {personId}");
 
                 // Process face images
@@ -62,6 +81,7 @@ namespace BuildPersonDirectory.Services
 
                 Console.WriteLine($"Found {imageFiles.Length} face images");
 
+                // Iterate through all images in the subfolder
                 foreach (var imageFile in imageFiles)
                 {
                     var filename = Path.GetFileName(imageFile);
@@ -69,20 +89,42 @@ namespace BuildPersonDirectory.Services
 
                     try
                     {
+                        // Convert image to base64
                         var imageData = AzureContentUnderstandingFaceClient.ReadFileToBase64(imageFile);
+                        // Add a face to the Person Directory and associate it to the added person
                         var faceResponse = await _client.AddFaceAsync(directoryId, imageData, personId);
-                        Console.WriteLine($"success! Face ID: {faceResponse.FaceId}");
+                        if (faceResponse != null && !string.IsNullOrWhiteSpace(faceResponse.FaceId))
+                        {
+                            person.Faces.Add(faceResponse.FaceId);
+                            Console.WriteLine($"Added face from {filename} with face_id: {faceResponse.FaceId} to person_id: {personId}");
+                        }
+                        else
+                        {
+                            Console.Error.WriteLine($"Error: Failed to add face from {filename} to person_id: {personId}. FaceId was not returned.");
+                            // Stop execution as a valid FaceId is required for further processing.
+                            throw new Exception($"Failed to add face from {filename} to person_id: {personId}. FaceId was not returned.");
+                        }
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        Console.WriteLine($"failed: {ex.Message}");
+                        Console.WriteLine($"Failed to add face from {filename} to person_id: {personId}");
                     }
                 }
+
+                persons.Add(person);
             }
 
             Console.WriteLine($"\nCompleted building person directory with {subfolders.Length} persons");
+            return persons;
         }
 
+        /// <summary>
+        /// Asynchronously identifies persons in a given image using a specified directory of known individuals.
+        /// </summary>
+        /// <remarks>Detect multiple faces in an image and identify each one by matching it against enrolled persons in the Person Directory.</remarks>
+        /// <param name="directoryId">The identifier of the directory containing known individuals for comparison.</param>
+        /// <param name="imagePath">The file path to the image in which persons are to be identified.</param>
+        /// <returns></returns>
         public async Task IdentifyPersonsInImageAsync(string directoryId, string imagePath)
         {
             Console.WriteLine("\nIdentifying Persons in Image...");
@@ -90,7 +132,7 @@ namespace BuildPersonDirectory.Services
 
             var imageData = AzureContentUnderstandingFaceClient.ReadFileToBase64(imagePath);
 
-            // Detect faces
+            // Detect faces in the test image
             var detectionResponse = await _client.DetectFacesAsync(data: imageData);
             var detectedFaces = detectionResponse.DetectedFaces;
             Console.WriteLine($"Detected {detectedFaces.Count} faces in the image");
@@ -122,28 +164,44 @@ namespace BuildPersonDirectory.Services
                     {
                         var candidate = identifyResponse.PersonCandidates[0];
 
-                        // Get person details to get name tag
-                        var person = await _client.GetPersonAsync(directoryId, candidate.PersonId);
-                        var name = person.Tags.TryGetValue("name", out var n) ? n : "Unknown";
+                        if (candidate.PersonId != null)
+                        {
+                            // Get person details to get name tag
+                            var person = await _client.GetPersonAsync(directoryId, candidate.PersonId);
+                            var name = person.Tags.TryGetValue("name", out var n) ? n : "Unknown";
 
-                        Console.WriteLine($"  Identified as: {name} (Confidence: {candidate.Confidence}, Person ID: {candidate.PersonId})");
+                            Console.WriteLine($"Identified as: {name} (Confidence: {candidate.Confidence}, Person ID: {candidate.PersonId})");
+                        }
+                        else
+                        {
+                            Console.WriteLine("No person identified in directory");
+                            continue;
+                        }
                     }
                     else
                     {
-                        Console.WriteLine("  Person not identified in directory");
+                        Console.WriteLine("Person not identified in directory");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"  Error identifying person: {ex.Message}");
+                    Console.WriteLine($"Error identifying person: {ex.Message}");
                 }
             }
 
             Console.WriteLine("Identification completed");
         }
 
-        #region Management Operations (Implementation Examples)
-        public async Task AddNewFaceToPersonAsync(string directoryId, string personId, string newFaceImagePath)
+        /// <summary>
+        /// Asynchronously adds a new face to an existing person in the specified directory.
+        /// </summary>
+        /// <remarks>You can add a new face to the Person Directory and associate it with an existing person.</remarks>
+        /// <param name="directoryId">The identifier of the directory where the person is located.</param>
+        /// <param name="personId">The identifier of the person to whom the new face will be added. Can be <see langword="null"/> if not
+        /// specified.</param>
+        /// <param name="newFaceImagePath">The file path of the image containing the new face to be added. The file must exist.</param>
+        /// <returns></returns>
+        public async Task AddNewFaceToPersonAsync(string directoryId, string? personId, string newFaceImagePath)
         {
             Console.WriteLine("\nAdding new face to existing person...");
 
@@ -155,17 +213,39 @@ namespace BuildPersonDirectory.Services
 
             try
             {
+                // Convert the new face image to base64
                 var imageData = AzureContentUnderstandingFaceClient.ReadFileToBase64(newFaceImagePath);
+                // Add the new face to the person directory and associate it with the existing person
                 var faceResponse = await _client.AddFaceAsync(directoryId, imageData, personId);
-                Console.WriteLine($"Added new face with ID: {faceResponse.FaceId}");
+                Console.WriteLine($"Added face from {newFaceImagePath} with face_id: {faceResponse.FaceId} to person_id: {personId}");
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"Error adding face: {ex.Message}");
+                Console.WriteLine($"Failed to add face from {newFaceImagePath} to person_id: {personId}");
             }
         }
 
-        public async Task AssociateExistingFacesAsync(string directoryId, string personId, List<string> faceIds)
+        /// <summary>
+        /// Asynchronously retrieves information about a specific face from the specified person directory.
+        /// </summary>
+        /// <param name="personDirectoryId">The identifier of the person directory containing the face.</param>
+        /// <param name="faceId">The identifier of the face to retrieve information for.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains a <see cref="FaceResponse"/>
+        /// with details about the face.</returns>
+        public async Task<FaceResponse> GetFaceAsync(string personDirectoryId, string faceId)
+        {
+            return await _client.GetFaceAsync(personDirectoryId, faceId);
+        }
+
+        /// <summary>
+        /// Associates a list of existing face IDs with a specified person in a directory.
+        /// </summary>
+        /// <remarks>You can associate a list of already enrolled faces in the Person Directory with their respective persons. This is useful if you have existing face IDs to link to specific persons.</remarks>
+        /// <param name="directoryId">The identifier of the directory containing the person.</param>
+        /// <param name="personId">The unique ID of the person to whom the face should be associated.</param>
+        /// <param name="faceIds">The list of face IDs to be associated.</param>
+        /// <returns></returns>
+        public async Task AssociateExistingFacesAsync(string directoryId, string? personId, List<string> faceIds)
         {
             Console.WriteLine("\nAssociating existing faces to person...");
 
@@ -177,6 +257,7 @@ namespace BuildPersonDirectory.Services
 
             try
             {
+                // Associate the existing face IDs with the existing person
                 await _client.UpdatePersonAsync(
                     directoryId,
                     personId,
@@ -190,19 +271,29 @@ namespace BuildPersonDirectory.Services
             }
         }
 
-        public async Task UpdateFaceAssociationAsync(string directoryId, string faceId, string newPersonId = null)
+        /// <summary>
+        /// Updates the association of a face with a person in the specified directory.
+        /// </summary>
+        /// <remarks>You can associate or disassociate a face from a person in the Person Directory. Associating a face links it to a specific person, while disassociating removes this link.</remarks>
+        /// <param name="directoryId">The identifier of the directory containing the face.</param>
+        /// <param name="faceId">The unique ID of the face.</param>
+        /// <param name="personId">The unique ID of the person to be associated with the face.</param>
+        /// <returns></returns>
+        public async Task UpdateFaceAssociationAsync(string directoryId, string faceId, string? personId = null)
         {
             Console.WriteLine("\nUpdating face association...");
 
             try
             {
-                // Clear association if newPersonId is null
-                await _client.UpdateFaceAsync(directoryId, faceId, newPersonId ?? "");
+                // Remove the association of the existing face ID from the person or associate the existing face ID with a person.
+                await _client.UpdateFaceAsync(directoryId, faceId, personId ?? "");
 
-                var action = string.IsNullOrEmpty(newPersonId) ?
+                var action = string.IsNullOrEmpty(personId) ?
                     "Disassociated" : "Associated";
 
-                Console.WriteLine($"{action} face {faceId} to person: {newPersonId ?? "None"}");
+                Console.WriteLine($"{action} face {faceId} to person: {personId ?? "None"}");
+                var json = await _client.GetFaceAsync(directoryId, faceId);
+                Console.WriteLine($"The face information with the new person association: {JsonSerializer.Serialize(json)}");
             }
             catch (Exception ex)
             {
@@ -210,7 +301,7 @@ namespace BuildPersonDirectory.Services
             }
         }
 
-        public async Task UpdateMetadataAsync(string directoryId, string personId = null)
+        public async Task UpdateMetadataAsync(string directoryId, string? personId = null)
         {
             Console.WriteLine("\nUpdating metadata...");
 
@@ -275,6 +366,5 @@ namespace BuildPersonDirectory.Services
                 Console.WriteLine($"Error during deletion: {ex.Message}");
             }
         }
-        #endregion
     }
 }

@@ -1,20 +1,24 @@
-﻿namespace BuildPersonDirectory.Interfaces
+﻿using ContentUnderstanding.Common.Models;
+
+namespace BuildPersonDirectory.Interfaces
 {
     public interface IBuildPersonDirectoryService
     {
         Task<string> CreatePersonDirectoryAsync(string directoryId);
 
-        Task BuildPersonDirectoryAsync(string directoryId);
+        Task<IList<Person>> BuildPersonDirectoryAsync(string directoryId);
 
         Task IdentifyPersonsInImageAsync(string directoryId, string imagePath);
 
-        Task AddNewFaceToPersonAsync(string directoryId, string personId, string newFaceImagePath);
+        Task<FaceResponse> GetFaceAsync(string personDirectoryId, string faceId);
 
-        Task AssociateExistingFacesAsync(string directoryId, string personId, List<string> faceIds);
+        Task AddNewFaceToPersonAsync(string directoryId, string? personId, string newFaceImagePath);
 
-        Task UpdateFaceAssociationAsync(string directoryId, string faceId, string newPersonId = null);
+        Task AssociateExistingFacesAsync(string directoryId, string? personId, List<string> faceIds);
 
-        Task UpdateMetadataAsync(string directoryId, string personId = null);
+        Task UpdateFaceAssociationAsync(string directoryId, string faceId, string? personId = null);
+
+        Task UpdateMetadataAsync(string directoryId, string? personId = null);
 
         Task DeleteFaceAndPersonAsync(string directoryId, string personId);
     }

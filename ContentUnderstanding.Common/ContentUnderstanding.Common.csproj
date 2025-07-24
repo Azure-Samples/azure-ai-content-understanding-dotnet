@@ -99,7 +99,7 @@
     <None Update="data\face\enrollment_data\Bill\Family1-Dad2.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="data\face\enrollment_data\Bill\Family1-Dad3.jpg">
+    <None Update="data\face\NewFace_Bill.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\face\enrollment_data\Clare\Family1-Mom1.jpg">
@@ -114,16 +114,10 @@
     <None Update="data\face\enrollment_data\Jordan\Family1-Daughter2.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="data\face\enrollment_data\Jordan\Family1-Daughter3.jpg">
+    <None Update="data\face\enrollment_data\Mary\Family1-Daughter3.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\face\family.jpg">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="data\face\PD_enrollment.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="data\face\PD_searching.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\fast_pretranscribed.json">
