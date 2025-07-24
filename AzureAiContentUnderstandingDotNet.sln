@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FieldExtraction", "FieldExt
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Management", "Management\Management.csproj", "{3514F71F-07DA-4272-838D-B0A63927896B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Classifier", "Classifier\Classifier.csproj", "{DA9D1FEC-E2D5-4769-A115-ADD5D4229D6C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +49,10 @@ Global
 		{3514F71F-07DA-4272-838D-B0A63927896B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3514F71F-07DA-4272-838D-B0A63927896B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3514F71F-07DA-4272-838D-B0A63927896B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA9D1FEC-E2D5-4769-A115-ADD5D4229D6C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA9D1FEC-E2D5-4769-A115-ADD5D4229D6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA9D1FEC-E2D5-4769-A115-ADD5D4229D6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA9D1FEC-E2D5-4769-A115-ADD5D4229D6C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
