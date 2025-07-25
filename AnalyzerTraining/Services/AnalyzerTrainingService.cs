@@ -44,8 +44,8 @@ namespace AnalyzerTraining.Services
                 var createResponse = await _client.BeginCreateAnalyzerAsync(
                     analyzerId: analyzerId,
                     analyzerTemplatePath: analyzerTemplatePath,
-                    trainingStorageContainerSasUrl: trainingStorageContainerSasUrl,
-                    trainingStorageContainerPathPrefix: trainingStorageContainerPathPrefix
+                    trainingStorageContainerSasUrl,
+                    trainingStorageContainerPathPrefix
                 );
 
                 // Poll for creation result

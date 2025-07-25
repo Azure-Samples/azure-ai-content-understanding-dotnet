@@ -16,16 +16,7 @@ namespace ContentUnderstanding.Common
         private readonly HttpClient _httpClient;
         private readonly IOptions<ContentUnderstandingOptions> _options;
         private readonly Func<Task<string>> _tokenProvider;
-        private readonly HashSet<string> SUPPORTED_FILE_TYPES_DOCUMENT = new HashSet<string>
-        {
-            ".pdf", ".tiff", ".jpg", ".jpeg", ".png", ".bmp", ".heif"
-        };
-        private readonly HashSet<string> SUPPORTED_FILE_TYPES_DOCUMENT_TXT = new HashSet<string>
-        {
-            ".pdf", ".tiff", ".jpg", ".jpeg", ".png", ".bmp", ".heif", ".docx", ".xlsx", ".pptx", ".txt", ".html", ".md", ".eml", ".msg", ".xml"
-        };
-        private const string LABEL_FILE_SUFFIX = ".label.json";
-        private const string OCR_RESULT_FILE_SUFFIX = ".ocr.json";
+        private const string KNOWLEDGE_SOURCE_LIST_FILE_NAME = "sources.jsonl";
 
         public AzureContentUnderstandingClient(HttpClient httpClient, IOptions<ContentUnderstandingOptions> options, Func<Task<string>> tokenProvider)
         {
@@ -56,6 +47,18 @@ namespace ContentUnderstanding.Common
                 ["kind"] = "blob",
                 ["prefix"] = storageContainerPathPrefix
             };
+
+        private Dictionary<string, string> GetProModeReferenceDocsConfig(string storageContainerSasUrl, string storageContainerPathPrefix) => 
+            new Dictionary<string, string>
+            {
+                ["containerUrl"] = storageContainerSasUrl,
+                ["kind"] = "reference",
+                ["prefix"] = storageContainerPathPrefix,
+                ["fileListPath"] = KNOWLEDGE_SOURCE_LIST_FILE_NAME
+            };
+
+        public string GetKnowledgeSourceListFileName() => KNOWLEDGE_SOURCE_LIST_FILE_NAME;
+
         private async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string url, HttpContent? content = null)
         {
             var request = new HttpRequestMessage(method, url);
@@ -114,16 +117,17 @@ namespace ContentUnderstanding.Common
         /// <param name="analyzerId">The unique identifier for the analyzer.</param>
         /// <param name="analyzerTemplate">The schema definition for the analyzer. Defaults to None.</param>
         /// <param name="analyzerTemplatePath">The file path to the analyzer schema JSON file. Defaults to "".</param>
-        /// <param name="trainingStorageContainerSasUrl">The SAS URL for the training storage container. Defaults to "".</param>
-        /// <param name="trainingStorageContainerPathPrefix">The path prefix within the training storage container. Defaults to "".</param>
+        /// <param name="storageContainerSasUrl">The SAS URL for the training storage container. Defaults to "".</param>
+        /// <param name="storageContainerPathPrefix">The path prefix within the training storage container. Defaults to "".</param>
         /// <param name="cancellationToken"></param>
         /// <returns>The response object from the HTTP request.</returns>
         /// <exception cref="ArgumentException">If neither `analyzerTemplate` nor `analyzerTemplatePath` is provided.</exception>
         public async Task<HttpResponseMessage> BeginCreateAnalyzerAsync(
             string analyzerId,
             string analyzerTemplatePath = "",
-            string trainingStorageContainerSasUrl = "",
-            string trainingStorageContainerPathPrefix = "",
+            string storageContainerSasUrl = "",
+            string storageContainerPathPrefix = "",
+            bool isProMode = false,
             CancellationToken cancellationToken = default)
         {
             JsonDocument? analyzerTemplate = null;
@@ -140,10 +144,23 @@ namespace ContentUnderstanding.Common
             var jsonObject = JsonSerializer.Deserialize<Dictionary<string, object>>(
                 analyzerTemplate.RootElement.GetRawText());
 
-            if (jsonObject != null && !string.IsNullOrEmpty(trainingStorageContainerSasUrl) && !string.IsNullOrEmpty(trainingStorageContainerPathPrefix))
+            if (jsonObject != null && !string.IsNullOrEmpty(storageContainerSasUrl) && !string.IsNullOrEmpty(storageContainerPathPrefix))
             {
-                var trainingConfig = GetTrainingDataConfig(trainingStorageContainerSasUrl, trainingStorageContainerPathPrefix);
-                jsonObject["trainingData"] = trainingConfig;
+                if (storageContainerPathPrefix.EndsWith("/"))
+                {
+                    storageContainerPathPrefix += "/";
+                }
+
+                if (!isProMode)
+                {
+                    var referenceDocsConfig = GetProModeReferenceDocsConfig(storageContainerSasUrl, storageContainerPathPrefix);
+                    jsonObject["knowledgeSources"] = referenceDocsConfig;
+                }
+                else
+                {
+                    var trainingConfig = GetTrainingDataConfig(storageContainerSasUrl, storageContainerPathPrefix);
+                    jsonObject["trainingData"] = trainingConfig;
+                }
             }
 
             var url = GetAnalyzerUrl(analyzerId);
@@ -347,51 +364,6 @@ namespace ContentUnderstanding.Common
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Failed to upload JSONL content to blob '{targetBlobPath}'.", ex);
-            }
-        }
-
-        public async Task GenerateTrainingDataOnBlobAsync(
-            string trainingDocsFolder,
-            string storageContainerSasUrl,
-            string storageContainerPathPrefix)
-        {
-            if (!storageContainerPathPrefix.EndsWith("/"))
-            {
-                storageContainerPathPrefix += "/";
-            }
-
-            BlobContainerClient containerClient = new BlobContainerClient(new Uri(storageContainerSasUrl));
-
-            foreach (var fileName in Directory.GetFiles(trainingDocsFolder))
-            {
-                string fileNameOnly = Path.GetFileName(fileName);
-                string fileExt = Path.GetExtension(fileName).ToLower();
-
-                if ((fileExt == "" || SUPPORTED_FILE_TYPES_DOCUMENT.Contains(fileExt)))
-                {
-                    string labelFilename = fileNameOnly + LABEL_FILE_SUFFIX;
-                    string labelPath = Path.Combine(trainingDocsFolder, labelFilename);
-                    string ocrResultFilename = fileNameOnly + OCR_RESULT_FILE_SUFFIX;
-                    string ocrResultPath = Path.Combine(trainingDocsFolder, ocrResultFilename);
-
-                    if (File.Exists(labelPath) && File.Exists(ocrResultPath))
-                    {
-                        string fileBlobPath = storageContainerPathPrefix + fileNameOnly;
-                        string labelBlobPath = storageContainerPathPrefix + labelFilename;
-                        string ocrResultBlobPath = storageContainerPathPrefix + ocrResultFilename;
-
-                        await UploadFileToBlobAsync(containerClient, fileName, fileBlobPath);
-                        await UploadFileToBlobAsync(containerClient, labelPath, labelBlobPath);
-                        await UploadFileToBlobAsync(containerClient, ocrResultPath, ocrResultBlobPath);
-                    }
-                    else
-                    {
-                        throw new FileNotFoundException(
-                            $"Label file '{labelFilename}' or OCR result file '{ocrResultFilename}' does not exist in '{trainingDocsFolder}'. " +
-                            $"Please ensure both files exist for '{fileNameOnly}'."
-                        );
-                    }
-                }
             }
         }
 

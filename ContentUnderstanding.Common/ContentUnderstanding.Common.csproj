@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.14.1" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.25.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.6" />
   </ItemGroup>
 
@@ -130,6 +131,21 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\fast_pretranscribed.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\input_docs\contoso_lifts_invoice.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\reference_docs\BUILDERS LIMITED WARRANTY.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\reference_docs\HOLDING TANK SERVICING CONTRACT.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\reference_docs\PROPERTY MANAGEMENT AGREEMENT.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\reference_docs\purchase_contract.pdf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\FlightSimulator.mp4">
