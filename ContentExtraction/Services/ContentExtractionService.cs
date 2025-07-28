@@ -229,6 +229,7 @@ namespace ContentExtraction.Services
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Failed to save keyframe ({keyframeId}): {ex.Message}");
+                    throw;
                 }
             }
         }
@@ -293,6 +294,7 @@ namespace ContentExtraction.Services
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Failed to save face image ({faceId}): {ex.Message}");
+                    throw;
                 }
             }
 
@@ -308,6 +310,7 @@ namespace ContentExtraction.Services
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Failed to save keyframe ({keyframeId}): {ex.Message}");
+                    throw;
                 }
             }
         }

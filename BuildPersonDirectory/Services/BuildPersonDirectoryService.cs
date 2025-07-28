@@ -108,6 +108,7 @@ namespace BuildPersonDirectory.Services
                     catch
                     {
                         Console.WriteLine($"Failed to add face from {filename} to person_id: {personId}");
+                        throw;
                     }
                 }
 
@@ -186,6 +187,7 @@ namespace BuildPersonDirectory.Services
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error identifying person: {ex.Message}");
+                    throw;
                 }
             }
 
@@ -222,6 +224,7 @@ namespace BuildPersonDirectory.Services
             catch
             {
                 Console.WriteLine($"Failed to add face from {newFaceImagePath} to person_id: {personId}");
+                throw;
             }
         }
 
@@ -268,6 +271,7 @@ namespace BuildPersonDirectory.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error associating faces: {ex.Message}");
+                throw;
             }
         }
 
@@ -298,6 +302,7 @@ namespace BuildPersonDirectory.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating face association: {ex.Message}");
+                throw;
             }
         }
 
@@ -337,6 +342,7 @@ namespace BuildPersonDirectory.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating metadata: {ex.Message}");
+                throw;
             }
         }
 
@@ -364,6 +370,7 @@ namespace BuildPersonDirectory.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error during deletion: {ex.Message}");
+                throw;
             }
         }
     }

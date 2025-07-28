@@ -94,6 +94,7 @@ namespace AnalyzerTraining.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error during document analysis: {ex.Message}");
+                throw;
             }
         }
 
@@ -116,6 +117,7 @@ namespace AnalyzerTraining.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error deleting analyzer: {ex.Message}");
+                throw;
             }
         }
     }

@@ -10,16 +10,6 @@ namespace FieldExtractionProMode.Services
     {
         private readonly AzureContentUnderstandingClient _client;
         private readonly string OutputPath = "./outputs/field_extraction_pro_mode/";
-        private readonly HashSet<string> SUPPORTED_FILE_TYPES_DOCUMENT = new HashSet<string>
-        {
-            ".pdf", ".tiff", ".jpg", ".jpeg", ".png", ".bmp", ".heif"
-        };
-        private readonly HashSet<string> SUPPORTED_FILE_TYPES_DOCUMENT_TXT = new HashSet<string>
-        {
-            ".pdf", ".tiff", ".jpg", ".jpeg", ".png", ".bmp", ".heif", ".docx", ".xlsx", ".pptx", ".txt", ".html", ".md", ".eml", ".msg", ".xml"
-        };
-        private const string LABEL_FILE_SUFFIX = ".label.json";
-        private const string OCR_RESULT_FILE_SUFFIX = ".ocr.json";
 
         public FieldExtractionProModeService(AzureContentUnderstandingClient client)
         {
@@ -60,11 +50,11 @@ namespace FieldExtractionProMode.Services
                 string fileNameOnly = Path.GetFileName(fileName);
                 string fileExt = Path.GetExtension(fileName).ToLower();
 
-                if ((fileExt == "" || SUPPORTED_FILE_TYPES_DOCUMENT.Contains(fileExt)))
+                if ((fileExt == "" || _client.GetSupportedFileTypesDocument().Contains(fileExt)))
                 {
-                    string labelFilename = fileNameOnly + LABEL_FILE_SUFFIX;
+                    string labelFilename = fileNameOnly + _client.GetLabelFileSuffix();
                     string labelPath = Path.Combine(trainingDocsFolder, labelFilename);
-                    string ocrResultFilename = fileNameOnly + OCR_RESULT_FILE_SUFFIX;
+                    string ocrResultFilename = fileNameOnly + _client.GetOcrResultFileSuffix();
                     string ocrResultPath = Path.Combine(trainingDocsFolder, ocrResultFilename);
 
                     if (File.Exists(labelPath) && File.Exists(ocrResultPath))
@@ -307,6 +297,7 @@ namespace FieldExtractionProMode.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error deleting analyzer: {ex.Message}");
+                throw;
             }
         }
 
@@ -331,9 +322,9 @@ namespace FieldExtractionProMode.Services
                 string filename = Path.GetFileName(filePath);
                 string fileExt = Path.GetExtension(filename);
 
-                if (IsSupportedDocTypeByFileExt(fileExt, isDocument: true))
+                if (_client.IsSupportedDocTypeByFileExt(fileExt, isDocument: true))
                 {
-                    string resultFileName = filename + OCR_RESULT_FILE_SUFFIX;
+                    string resultFileName = filename + _client.GetOcrResultFileSuffix();
                     string resultFilePath = Path.Combine(dirPath, resultFileName);
 
                     if (!File.Exists(resultFilePath))
@@ -352,16 +343,16 @@ namespace FieldExtractionProMode.Services
                         ResultFilePath = resultFilePath
                     });
                 }
-                else if (filename.EndsWith(OCR_RESULT_FILE_SUFFIX, StringComparison.OrdinalIgnoreCase))
+                else if (filename.EndsWith(_client.GetOcrResultFileSuffix(), StringComparison.OrdinalIgnoreCase))
                 {
-                    string originalFilename = filename.Substring(0, filename.Length - OCR_RESULT_FILE_SUFFIX.Length);
+                    string originalFilename = filename.Substring(0, filename.Length - _client.GetOcrResultFileSuffix().Length);
                     string originalFilePath = Path.Combine(dirPath, originalFilename);
 
                     if (File.Exists(originalFilePath))
                     {
                         // skip result.json files corresponding to the file with supported document type
                         string originalFileExt = Path.GetExtension(originalFilename);
-                        if (IsSupportedDocTypeByFileExt(originalFileExt, isDocument: true))
+                        if (_client.IsSupportedDocTypeByFileExt(originalFileExt, isDocument: true))
                         {
                             continue;
                         }
@@ -408,10 +399,10 @@ namespace FieldExtractionProMode.Services
                 {
                     string fileNameOnly = Path.GetFileName(filename);
                     string fileExt = Path.GetExtension(fileNameOnly);
-                    if (IsSupportedDocTypeByFileExt(fileExt, isDocument: true))
+                    if (_client.IsSupportedDocTypeByFileExt(fileExt, isDocument: true))
                     {
                         string filePath = Path.Combine(dirpath, fileNameOnly);
-                        string resultFileName = fileNameOnly + OCR_RESULT_FILE_SUFFIX;
+                        string resultFileName = fileNameOnly + _client.GetOcrResultFileSuffix();
                         analyzeList.Add(new ReferenceDocItem
                         {
                             Filename = fileNameOnly,
@@ -433,10 +424,10 @@ namespace FieldExtractionProMode.Services
             {
                 string fileNameOnly = Path.GetFileName(filename);
                 string fileExt = Path.GetExtension(fileNameOnly);
-                if (IsSupportedDocTypeByFileExt(fileExt, isDocument: true))
+                if (_client.IsSupportedDocTypeByFileExt(fileExt, isDocument: true))
                 {
                     string filePath = Path.Combine(referenceDocsFolder, fileNameOnly);
-                    string resultFileName = fileNameOnly + OCR_RESULT_FILE_SUFFIX;
+                    string resultFileName = fileNameOnly + _client.GetOcrResultFileSuffix();
                     analyzeList.Add(new ReferenceDocItem
                     {
                         Filename = fileNameOnly,
@@ -453,35 +444,6 @@ namespace FieldExtractionProMode.Services
             }
 
             return analyzeList;
-        }
-
-        /// <summary>
-        /// Determines whether the specified file extension is supported for the given document type.
-        /// </summary>
-        /// <param name="fileExt">The file extension to check, without a leading period. This value is case-insensitive.</param>
-        /// <param name="isDocument">A boolean indicating whether to check against the document file types.  <see langword="true"/> to check
-        /// against document file types; otherwise, checks against text file types.</param>
-        /// <returns><see langword="true"/> if the file extension is supported for the specified document type; otherwise, <see
-        /// langword="false"/>.</returns>
-        private bool IsSupportedDocTypeByFileExt(string fileExt, bool isDocument = false)
-        {
-            var supportedTypes = isDocument ? SUPPORTED_FILE_TYPES_DOCUMENT : SUPPORTED_FILE_TYPES_DOCUMENT_TXT;
-            return supportedTypes.Contains(fileExt.ToLower());
-        }
-
-        /// <summary>
-        /// Determines whether the specified file path corresponds to a supported document type.
-        /// </summary>
-        /// <param name="filePath">The path of the file to check. Must not be null or empty.</param>
-        /// <param name="isDocument">Indicates whether the file is expected to be a document. Defaults to <see langword="false"/>.</param>
-        /// <returns><see langword="true"/> if the file exists and its extension is supported; otherwise, <see
-        /// langword="false"/>.</returns>
-        private bool IsSupportedDocTypeByFilePath(string filePath, bool isDocument = false)
-        {
-            if (!File.Exists(filePath))
-                return false;
-            string fileExt = Path.GetExtension(filePath).ToLower();
-            return IsSupportedDocTypeByFileExt(fileExt, isDocument);
         }
     }
 }
