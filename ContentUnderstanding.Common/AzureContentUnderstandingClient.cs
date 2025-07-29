@@ -24,8 +24,8 @@ namespace ContentUnderstanding.Common
         {
             ".pdf", ".tiff", ".jpg", ".jpeg", ".png", ".bmp", ".heif", ".docx", ".xlsx", ".pptx", ".txt", ".html", ".md", ".eml", ".msg", ".xml"
         };
-        private const string LABEL_FILE_SUFFIX = ".label.json";
-        private const string OCR_RESULT_FILE_SUFFIX = ".ocr.json";
+        private const string LABEL_FILE_SUFFIX = ".labels.json";
+        private const string OCR_RESULT_FILE_SUFFIX = ".result.json";
         private const string KNOWLEDGE_SOURCE_LIST_FILE_NAME = "sources.jsonl";
         
         /// <summary>
@@ -318,15 +318,18 @@ namespace ContentUnderstanding.Common
             }
             else if (Directory.Exists(fileLocation))
             {
-                var files = Directory.GetFiles(fileLocation, "*", SearchOption.AllDirectories)
-                    .Where(t => IsSupportedDocTypeByFilePath(t, true))
-                    .Select(s => new
-                    {
-                        name = Path.GetRelativePath(fileLocation, s).Replace(Path.DirectorySeparatorChar, '_'),
-                        data = Convert.ToBase64String(File.ReadAllBytes(s))
-                    });
-
-                content = new StringContent(JsonSerializer.Serialize(files), Encoding.UTF8, "application/json");
+                var data = new
+                {
+                    inputs = Directory.GetFiles(fileLocation, "*", SearchOption.AllDirectories)
+                        .Where(t => File.Exists(t) && IsSupportedDocTypeByFilePath(t, isDocument: true))
+                        .Select(s => new
+                        {
+                            name = string.Join("_", Path.GetRelativePath(fileLocation, s).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                            data = Convert.ToBase64String(File.ReadAllBytes(s))
+                        })
+                        .ToArray()
+                };
+                content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
             }
             else if (File.Exists(fileLocation) && IsSupportedDocTypeByFilePath(fileLocation))
             {
