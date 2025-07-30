@@ -2,6 +2,8 @@
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Models;
 using FieldExtractionProMode.Interfaces;
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace FieldExtractionProMode.Services
@@ -235,7 +237,7 @@ namespace FieldExtractionProMode.Services
         public async Task AnalyzeDocumentWithDefinedSchemaForProModeAsync(string analyzerId, string fileLocation)
         {
             var response = await _client.BeginAnalyzeAsync(analyzerId, fileLocation).ConfigureAwait(false);
-            JsonDocument resultJson = await _client.PollResultAsync(response, timeoutSeconds: 240).ConfigureAwait(false);
+            JsonDocument resultJson = await _client.PollResultAsync(response, timeoutSeconds: 600).ConfigureAwait(false);
 
             if (resultJson.RootElement.TryGetProperty("error", out JsonElement errorElement))
             {
@@ -245,10 +247,11 @@ namespace FieldExtractionProMode.Services
             }
             else
             {
+                var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
                 Console.WriteLine($"Document '{fileLocation}' analyzed successfully.");
 
                 var output = $"{Path.Combine(OutputPath, $"{nameof(AnalyzeDocumentWithDefinedSchemaForProModeAsync)}_{DateTime.Now.ToString("yyyyMMddHHmmss")}.json")}";
-                await File.WriteAllTextAsync(output, resultJson.RootElement.GetRawText());
+                await File.WriteAllTextAsync(output, serializedJson, encoding: Encoding.UTF8);
                 Console.WriteLine("\n===== Document with defined schema for pro mode has been saved to the following output file path =====");
                 Console.WriteLine($"\n{output}\n");
 

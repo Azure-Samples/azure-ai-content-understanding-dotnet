@@ -140,7 +140,7 @@ namespace ContentUnderstanding.Common
         private List<Dictionary<string, string>> GetProModeReferenceDocsConfig(string storageContainerSasUrl, string storageContainerPathPrefix) => 
             new List<Dictionary<string, string>>
             {
-                new Dictionary<string, string>
+                new()
                 {
                     ["containerUrl"] = storageContainerSasUrl,
                     ["kind"] = "reference",

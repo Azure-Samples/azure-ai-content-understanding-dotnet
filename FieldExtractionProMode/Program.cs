@@ -94,11 +94,11 @@ namespace FieldExtractionProMode
             var reference_docs = "./data/field_extraction_pro_mode/invoice_contract_verification/reference_docs";
 
             var analyzer_template_json = await File.ReadAllTextAsync(analyzer_template);
-            Console.WriteLine($"The analyzer template of Pro mode: {analyzer_template_json}");
+            Console.WriteLine($"The analyzer template of Pro mode: \n{analyzer_template_json}");
             Console.WriteLine($"In the analyzer, \"mode\" needs to be in \"pro\". The defined field - \"PaymentTermsInconsistencies\" is a `\"generate\"` field and is asked to reason about inconsistency, and will be able to use referenced documents to be uploaded in [reference docs](ContentUnderstanding.Common/data/field_extraction_pro_mode/invoice_contract_verification/reference_docs)");
             Console.WriteLine("Note: Reference documents are optional in Pro mode. You can run Pro mode using just input documents. \nFor example, the service can reason across two or more input files even without any reference data. \nPlease skip or comment out below section to skip the preparation of reference documents.");
             Console.WriteLine("\nStarting the field extraction process...");
-            Console.WriteLine("This operation may take several minutes to complete. Please wait...");
+            Console.WriteLine("Prepare reference data and upload the prepared files to the designated Azure blob storage. Please wait...");
 
             // Set skip_analyze to True if you already have OCR results for the documents in the reference_docs folder.
             // Please name the OCR result files with the same name as the original document files including its extension, and add the suffix ".result.json".
@@ -138,7 +138,7 @@ namespace FieldExtractionProMode
             // This snippet is not required, but it's only used to prevent the testing analyzer from residing in your service. Without deletion, the analyzer will remain in your service for subsequent reuse.
             await service.DeleteAnalyzerAsync(analyzerId);
 
-            Console.WriteLine("## Bonus sample.");
+            Console.WriteLine("\n\n## Bonus sample.");
             Console.WriteLine("We would like to introduce another sample to highlight how Pro mode supports multi-document input and advanced reasoning. \nUnlike Document Standard Mode, which processes one document at a time, Pro mode can analyze multiple documents within a single analysis call. \nWith Pro mode, the service not only processes each document independently, but also cross-references the documents to perform reasoning across them, enabling deeper insights and validation.");
 
             var analyzer_template_for_bonus_sample = "./analyzer_templates/insurance_claims_review_pro_mode.json";
@@ -157,7 +157,7 @@ namespace FieldExtractionProMode
             Console.WriteLine($"Start creating analyzer with defined schema for Pro mode for the second sample...");
             var analyzer_template_json_for_bonus_sample = await File.ReadAllTextAsync(analyzer_template_for_bonus_sample);
             
-            Console.WriteLine($"The analyzer template of Pro mode: {analyzer_template_json_for_bonus_sample}");
+            Console.WriteLine($"The analyzer template of Pro mode: \n{analyzer_template_json_for_bonus_sample}");
             Console.WriteLine("Creating the second analyzer for the bonus sample...");
             await service.CreateAnalyzerWithDefinedSchemaForProModeAsync(
                 analyzerId: analyzer_id_for_bonus_sample,
