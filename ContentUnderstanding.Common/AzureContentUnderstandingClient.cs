@@ -137,13 +137,16 @@ namespace ContentUnderstanding.Common
         /// <param name="storageContainerPathPrefix">The path prefix within the storage container for the reference documents.</param>
         /// <returns>A dictionary containing configuration settings for Pro Mode reference documents,  including the container
         /// URL, document kind, path prefix, and file list path.</returns>
-        private Dictionary<string, string> GetProModeReferenceDocsConfig(string storageContainerSasUrl, string storageContainerPathPrefix) => 
-            new Dictionary<string, string>
+        private List<Dictionary<string, string>> GetProModeReferenceDocsConfig(string storageContainerSasUrl, string storageContainerPathPrefix) => 
+            new List<Dictionary<string, string>>
             {
-                ["containerUrl"] = storageContainerSasUrl,
-                ["kind"] = "reference",
-                ["prefix"] = storageContainerPathPrefix,
-                ["fileListPath"] = KNOWLEDGE_SOURCE_LIST_FILE_NAME
+                new Dictionary<string, string>
+                {
+                    ["containerUrl"] = storageContainerSasUrl,
+                    ["kind"] = "reference",
+                    ["prefix"] = storageContainerPathPrefix,
+                    ["fileListPath"] = KNOWLEDGE_SOURCE_LIST_FILE_NAME
+                }
             };
 
         /// <summary>
@@ -255,12 +258,12 @@ namespace ContentUnderstanding.Common
 
             if (jsonObject != null && !string.IsNullOrEmpty(storageContainerSasUrl) && !string.IsNullOrEmpty(storageContainerPathPrefix))
             {
-                if (storageContainerPathPrefix.EndsWith("/"))
+                if (!storageContainerPathPrefix.EndsWith("/"))
                 {
                     storageContainerPathPrefix += "/";
                 }
 
-                if (!isProMode)
+                if (isProMode)
                 {
                     var referenceDocsConfig = GetProModeReferenceDocsConfig(storageContainerSasUrl, storageContainerPathPrefix);
                     jsonObject["knowledgeSources"] = referenceDocsConfig;
