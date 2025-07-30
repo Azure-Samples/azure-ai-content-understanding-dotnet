@@ -97,7 +97,9 @@ namespace FieldExtractionProMode
             Console.WriteLine($"The analyzer template of Pro mode: {analyzer_template_json}");
             Console.WriteLine($"In the analyzer, \"mode\" needs to be in \"pro\". The defined field - \"PaymentTermsInconsistencies\" is a `\"generate\"` field and is asked to reason about inconsistency, and will be able to use referenced documents to be uploaded in [reference docs](ContentUnderstanding.Common/data/field_extraction_pro_mode/invoice_contract_verification/reference_docs)");
             Console.WriteLine("Note: Reference documents are optional in Pro mode. You can run Pro mode using just input documents. \nFor example, the service can reason across two or more input files even without any reference data. \nPlease skip or comment out below section to skip the preparation of reference documents.");
-            
+            Console.WriteLine("\nStarting the field extraction process...");
+            Console.WriteLine("This operation may take several minutes to complete. Please wait...");
+
             // Set skip_analyze to True if you already have OCR results for the documents in the reference_docs folder.
             // Please name the OCR result files with the same name as the original document files including its extension, and add the suffix ".result.json".
             // For example, if the original document is "invoice.pdf", the OCR result file should be named "invoice.pdf.result.json".
