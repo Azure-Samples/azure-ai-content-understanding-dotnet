@@ -61,10 +61,15 @@ namespace FieldExtractionProMode
             Console.WriteLine("2. Generate a reference `.jsonl` file.");
             Console.WriteLine("3. Upload these files to the designated Azure blob storage.");
             Console.WriteLine("Please ensure you have the following information ready:");
+            
             Console.WriteLine("ReferenceDocSasUrl: Please paste the SAS URL that you have created in the last step and hit the [Enter] key.");
+
             string referenceDocSasUrl = Console.ReadLine() ?? string.Empty;
+
             Console.WriteLine("ReferenceDocPath: Please paste the folder path within the container for uploading reference docs.");
+
             string referenceDocPath = Console.ReadLine() ?? string.Empty;
+
             Console.WriteLine($"\nReferenceDocSasUrl: {referenceDocSasUrl}");
             Console.WriteLine($"ReferenceDocPath: {referenceDocPath}\n");
 
