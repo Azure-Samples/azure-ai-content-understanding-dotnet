@@ -245,11 +245,10 @@ namespace FieldExtractionProMode.Services
             }
             else
             {
-                var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
                 Console.WriteLine($"Document '{fileLocation}' analyzed successfully.");
 
                 var output = $"{Path.Combine(OutputPath, $"{nameof(AnalyzeDocumentWithDefinedSchemaForProModeAsync)}_{DateTime.Now.ToString("yyyyMMddHHmmss")}.json")}";
-                await File.WriteAllTextAsync(output, serializedJson);
+                await File.WriteAllTextAsync(output, resultJson.RootElement.GetRawText());
                 Console.WriteLine("\n===== Document with defined schema for pro mode has been saved to the following output file path =====");
                 Console.WriteLine($"\n{output}\n");
 
