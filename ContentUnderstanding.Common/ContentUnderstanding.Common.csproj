@@ -85,6 +85,12 @@
     <None Update="data\document_training\17a84146-e910-460c-bf80-a625e6f64fea.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="data\document_training\17a84146-e910-460c-bf80-a625e6f64fea.jpg.labels.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\document_training\17a84146-e910-460c-bf80-a625e6f64fea.jpg.result.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="data\document_training\17a84146-e910-460c-bf80-a625e6f64fea.labels.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -95,6 +101,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\document_training\29d60394-3da1-4714-abdc-ff0993009872.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\document_training\29d60394-3da1-4714-abdc-ff0993009872.jpg.labels.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\document_training\29d60394-3da1-4714-abdc-ff0993009872.jpg.result.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\document_training\29d60394-3da1-4714-abdc-ff0993009872.labels.json">

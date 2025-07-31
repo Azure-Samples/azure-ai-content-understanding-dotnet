@@ -334,7 +334,7 @@ namespace ContentUnderstanding.Common
                 };
                 content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
             }
-            else if (File.Exists(fileLocation) && IsSupportedDocTypeByFilePath(fileLocation))
+            else if (File.Exists(fileLocation))
             {
                 var bytes = await File.ReadAllBytesAsync(fileLocation).ConfigureAwait(false);
                 content = new ByteArrayContent(bytes);
