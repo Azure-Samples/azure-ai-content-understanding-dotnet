@@ -200,6 +200,7 @@ namespace FieldExtraction.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"{indent}- {fieldName} ({fieldType}): [Error reading value: {ex.Message}]");
+                throw;
             }
         }
 

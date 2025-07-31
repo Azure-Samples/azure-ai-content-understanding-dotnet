@@ -1,4 +1,5 @@
 ﻿using AnalyzerTraining.Interfaces;
+using Azure.Storage.Blobs;
 using ContentUnderstanding.Common;
 using System.Text.Json;
 
@@ -16,6 +17,70 @@ namespace AnalyzerTraining.Services
             if (!Directory.Exists(OutputPath))
             {
                 Directory.CreateDirectory(OutputPath);
+            }
+        }
+
+        /// <summary>
+        /// Uploads training data files, including labels and OCR results, from a local folder to a specified Azure Blob
+        /// Storage container.
+        /// </summary>
+        /// <remarks>This method uploads training documents along with their associated label and OCR
+        /// result files to Azure Blob Storage.  The method ensures that each document has corresponding label and OCR
+        /// result files before uploading.  If any required file is missing, a <see cref="FileNotFoundException"/> is
+        /// thrown.</remarks>
+        /// <param name="trainingDocsFolder">The local folder containing the training documents, label files, and OCR result files.  Each document must
+        /// have corresponding label and OCR result files in the same folder.</param>
+        /// <param name="storageContainerSasUrl">The SAS URL of the Azure Blob Storage container where the files will be uploaded.</param>
+        /// <param name="storageContainerPathPrefix">The path prefix within the storage container where the files will be uploaded.  If the prefix does not end
+        /// with a forward slash ('/'), one will be appended automatically.</param>
+        /// <returns></returns>
+        /// <exception cref="FileNotFoundException">Thrown if a required label file or OCR result file is missing for a document in the specified folder.</exception>
+        public async Task GenerateTrainingDataOnBlobAsync(
+            string trainingDocsFolder,
+            string storageContainerSasUrl,
+            string storageContainerPathPrefix)
+        {
+            if (!storageContainerPathPrefix.EndsWith("/"))
+            {
+                storageContainerPathPrefix += "/";
+            }
+
+            var containerClient = new BlobContainerClient(new Uri(storageContainerSasUrl));
+            var files = Directory.GetFiles(trainingDocsFolder);
+
+            foreach (var file in files)
+            {
+                string fileName = Path.GetFileName(file);
+                string fileExtension = Path.GetExtension(fileName);
+
+                if (string.IsNullOrEmpty(fileExtension) || _client.GetSupportedFileTypesDocument().Contains(fileExtension.ToLower()))
+                {
+                    string labelFilename = fileName + _client.GetLabelFileSuffix();
+                    string labelPath = Path.Combine(trainingDocsFolder, labelFilename);
+                    string ocrResultFilename = fileName + _client.GetOcrResultFileSuffix();
+                    string ocrResultPath = Path.Combine(trainingDocsFolder, ocrResultFilename);
+
+                    if (File.Exists(labelPath) && File.Exists(ocrResultPath))
+                    {
+                        string fileBlobPath = storageContainerPathPrefix + fileName;
+                        string labelBlobPath = storageContainerPathPrefix + labelFilename;
+                        string ocrResultBlobPath = storageContainerPathPrefix + ocrResultFilename;
+
+                        // Upload files
+                        await _client.UploadFileToBlobAsync(containerClient, file, fileBlobPath);
+                        await _client.UploadFileToBlobAsync(containerClient, labelPath, labelBlobPath);
+                        await _client.UploadFileToBlobAsync(containerClient, ocrResultPath, ocrResultBlobPath);
+
+                        Console.WriteLine($"Uploaded training data for {fileName}");
+                    }
+                    else
+                    {
+                        throw new FileNotFoundException(
+                            $"Label file '{labelFilename}' or OCR result file '{ocrResultFilename}' " +
+                            $"does not exist in '{trainingDocsFolder}'. " +
+                            $"Please ensure both files exist for '{fileName}'.");
+                    }
+                }
             }
         }
 
@@ -44,8 +109,8 @@ namespace AnalyzerTraining.Services
                 var createResponse = await _client.BeginCreateAnalyzerAsync(
                     analyzerId: analyzerId,
                     analyzerTemplatePath: analyzerTemplatePath,
-                    trainingStorageContainerSasUrl: trainingStorageContainerSasUrl,
-                    trainingStorageContainerPathPrefix: trainingStorageContainerPathPrefix
+                    trainingStorageContainerSasUrl,
+                    trainingStorageContainerPathPrefix
                 );
 
                 // Poll for creation result
@@ -94,6 +159,7 @@ namespace AnalyzerTraining.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error during document analysis: {ex.Message}");
+                throw;
             }
         }
 
@@ -116,6 +182,7 @@ namespace AnalyzerTraining.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error deleting analyzer: {ex.Message}");
+                throw;
             }
         }
     }
