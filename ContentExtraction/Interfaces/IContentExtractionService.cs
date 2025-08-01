@@ -1,4 +1,6 @@
-﻿namespace ContentExtraction.Interfaces
+﻿using System.Text.Json;
+
+namespace ContentExtraction.Interfaces
 {
     public interface IContentExtractionService
     {
@@ -10,7 +12,7 @@
         /// </summary>
         /// <param name="filePath">The path to the document file to be analyzed. Must be a valid file path.</param>
         /// <returns>A task representing the asynchronous operation. The task completes when the document analysis is finished.</returns>
-        Task AnalyzeDocumentAsync(string filePath);
+        Task<JsonDocument> AnalyzeDocumentAsync(string filePath);
 
         /// <summary>
         /// Audio Content
@@ -29,7 +31,7 @@
         /// audio file. The analysis results are serialized and displayed in the console.</remarks>
         /// <param name="filePath">The path to the audio file to be analyzed. The file must exist and be accessible.</param>
         /// <returns>A task that represents the asynchronous operation. The task completes when the analysis is finished.</returns>
-        Task AnalyzeAudioAsync(string filePath);
+        Task<JsonDocument> AnalyzeAudioAsync(string filePath);
 
         /// <summary>
         /// Video Content
@@ -46,7 +48,7 @@
         /// provided <paramref name="filePath"/> points to a valid video file.</remarks>
         /// <param name="filePath">The path to the video file to be analyzed. The file must exist and be accessible.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        Task AnalyzeVideoAsync(string filePath);
+        Task<JsonDocument> AnalyzeVideoAsync(string filePath);
 
         /// <summary>
         /// Video Content With Face
@@ -55,6 +57,6 @@
         /// <param name="filePath">The path to the video file to be analyzed. Must be a valid file path.</param>
         /// <returns>A task that represents the asynchronous operation. The task completes when the analysis is finished and the
         /// extracted content, including key frames and face data, has been processed.</returns>
-        Task AnalyzeVideoWithFaceAsync(string filePath);
+        Task<JsonDocument> AnalyzeVideoWithFaceAsync(string filePath);
     }
 }
