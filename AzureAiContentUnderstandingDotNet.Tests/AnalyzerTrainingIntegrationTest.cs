@@ -14,9 +14,12 @@ namespace AzureAiContentUnderstandingDotNet.Tests
     public class AnalyzerTrainingIntegrationTest
     {
         private readonly IAnalyzerTrainingService service;
-        private const string trainingDataSasUrl = "SAS_URL"; // Replace with your SAS URL for training data
-        private string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/"; // Replace with your local path for training data
-        private const string trainingDocsFolder = "./data/document_training"; // Folder containing training documents
+        // Replace with your SAS URL for training data
+        private const string trainingDataSasUrl = "SAS_URL";
+        // Replace with your local path for training data
+        private string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/";
+        // Folder containing training documents
+        private const string trainingDocsFolder = "./data/document_training"; 
 
         public AnalyzerTrainingIntegrationTest()
         {
@@ -47,92 +50,61 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Tests the <see cref="Service.GenerateTrainingDataOnBlobAsync"/> method to ensure that training data is
-        /// correctly  uploaded to blob storage and matches the expected files in the local training documents folder.
+        /// Tests the integration of the analyzer training service, including generating training data,  uploading it to
+        /// blob storage, creating a custom analyzer, and analyzing a document using the custom analyzer.
         /// </summary>
-        /// <remarks>This test verifies that no exceptions are thrown during the execution of the method
-        /// and that all files in the  specified training documents folder are successfully uploaded to the blob storage
-        /// with the correct structure.</remarks>
+        /// <remarks>This test verifies the end-to-end functionality of the analyzer training service by
+        /// performing the following steps: <list type="bullet"> <item>Generates training data and ensures it is
+        /// uploaded to blob storage.</item> <item>Creates a custom analyzer using a predefined template.</item>
+        /// <item>Analyzes a sample document using the custom analyzer and validates the output.</item> </list> The test
+        /// ensures that no exceptions are thrown during the process and validates the correctness of the generated
+        /// data.</remarks>
         /// <returns></returns>
         [Fact]
-        public async Task GenerateTrainingDataOnBlobAsyncTest()
-        {
-            Exception? serviceException = null;
-
-            try
-            {   // Ensure the training documents folder exists
-                await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
-            }
-            catch (Exception ex)
-            {
-                serviceException = ex;
-            }
-
-            // no exception should be thrown
-            Assert.Null(serviceException);
-
-            var files = Directory.GetFiles(trainingDocsFolder, "*.*", SearchOption.AllDirectories).ToList().ToHashSet();
-            // check if the training data is uploaded to the blob storage
-            var blobClient = new BlobContainerClient(new Uri(trainingDataSasUrl));
-            var blobFiles = new HashSet<string>();
-            await foreach (BlobItem blobItem in blobClient.GetBlobsAsync(prefix: trainingDataPath))
-            {
-                var name = blobItem.Name.Substring(trainingDataPath.Length);
-                if (!string.IsNullOrEmpty(name) && !name.EndsWith("/"))
-                {
-                    blobFiles.Add(name);
-                }
-            }
-
-            // Check if all files in the trainingDocsFolder have corresponding label and result files
-            Assert.True(files.SetEquals(blobFiles));
-        }
-
-        /// <summary>
-        /// Tests the functionality of analyzing a document using a custom analyzer.
-        /// </summary>
-        /// <remarks>This test verifies that a custom analyzer can be created, used to analyze a document,
-        /// and subsequently deleted without errors. It ensures that the analysis result contains expected fields such
-        /// as "result", "contents", "markdown", and "fields".</remarks>
-        /// <returns></returns>
-        [Fact]
-        public async Task AnalyzeDocumentWithCustomAnalyzerAsyncTest()
+        public async Task AnalyzerTrainingServiceIntegrationTest()
         {
             Exception? serviceException = null;
             JsonDocument? resultJson = null;
             var analyzerId = string.Empty;
 
             try
-            {
+            {   // Ensure the training documents folder exists
+                await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
+
+                // no exception should be thrown
+                Assert.Null(serviceException);
+
+                var files = Directory.GetFiles(trainingDocsFolder, "*.*", SearchOption.AllDirectories).ToList().ToHashSet();
+                // check if the training data is uploaded to the blob storage
+                var blobClient = new BlobContainerClient(new Uri(trainingDataSasUrl));
+                var blobFiles = new HashSet<string>();
+                await foreach (BlobItem blobItem in blobClient.GetBlobsAsync(prefix: trainingDataPath))
+                {
+                    var name = blobItem.Name.Substring(trainingDataPath.Length);
+                    if (!string.IsNullOrEmpty(name) && !name.EndsWith("/"))
+                    {
+                        blobFiles.Add(name);
+                    }
+                }
+
+                var fileNames = files.Select(f => Path.GetRelativePath(trainingDocsFolder, f)).ToHashSet();
+                // Check if all files in the trainingDocsFolder have corresponding label and result files
+                Assert.True(JsonSerializer.Serialize(fileNames) == JsonSerializer.Serialize(blobFiles));
+
                 var analyzerTemplatePath = "./analyzer_templates/receipt.json";
                 analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
                 var customAnalyzerSampleFilePath = "./data/receipt.png";
                 resultJson = await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);
-            }
-            catch (Exception ex)
-            {
-                serviceException = ex;
-            }
 
-            // no exception should be thrown
-            Assert.Null(serviceException);
-            Assert.NotNull(resultJson);
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-            Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
-            Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
+                Assert.NotNull(resultJson);
+                Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
+                Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
+                Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
 
-            var firstContent = contents[0];
-            Assert.True(firstContent.TryGetProperty("markdown", out var markdown), "The output content lacks the 'markdown' field");
-            Assert.False(string.IsNullOrWhiteSpace(markdown.GetString()), "The markdown content is empty");
-            Assert.True(firstContent.TryGetProperty("fields", out var fields), "The output content lacks the 'fields' field");
-
-            try
-            {
-                // Clean up the analyzer after the test
-                if (!string.IsNullOrEmpty(analyzerId))
-                {
-                    await service.DeleteAnalyzerAsync(analyzerId);
-                }
+                var firstContent = contents[0];
+                Assert.True(firstContent.TryGetProperty("markdown", out var markdown), "The output content lacks the 'markdown' field");
+                Assert.False(string.IsNullOrWhiteSpace(markdown.GetString()), "The markdown content is empty");
+                Assert.True(firstContent.TryGetProperty("fields", out var fields), "The output content lacks the 'fields' field");
             }
             catch (Exception ex)
             {
