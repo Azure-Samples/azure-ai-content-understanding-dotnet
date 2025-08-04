@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.14.1" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.25.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.6" />
   </ItemGroup>
 
@@ -39,7 +40,13 @@
     <None Update="analyzer_templates\image_chart.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="analyzer_templates\insurance_claims_review_pro_mode.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="analyzer_templates\invoice.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="analyzer_templates\invoice_contract_verification_pro_mode.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="analyzer_templates\invoice_field_source.json">
@@ -78,6 +85,12 @@
     <None Update="data\document_training\17a84146-e910-460c-bf80-a625e6f64fea.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="data\document_training\17a84146-e910-460c-bf80-a625e6f64fea.jpg.labels.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\document_training\17a84146-e910-460c-bf80-a625e6f64fea.jpg.result.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="data\document_training\17a84146-e910-460c-bf80-a625e6f64fea.labels.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -88,6 +101,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\document_training\29d60394-3da1-4714-abdc-ff0993009872.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\document_training\29d60394-3da1-4714-abdc-ff0993009872.jpg.labels.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\document_training\29d60394-3da1-4714-abdc-ff0993009872.jpg.result.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\document_training\29d60394-3da1-4714-abdc-ff0993009872.labels.json">
@@ -130,6 +149,39 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\fast_pretranscribed.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\insurance_claims_review\input_docs\accident_report.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\insurance_claims_review\input_docs\repair_estimate.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\insurance_claims_review\reference_docs\policy_driver_1.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\insurance_claims_review\reference_docs\policy_driver_1.pdf.result.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\insurance_claims_review\reference_docs\policy_driver_2.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\insurance_claims_review\reference_docs\policy_driver_2.pdf.result.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\input_docs\contoso_lifts_invoice.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\reference_docs\BUILDERS LIMITED WARRANTY.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\reference_docs\HOLDING TANK SERVICING CONTRACT.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\reference_docs\PROPERTY MANAGEMENT AGREEMENT.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="data\field_extraction_pro_mode\invoice_contract_verification\reference_docs\purchase_contract.pdf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="data\FlightSimulator.mp4">

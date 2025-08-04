@@ -70,15 +70,16 @@
           "AxisTitles": {
               "type": "object",
               "method": "generate",
-              "description": "Titles of the x and y axes.",
               "properties": {
                   "xAxisTitle": {
                       "type": "string",
-                      "method": "generate"
+                      "method": "generate",
+                      "description": "Title of the x axis."
                   },
                   "yAxisTitle": {
                       "type": "string",
-                      "method": "generate"
+                      "method": "generate",
+                      "description": "Title of the y axis."
                   }
               }
           },

@@ -50,7 +50,12 @@ namespace AnalyzerTraining
             Console.WriteLine("## Prerequisites\n");
             Console.WriteLine("1. Ensure Azure AI service is configured following [steps](../README.md#configure-azure-ai-service-resource)\n");
             Console.WriteLine("2. Follow steps in [Set labeled data](../docs/set_env_for_labeled_data.md) to add training data related 'TrainingDataSasUrl' and 'TrainingDataPath' in ContentUnderstanding.Common/appsettings.json.\n");
-            
+            Console.WriteLine("\n## Prepare training data");
+            Console.WriteLine("\nIn this step, we will");
+            Console.WriteLine("1. Check whether document files in local folder have corresponding `.labels.json` and `.result.json` files.");
+            Console.WriteLine("2. Upload these files to the designated Azure blob storage.");
+            Console.WriteLine("Please ensure you have the following information ready:");
+
             Console.WriteLine("TrainingDataSasUrl: Please paste the SAS URL that you have created in the last step and hit the [Enter] key.");
 
             string trainingDataSasUrl = Console.ReadLine() ?? string.Empty;
@@ -73,6 +78,13 @@ namespace AnalyzerTraining
             }
 
             var service = host.Services.GetService<IAnalyzerTrainingService>()!;
+
+            Console.WriteLine("\nStarting the field extraction process...");
+            Console.WriteLine("Prepare training data and upload the prepared files to the designated Azure blob storage. Please wait...");
+
+            var trainingDocsFolder = "./data/document_training";
+            await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
+
             var analyzerTemplatePath = "./analyzer_templates/receipt.json";
             var analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
 
