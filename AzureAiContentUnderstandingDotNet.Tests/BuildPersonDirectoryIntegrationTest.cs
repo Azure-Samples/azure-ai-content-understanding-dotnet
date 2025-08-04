@@ -53,21 +53,19 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Tests the functionality of building a person directory asynchronously and verifies the enrollment of
-        /// persons.
+        /// Executes an integration test for building and managing a person directory.
         /// </summary>
-        /// <remarks>This test method performs the following actions: <list type="bullet">
-        /// <item><description>Creates a new person directory using a unique directory ID.</description></item>
-        /// <item><description>Builds the person directory by enrolling persons from subfolders in the specified data
-        /// path.</description></item> <item><description>Validates that the number of enrolled persons matches the
-        /// number of subfolders.</description></item> <item><description>Checks that the names of enrolled persons
-        /// correspond to the subfolder names.</description></item> <item><description>Identifies persons in a test
-        /// image using the created directory and verifies the detection results.</description></item> </list> If any
-        /// exception occurs during the test, it is captured and asserted to ensure no unexpected errors are
-        /// thrown.</remarks>
+        /// <remarks>This test validates the functionality of creating a person directory, enrolling
+        /// persons, identifying persons in images,  associating and disassociating faces, updating metadata, and
+        /// deleting persons and faces. It ensures that the service  behaves as expected when performing these
+        /// operations.  The test includes the following scenarios: - Creating a new person directory. - Enrolling
+        /// persons and verifying their enrollment. - Identifying persons in a test image. - Adding and associating
+        /// faces with persons. - Updating metadata for persons and directories. - Deleting persons and faces.  Any
+        /// exceptions encountered during the test are captured and asserted to ensure no unexpected errors
+        /// occur.</remarks>
         /// <returns></returns>
         [Fact]
-        public async Task BuildPersonDirectoryAsyncTest()
+        public async Task RunBuildPersonDirectoryIntegrationTest()
         {
             Exception? serviceException = null;
             

@@ -50,18 +50,17 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Tests the integration of the analyzer training service, including generating training data,  uploading it to
-        /// blob storage, creating a custom analyzer, and analyzing a document using the custom analyzer.
+        /// Executes an integration test for the analyzer training process, verifying the generation of training data,
+        /// the creation of a custom analyzer, and the analysis of a sample document using the custom analyzer.
         /// </summary>
-        /// <remarks>This test verifies the end-to-end functionality of the analyzer training service by
-        /// performing the following steps: <list type="bullet"> <item>Generates training data and ensures it is
-        /// uploaded to blob storage.</item> <item>Creates a custom analyzer using a predefined template.</item>
-        /// <item>Analyzes a sample document using the custom analyzer and validates the output.</item> </list> The test
-        /// ensures that no exceptions are thrown during the process and validates the correctness of the generated
-        /// data.</remarks>
+        /// <remarks>This test performs the following steps: 1. Generates training data and uploads it to
+        /// blob storage. 2. Validates that the training data files are correctly uploaded. 3. Creates a custom analyzer
+        /// using a predefined template and the uploaded training data. 4. Analyzes a sample document using the custom
+        /// analyzer and verifies the structure and content of the result.  The test ensures that no exceptions are
+        /// thrown during the process and validates the correctness of the output.</remarks>
         /// <returns></returns>
         [Fact]
-        public async Task AnalyzerTrainingServiceIntegrationTest()
+        public async Task RunAnalyzerTrainingIntegrationTest()
         {
             Exception? serviceException = null;
             JsonDocument? resultJson = null;
