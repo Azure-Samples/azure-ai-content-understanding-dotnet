@@ -11,7 +11,7 @@ namespace Classifier.Interfaces
         /// <param name="classifierId">The unique identifier for the classifier to be created.</param>
         /// <param name="classifierSchemaPath">The file path to the schema used for creating the classifier. Must be a valid path to a readable file.</param>
         /// <returns></returns>
-        Task CreateClassifierAsync(string classifierId, string classifierSchemaPath);
+        Task<JsonDocument> CreateClassifierAsync(string classifierId, string classifierSchemaPath);
 
         /// <summary>
         /// Initiates the classification of a document using a specified classifier.
@@ -20,7 +20,7 @@ namespace Classifier.Interfaces
         /// <param name="classifierId">The identifier of the classifier to be used for document classification. Cannot be null or empty.</param>
         /// <param name="fileLocation">The file path of the document to be classified. Must be a valid path to an existing file.</param>
         /// <returns></returns>
-        Task ClassifyDocumentAsync(string classifierId, string fileLocation);
+        Task<JsonDocument> ClassifyDocumentAsync(string classifierId, string fileLocation);
 
         /// <summary>
         /// Asynchronously creates an enhanced classifier using a custom analyzer.
@@ -42,6 +42,6 @@ namespace Classifier.Interfaces
         /// <param name="enhancedClassifierId">The identifier of the enhanced classifier to be used for processing.</param>
         /// <param name="fileLocation">The file path of the document to be processed.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        Task ProcessDocumentWithEnhancedClassifierAsync(string enhancedClassifierId, string fileLocation);
+        Task<JsonDocument> ProcessDocumentWithEnhancedClassifierAsync(string enhancedClassifierId, string fileLocation);
     }
 }

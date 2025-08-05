@@ -41,7 +41,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/content_extraction";
+                        opts.UserAgent = "azure-ai-content-understanding-dotnet/build_person_directory";
                     });
                     services.AddTokenProvider();
                     services.AddHttpClient<AzureContentUnderstandingFaceClient>();
@@ -65,7 +65,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// occur.</remarks>
         /// <returns></returns>
         [Fact]
-        public async Task RunBuildPersonDirectoryIntegrationTest()
+        public async Task RunAsync()
         {
             Exception? serviceException = null;
             

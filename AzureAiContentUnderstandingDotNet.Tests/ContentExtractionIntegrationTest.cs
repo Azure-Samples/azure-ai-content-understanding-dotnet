@@ -50,7 +50,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// "contents", "markdown", and "tables" in the output.</remarks>
         /// <returns></returns>
         [Fact]
-        public async Task AnalyzeDocumentAsyncTest()
+        public async Task RunAnalyzeDocumentAsync()
         {
             Exception? serviceException = null;
             JsonDocument? resultJson = null;
@@ -90,7 +90,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// "markdown" field contains non-empty content.</remarks>
         /// <returns></returns>
         [Fact]
-        public async Task AnalyzeAudioAsyncTest()
+        public async Task RunAnalyzeAudioAsync()
         {
             Exception? serviceException = null;
             JsonDocument? resultJson = null;
@@ -130,7 +130,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// as well as validates that the "contents" array is non-empty and contains valid "markdown" content.</remarks>
         /// <returns></returns>
         [Fact]
-        public async Task AnalyzeVideoAsyncTest()
+        public async Task RunAnalyzeVideoAsync()
         {
             Exception? serviceException = null;
             JsonDocument? resultJson = null;
@@ -166,7 +166,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// "fields". It also checks that the "contents" array is not empty and contains valid data.</remarks>
         /// <returns></returns>
         [Fact]
-        public async Task AnalyzeVideoWithFaceAsyncTest()
+        public async Task RunAnalyzeVideoWithFaceAsync()
         {
             Exception? serviceException = null;
             JsonDocument? resultJson = null;

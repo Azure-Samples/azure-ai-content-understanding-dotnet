@@ -38,7 +38,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/content_extraction";
+                        opts.UserAgent = "azure-ai-content-understanding-dotnet/analyzer_training";
                     });
                     services.AddTokenProvider();
                     services.AddHttpClient<AzureContentUnderstandingClient>();
@@ -60,7 +60,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// thrown during the process and validates the correctness of the output.</remarks>
         /// <returns></returns>
         [Fact]
-        public async Task RunAnalyzerTrainingIntegrationTest()
+        public async Task RunAsync()
         {
             Exception? serviceException = null;
             JsonDocument? resultJson = null;
@@ -69,9 +69,6 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             try
             {   // Ensure the training documents folder exists
                 await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
-
-                // no exception should be thrown
-                Assert.Null(serviceException);
 
                 var files = Directory.GetFiles(trainingDocsFolder, "*.*", SearchOption.AllDirectories).ToList().ToHashSet();
                 // check if the training data is uploaded to the blob storage
