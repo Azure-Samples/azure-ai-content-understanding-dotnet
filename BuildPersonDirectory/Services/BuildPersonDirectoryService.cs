@@ -309,7 +309,7 @@ namespace BuildPersonDirectory.Services
         /// langword="null"/> if the update operation fails.</returns>
         public async Task<HttpResponseMessage?> UpdatePersonAsync(string personDirectoryId, string personId, Dictionary<string, dynamic>? tags = null, List<string>? faceIds = null)
         {
-            HttpResponseMessage personResponse = await _client.UpdatePersonAsync(personDirectoryId, personId, tags, faceIds);
+            HttpResponseMessage? personResponse = await _client.UpdatePersonAsync(personDirectoryId, personId, tags, faceIds);
             return personResponse;
         }
 
