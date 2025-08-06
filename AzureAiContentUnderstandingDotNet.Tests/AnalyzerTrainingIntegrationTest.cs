@@ -15,7 +15,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
     {
         private readonly IAnalyzerTrainingService service;
         // Replace with your SAS URL for training data
-        private const string trainingDataSasUrl = "SAS_URL";
+        private const string trainingDataSasUrl = "https://<your_storage_account_name>.blob.core.windows.net/<your_container_name>?<your_sas_token>";
         // Replace with your local path for training data
         private string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/";
         // Folder containing training documents
@@ -94,6 +94,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
 
                 Assert.NotNull(resultJson);
                 Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
+                Assert.True(result.TryGetProperty("warnings", out var values));
+                Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
                 Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
                 Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
 

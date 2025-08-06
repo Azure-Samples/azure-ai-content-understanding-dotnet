@@ -71,6 +71,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             Assert.Null(serviceException);
             Assert.NotNull(resultJson);
             Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
+            Assert.True(result.TryGetProperty("warnings", out var values));
+            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
             Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
 
@@ -111,6 +113,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             Assert.Null(serviceException);
             Assert.NotNull(resultJson);
             Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
+            Assert.True(result.TryGetProperty("warnings", out var values));
+            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
             Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
 
@@ -149,6 +153,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             Assert.Null(serviceException);
             Assert.NotNull(resultJson);
             Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
+            Assert.True(result.TryGetProperty("warnings", out var values));
+            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
             Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
             var firstContent = contents[0];
@@ -185,6 +191,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             Assert.Null(serviceException);
             Assert.NotNull(resultJson);
             Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
+            Assert.True(result.TryGetProperty("warnings", out var values));
+            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
             Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
             var firstContent = contents[0];

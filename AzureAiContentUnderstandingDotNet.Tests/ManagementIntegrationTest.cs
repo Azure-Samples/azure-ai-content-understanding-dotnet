@@ -30,7 +30,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/Management";
+                        opts.UserAgent = "azure-ai-content-understanding-dotnet/management";
                     });
                     services.AddTokenProvider();
                     services.AddHttpClient<AzureContentUnderstandingClient>();
@@ -44,31 +44,43 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         [Fact]
         public async Task RunAsync()
         {
-            var id = $"analyzer-management-sample-{Guid.NewGuid()}";
-            var analyzerTemplatePath = "./analyzer_templates/call_recording_analytics.json";
+            Exception? serviceException = null;
 
-            // 1. Create a simple analyzer
-            var analyzerId = await service!.CreateAnalyzerAsync(id, analyzerTemplatePath);
-            Assert.NotNull(analyzerId);
-            // 2. Get analyzer details
-            Dictionary<string, object> details = await service.GetAnalyzerDetailsAsync(analyzerId);
-            Assert.True(details.Any());
-            Assert.True(details.ContainsKey("warnings"));
-            Assert.True(details.TryGetValue("warnings", out var values));
-            Assert.False(((JsonElement)values).EnumerateArray().Any());
-            Assert.True(details.ContainsKey("mode"));
-            Assert.Equal("standard", details["mode"].ToString());
-            Assert.True(details.ContainsKey("status"));
-            Assert.Equal("ready", details["status"].ToString());
-            Assert.True(details.ContainsKey("fieldSchema"));
-            Assert.True(((JsonElement)details["fieldSchema"]).TryGetProperty("fields", out var fields));
-            Assert.True(!string.IsNullOrWhiteSpace(fields.GetRawText()));
+            try
+            {
+                var id = $"analyzer-management-sample-{Guid.NewGuid()}";
+                var analyzerTemplatePath = "./analyzer_templates/call_recording_analytics.json";
 
-            // 3. List all analyzers
-            await service.ListAnalyzersAsync();
+                // 1. Create a simple analyzer
+                var analyzerId = await service!.CreateAnalyzerAsync(id, analyzerTemplatePath);
+                Assert.NotNull(analyzerId);
+                // 2. Get analyzer details
+                Dictionary<string, object> details = await service.GetAnalyzerDetailsAsync(analyzerId);
+                Assert.True(details.Any());
+                Assert.True(details.ContainsKey("warnings"));
+                Assert.True(details.TryGetValue("warnings", out var values));
+                Assert.False(((JsonElement)values).EnumerateArray().Any());
+                Assert.True(details.ContainsKey("mode"));
+                Assert.Equal("standard", details["mode"].ToString());
+                Assert.True(details.ContainsKey("status"));
+                Assert.Equal("ready", details["status"].ToString());
+                Assert.True(details.ContainsKey("fieldSchema"));
+                Assert.True(((JsonElement)details["fieldSchema"]).TryGetProperty("fields", out var fields));
+                Assert.True(!string.IsNullOrWhiteSpace(fields.GetRawText()));
 
-            // 4. Delete analyzer
-            await service.DeleteAnalyzerAsync(analyzerId);
+                // 3. List all analyzers
+                await service.ListAnalyzersAsync();
+
+                // 4. Delete analyzer
+                await service.DeleteAnalyzerAsync(analyzerId);
+            }
+            catch (Exception ex)
+            {
+                serviceException = ex;
+            }
+
+            // no exception should be thrown
+            Assert.Null(serviceException);
         }
     }
 }

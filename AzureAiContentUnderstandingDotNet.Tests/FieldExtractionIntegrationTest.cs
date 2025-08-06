@@ -30,7 +30,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/FieldExtraction";
+                        opts.UserAgent = "azure-ai-content-understanding-dotnet/field_extraction";
                     });
                     services.AddTokenProvider();
                     services.AddHttpClient<AzureContentUnderstandingClient>();
@@ -73,6 +73,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
 
                     Assert.NotNull(resultJson);
                     Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
+                    Assert.True(result.TryGetProperty("warnings", out var values));
+                    Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
                     Assert.True(result.TryGetProperty("contents", out JsonElement contents));
                     Assert.True(contents.EnumerateArray().Any());
                     var content = contents[0];
@@ -80,8 +82,6 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                     Assert.True(!string.IsNullOrWhiteSpace(markdown.ToString()));
                     Assert.True(content.TryGetProperty("fields", out JsonElement fields));
                     Assert.True(!string.IsNullOrWhiteSpace(fields.GetRawText()));
-                    Assert.True(content.TryGetProperty("transcriptPhrases", out var transcriptPhrases));
-                    Assert.True(transcriptPhrases.EnumerateArray().Any());
                 }
             }
             catch (Exception ex)

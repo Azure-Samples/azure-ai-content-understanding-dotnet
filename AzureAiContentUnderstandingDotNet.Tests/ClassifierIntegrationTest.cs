@@ -98,6 +98,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             JsonDocument resultJson = await service.CreateClassifierAsync(classifierId, classifierSchemaPath);
             Assert.NotNull(resultJson);
             Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
+            Assert.True(result.TryGetProperty("warnings", out var values));
+            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("status", out JsonElement status));
             Assert.Equal("ready", status.ToString());
             Assert.True(result.TryGetProperty("categories", out JsonElement categories));
