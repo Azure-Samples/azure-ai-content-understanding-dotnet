@@ -58,7 +58,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// 3. Processes a document using an enhanced classifier.
         /// Captures any exceptions and asserts that no unexpected errors occur.
         /// </summary>
-        [Fact]
+        [Fact(DisplayName = "Classifier Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAsync()
         {
             Exception? serviceException = null;

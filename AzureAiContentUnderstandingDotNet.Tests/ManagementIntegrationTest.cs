@@ -59,7 +59,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// 4. Deletes the created analyzer.
         /// Ensures no exceptions occur and validates expected structure and content of responses.
         /// </summary>
-        [Fact]
+        [Fact(DisplayName = "Management Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAsync()
         {
             Exception? serviceException = null;

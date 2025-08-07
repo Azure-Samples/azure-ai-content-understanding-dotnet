@@ -67,7 +67,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// Each scenario ensures the service does not throw exceptions, produces a valid JSON result,
         /// and includes expected fields: "result", "contents", "markdown", and "fields".
         /// </remarks>
-        [Fact]
+        [Fact(DisplayName = "Field Extraction Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAsync()
         {
             Exception? serviceException = null;

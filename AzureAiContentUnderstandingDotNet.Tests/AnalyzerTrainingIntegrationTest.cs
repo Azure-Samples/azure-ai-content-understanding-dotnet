@@ -63,7 +63,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// 3. Creates custom analyzer using template and training data.
         /// 4. Analyzes sample document with custom analyzer and verifies output structure.
         /// </summary>
-        [Fact]
+        [Fact(DisplayName = "Analyzer Training Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAsync()
         {
             Exception? serviceException = null;

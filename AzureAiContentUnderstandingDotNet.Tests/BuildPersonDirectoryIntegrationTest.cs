@@ -59,7 +59,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// Covers scenarios: directory creation, enrollment, identification, face management, metadata update, and cleanup.
         /// Asserts success and validity at each step. Any unexpected exception is captured and asserted as null.
         /// </summary>
-        [Fact]
+        [Fact(DisplayName = "Build Person Directory Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAsync()
         {
             Exception? serviceException = null;

@@ -64,6 +64,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// document analysis, and cleanup. Also runs bonus scenarios for insurance claims.
         /// </summary>
         [Fact(DisplayName = "Field Extraction Pro Mode Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAsync()
         {
             Exception? serviceException = null;

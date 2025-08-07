@@ -56,7 +56,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// Verifies that the JSON output contains required fields, the contents array is not empty,
         /// and that markdown and tables are present in the first content item.
         /// </summary>
-        [Fact]
+        [Fact(DisplayName = "Analyze Document Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAnalyzeDocumentAsync()
         {
             Exception? serviceException = null;
@@ -94,7 +95,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// Checks that the output contains all required fields, the contents array is non-empty,
         /// and verifies presence and validity of markdown and fields.
         /// </summary>
-        [Fact]
+        [Fact(DisplayName = "Analyze Audio Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAnalyzeAudioAsync()
         {
             Exception? serviceException = null;
@@ -132,7 +134,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// Ensures the returned JSON contains expected fields and valid non-empty content,
         /// including markdown and fields in the first content item.
         /// </summary>
-        [Fact]
+        [Fact(DisplayName = "Analyze Video Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAnalyzeVideoAsync()
         {
             Exception? serviceException = null;
@@ -166,7 +169,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         /// Tests video face analysis for an MP4 file using <see cref="IContentExtractionService.AnalyzeVideoWithFaceAsync"/>.
         /// Verifies that the output JSON contains all required fields, valid non-empty contents, and correct face analysis results.
         /// </summary>
-        [Fact]
+        [Fact(DisplayName = "Analyze Video With Face Integration Test")]
+        [Trait("Category", "Integration")]
         public async Task RunAnalyzeVideoWithFaceAsync()
         {
             Exception? serviceException = null;
