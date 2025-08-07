@@ -9,10 +9,20 @@ using System.Text.Json;
 
 namespace AzureAiContentUnderstandingDotNet.Tests
 {
+    /// <summary>
+    /// Integration test for classifier and enhanced classifier workflows using the IClassifierService.
+    /// This test covers classifier creation, document classification, and enhanced classifier processing.
+    /// </summary>
     public class ClassifierIntegrationTest
     {
         private readonly IClassifierService service;
 
+        /// <summary>
+        /// Sets up dependency injection, configures the test host, and validates required configurations for classifier testing.
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// Thrown if required configuration values for "AZURE_CU_CONFIG:Endpoint" or "AZURE_CU_CONFIG:ApiVersion" are missing.
+        /// </exception>
         public ClassifierIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
@@ -42,16 +52,12 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Executes an integration test for the analyzer training process, including classifier creation,  document
-        /// classification, and enhanced classifier processing.
+        /// Executes an integration test for classifier workflows:
+        /// 1. Creates a basic classifier using a schema.
+        /// 2. Classifies a document using the created classifier.
+        /// 3. Processes a document using an enhanced classifier.
+        /// Captures any exceptions and asserts that no unexpected errors occur.
         /// </summary>
-        /// <remarks>This test performs the following operations: <list type="bullet">
-        /// <item><description>Creates a basic classifier using a specified schema.</description></item>
-        /// <item><description>Classifies a document using the created classifier.</description></item>
-        /// <item><description>Processes a document using an enhanced classifier.</description></item> </list> If any
-        /// exception occurs during the test, it is captured and the test asserts that no exceptions were
-        /// thrown.</remarks>
-        /// <returns></returns>
         [Fact]
         public async Task RunAsync()
         {
@@ -59,49 +65,49 @@ namespace AzureAiContentUnderstandingDotNet.Tests
 
             try
             {
+                // File paths and IDs for test scenarios
                 var analyzerTemplatePath = "./data/mixed_financial_docs.pdf";
                 var (analyzerSchemaPath, enhancedSchemaPath) = ("./analyzer_templates/analyzer_schema.json", "./data/classifier/enhanced_schema.json");
                 var classifierId = $"classifier-sample-{Guid.NewGuid()}";
                 var classifierSchemaPath = "./data/classifier/schema.json";
 
-                // Create a basic classifier
+                // Step 1: Create a basic classifier
                 await CreateClassifierAsync(classifierId, classifierSchemaPath);
 
-                // Classify a document using the created classifier
+                // Step 2: Classify a document using the created classifier
                 await ClassifyDocumentAsync(classifierId, analyzerTemplatePath);
 
-                // Process a document using the enhanced classifier
+                // Step 3: Process a document using the enhanced classifier
                 await ProcessDocumentWithEnhancedClassifierAsync(analyzerSchemaPath, enhancedSchemaPath, analyzerTemplatePath);
             }
             catch (Exception ex)
             {
                 serviceException = ex;
             }
-
+            // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
         }
 
         /// <summary>
-        /// Creates a basic classifier asynchronously and validates the response structure and content.
+        /// Creates a basic classifier with the given ID and schema, and verifies its response.
+        /// Checks that the classifier is ready, contains categories, and each category is properly described.
         /// </summary>
-        /// <remarks>
-        /// This method creates a classifier using the specified ID and schema file, then performs comprehensive
-        /// validation on the returned JSON response including status verification, categories enumeration,
-        /// and content assertions to ensure the classifier was created successfully.
-        /// </remarks>
-        /// <param name="classifierId">The unique identifier for the classifier to be created.</param>
-        /// <param name="classifierSchemaPath">The file path to the JSON schema file used for creating the classifier.</param>
-        /// <returns>A task that represents the asynchronous operation of creating and validating the classifier.</returns>
+        /// <param name="classifierId">Unique identifier for the classifier.</param>
+        /// <param name="classifierSchemaPath">File path to the classifier schema (JSON).</param>
         private async Task CreateClassifierAsync(string classifierId, string classifierSchemaPath)
         {
             // Create a basic classifier
             JsonDocument resultJson = await service.CreateClassifierAsync(classifierId, classifierSchemaPath);
             Assert.NotNull(resultJson);
+
+            // Validate result structure and status
             Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
-            Assert.True(result.TryGetProperty("warnings", out var values));
-            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
+            Assert.True(result.TryGetProperty("warnings", out var warnings));
+            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("status", out JsonElement status));
             Assert.Equal("ready", status.ToString());
+
+            // Validate categories and descriptions
             Assert.True(result.TryGetProperty("categories", out JsonElement categories));
             var list = new List<(string name, string description)>();
 
@@ -117,14 +123,11 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Asynchronously classifies a document using the specified classifier.
+        /// Classifies a document using the specified classifier and validates the result.
+        /// Asserts that classification results are returned for the document.
         /// </summary>
-        /// <remarks>This method uses the specified classifier to analyze the document and retrieve
-        /// classification results. The classification results include the status of the operation and the identified
-        /// categories.</remarks>
-        /// <param name="classifierId">The unique identifier of the classifier to use for document classification. Cannot be null or empty.</param>
-        /// <param name="fileLocation">The file path or location of the document to be classified. Must point to a valid file.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
+        /// <param name="classifierId">ID of the classifier.</param>
+        /// <param name="fileLocation">Path to the document to be classified.</param>
         private async Task ClassifyDocumentAsync(string classifierId, string fileLocation)
         {
             // Classify a document using the created classifier
@@ -136,15 +139,12 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Processes a document using an enhanced classifier with a custom analyzer.
+        /// Processes a document using an enhanced classifier and a custom analyzer.
+        /// Validates that processed content contains markdown and fields.
         /// </summary>
-        /// <remarks>This method creates a custom analyzer and an enhanced classifier using the provided
-        /// schemas,  processes a document using the enhanced classifier, and validates the resulting output. The
-        /// resulting document is expected to contain structured content, including markdown and fields.</remarks>
-        /// <param name="analyzerSchemaPath">The file path to the schema defining the custom analyzer.</param>
-        /// <param name="enhancedSchemaPath">The file path to the schema defining the enhanced classifier.</param>
-        /// <param name="analyzerTemplatePath">The file path to the template used for processing the document.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
+        /// <param name="analyzerSchemaPath">Schema path for the custom analyzer.</param>
+        /// <param name="enhancedSchemaPath">Schema path for the enhanced classifier.</param>
+        /// <param name="analyzerTemplatePath">Path to the document to process.</param>
         private async Task ProcessDocumentWithEnhancedClassifierAsync(string analyzerSchemaPath, string enhancedSchemaPath, string analyzerTemplatePath)
         {
             var analyzerId = $"analyzer-loan-application-{Guid.NewGuid()}";

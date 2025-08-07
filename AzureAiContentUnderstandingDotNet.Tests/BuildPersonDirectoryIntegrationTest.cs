@@ -9,6 +9,10 @@ using Microsoft.Extensions.Hosting;
 
 namespace AzureAiContentUnderstandingDotNet.Tests
 {
+    /// <summary>
+    /// Integration test for building and managing a person directory using the IBuildPersonDirectoryService.
+    /// This test covers directory creation, person enrollment, face association/disassociation, metadata update, and cleanup.
+    /// </summary>
     public class BuildPersonDirectoryIntegrationTest
     {
         private readonly IBuildPersonDirectoryService service;
@@ -17,13 +21,11 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         private string newFaceImagePath = "./data/face/NewFace_Bill.jpg";
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="BuildPersonDirectoryIntegrationTest"/> class.
+        /// Sets up dependency injection, configures the test host, and validates required configurations.
         /// </summary>
-        /// <remarks>This constructor sets up the required services and configurations for testing the
-        /// <see cref="IBuildPersonDirectoryService"/> implementation. It validates the presence of necessary
-        /// configuration values and registers dependencies such as HTTP clients and token providers.</remarks>
-        /// <exception cref="ArgumentException">Thrown if the required configuration values for "AZURE_CU_CONFIG:Endpoint" or "AZURE_CU_CONFIG:ApiVersion"
-        /// are missing or empty in the application settings.</exception>
+        /// <exception cref="ArgumentException">
+        /// Thrown if required configuration values for AZURE_CU_CONFIG:Endpoint or AZURE_CU_CONFIG:ApiVersion are missing.
+        /// </exception>
         public BuildPersonDirectoryIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
@@ -53,17 +55,10 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Executes an integration test for building and managing a person directory.
+        /// Full workflow integration test for person directory management.
+        /// Covers scenarios: directory creation, enrollment, identification, face management, metadata update, and cleanup.
+        /// Asserts success and validity at each step. Any unexpected exception is captured and asserted as null.
         /// </summary>
-        /// <remarks>This test validates the functionality of creating a person directory, enrolling
-        /// persons, identifying persons in images,  associating and disassociating faces, updating metadata, and
-        /// deleting persons and faces. It ensures that the service  behaves as expected when performing these
-        /// operations.  The test includes the following scenarios: - Creating a new person directory. - Enrolling
-        /// persons and verifying their enrollment. - Identifying persons in a test image. - Adding and associating
-        /// faces with persons. - Updating metadata for persons and directories. - Deleting persons and faces.  Any
-        /// exceptions encountered during the test are captured and asserted to ensure no unexpected errors
-        /// occur.</remarks>
-        /// <returns></returns>
         [Fact]
         public async Task RunAsync()
         {
@@ -71,13 +66,13 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             
             try
             {
+                // Step 1: Create a unique person directory
                 string directoryId = $"person_directory_id_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
-                // create a new directory
                 var response = await service.CreatePersonDirectoryAsync(directoryId);
                 Assert.NotNull(response);
                 Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
 
-                // Build the person directory for the given directory ID and return a list of all enrolled persons.
+                // Step 2: Build person directory from enrollment data and verify consistency
                 List<string> subFolders = Directory.GetDirectories(EnrollmentDataPath).ToList();
                 IList<Person> persons = await service.BuildPersonDirectoryAsync(directoryId);
 
@@ -96,12 +91,12 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                     Assert.True(fileNames?.Contains(person.Name ?? ""));
                 }
 
-                // Identify persons in the test image
+                // Step 3: Identify persons in a test image
                 List<DetectedFace> detectedFaces = await service.IdentifyPersonsInImageAsync(directoryId, testImagePath);
                 Assert.NotNull(detectedFaces);
                 Assert.True(detectedFaces.Any());
 
-                // All enrolled persons
+                // Step 4: Lookup enrolled persons and verify presence
                 Person Alex = persons.Where(s => s.Name == "Alex").First();
                 Person Bill = persons.Where(s => s.Name == "Bill").First();
                 Person Clare = persons.Where(s => s.Name == "Clare").First();
@@ -114,60 +109,50 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                 Assert.NotNull(Jordan);
                 Assert.NotNull(Mary);
 
-                // Add new face to person
+                // Step 5: Add new face to Bill and verify association
                 FaceResponse? faceResponse = await service.AddNewFaceToPersonAsync(directoryId, Bill.PersonId, newFaceImagePath);
                 Assert.NotNull(faceResponse);
                 Assert.NotNull(faceResponse.FaceId);
                 Assert.Equal(Bill.PersonId, faceResponse.PersonId);
 
-                // get person
                 PersonResponse personResponse = await service.GetPersonAsync(directoryId, faceResponse.PersonId!);
                 Assert.DoesNotContain(faceResponse.FaceId, Bill.Faces);
                 Assert.Contains(faceResponse.FaceId, personResponse.FaceIds);
 
-                // delete Bill's person
+                // Step 6: Delete Bill and verify deletion
                 await service.DeletePersonAsync(directoryId, Bill.PersonId!);
                 PersonResponse deletedBillPersonResponse = await service.GetPersonAsync(directoryId, Bill.PersonId!);
                 Assert.Null(deletedBillPersonResponse);
 
-                // Re-add Bill to the directory
+                // Step 7: Re-add Bill, associate existing faces, and add new face
                 PersonResponse addNewPersonResponse = await service.AddPersonAsync(
                     directoryId,
                     new Dictionary<string, object> { ["name"] = Bill.Name! }
                 );
                 Bill.PersonId = addNewPersonResponse.PersonId;
 
-                // associate existing faces with Bill
                 await service.AssociateExistingFacesAsync(directoryId, Bill.PersonId, Bill.Faces);
                 
-                // add new face for Bill
                 var imageData = AzureContentUnderstandingFaceClient.ReadFileToBase64(newFaceImagePath);
                 FaceResponse newFaceResponse = await service.AddFaceAsync(directoryId, imageData, Bill.PersonId);
                 Assert.DoesNotContain(Bill.Faces, s => s == newFaceResponse.FaceId);
 
-                // after new face added, we can get the person again
                 PersonResponse newPersonResponse = await service.GetPersonAsync(directoryId, Bill.PersonId!);
                 Assert.NotNull(newPersonResponse);
                 Assert.Contains(newFaceResponse.FaceId, newPersonResponse.FaceIds);
 
-                // Associating and disassociating a face from a person
-                // You can associate or disassociate a face with a person in the Person Directory.
-                // Associating a face links it to a specific person, while disassociating removes that link.
-                // In the previous step, one of the daughter Jordan's face images was incorrectly added to the person "Mary".
-                // We will now re-associate this face with the correct person, "Jordan".
+                // Step 8: Correct Mary/Jordan face association (re-associate face from Mary to Jordan)
                 Assert.True(!Jordan.Faces.Contains(Mary.Faces.First()));
                 FaceResponse? jordanFaceResponse = await service.UpdateFaceAssociationAsync(directoryId, Mary.Faces.First(), Jordan.PersonId);
                 PersonResponse jordanResponse = await service.GetPersonAsync(directoryId, jordanFaceResponse?.PersonId!);
                 Assert.Contains(Mary.Faces.First(), jordanResponse.FaceIds);
 
-                // Updating metadata (tags and descriptions)
-                // You can add or update tags for individual persons, and both descriptions and tags for the Person Directory. These metadata fields help organize, filter, and manage your directory.
+                // Step 9: Update metadata for Bill and verify tags
                 await service.UpdateMetadataAsync(directoryId, Bill.PersonId);
                 PersonResponse billResponse = await service.GetPersonAsync(directoryId, Bill.PersonId!);
                 Assert.NotNull(billResponse.Tags);
 
-                // Deleting a face with Mary's person
-                // You can also delete a specific face. Once the face is deleted, the association between the face and its associated person is removed.
+                // Step 10: Delete Mary's face and verify deletion
                 PersonResponse deletedMaryPersonResponse = await service.DeleteFaceAndPersonAsync(directoryId, Mary.PersonId!);
                 Assert.Null(deletedMaryPersonResponse);
             }
@@ -175,6 +160,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             {
                 serviceException = ex;
             }
+            // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
         }
     }

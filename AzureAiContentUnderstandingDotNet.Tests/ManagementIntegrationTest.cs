@@ -9,10 +9,20 @@ using System.Text.Json;
 
 namespace AzureAiContentUnderstandingDotNet.Tests
 {
+    /// <summary>
+    /// Integration tests for analyzer management functionality using IManagementService.
+    /// Validates analyzer creation, retrieval of details, listing, and deletion.
+    /// </summary>
     public class ManagementIntegrationTest
     {
         private readonly IManagementService service;
 
+        /// <summary>
+        /// Sets up dependency injection, configures the test host, and validates required configurations for analyzer management.
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// Thrown if required configuration values for "AZURE_CU_CONFIG:Endpoint" or "AZURE_CU_CONFIG:ApiVersion" are missing.
+        /// </exception>
         public ManagementIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
@@ -41,6 +51,14 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             service = host.Services.GetService<IManagementService>()!;
         }
 
+        /// <summary>
+        /// Runs the analyzer management workflow:
+        /// 1. Creates an analyzer.
+        /// 2. Retrieves and validates analyzer details.
+        /// 3. Lists all analyzers.
+        /// 4. Deletes the created analyzer.
+        /// Ensures no exceptions occur and validates expected structure and content of responses.
+        /// </summary>
         [Fact]
         public async Task RunAsync()
         {
@@ -51,15 +69,16 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                 var id = $"analyzer-management-sample-{Guid.NewGuid()}";
                 var analyzerTemplatePath = "./analyzer_templates/call_recording_analytics.json";
 
-                // 1. Create a simple analyzer
+                // Step 1: Create a simple analyzer
                 var analyzerId = await service!.CreateAnalyzerAsync(id, analyzerTemplatePath);
                 Assert.NotNull(analyzerId);
-                // 2. Get analyzer details
+
+                // Step 2: Get analyzer details and validate structure/content
                 Dictionary<string, object> details = await service.GetAnalyzerDetailsAsync(analyzerId);
                 Assert.True(details.Any());
                 Assert.True(details.ContainsKey("warnings"));
-                Assert.True(details.TryGetValue("warnings", out var values));
-                Assert.False(((JsonElement)values).EnumerateArray().Any());
+                Assert.True(details.TryGetValue("warnings", out var warnings));
+                Assert.False(((JsonElement)warnings).EnumerateArray().Any(), "The warnings array should be empty");
                 Assert.True(details.ContainsKey("mode"));
                 Assert.Equal("standard", details["mode"].ToString());
                 Assert.True(details.ContainsKey("status"));
@@ -68,10 +87,10 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                 Assert.True(((JsonElement)details["fieldSchema"]).TryGetProperty("fields", out var fields));
                 Assert.True(!string.IsNullOrWhiteSpace(fields.GetRawText()));
 
-                // 3. List all analyzers
+                // Step 3: List all analyzers (verifies listing API, no assertion)
                 await service.ListAnalyzersAsync();
 
-                // 4. Delete analyzer
+                // Step 4: Delete analyzer
                 await service.DeleteAnalyzerAsync(analyzerId);
             }
             catch (Exception ex)
@@ -79,7 +98,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                 serviceException = ex;
             }
 
-            // no exception should be thrown
+            // Final assertion: No exceptions should be thrown during workflow
             Assert.Null(serviceException);
         }
     }

@@ -9,10 +9,20 @@ using System.Text.Json;
 
 namespace AzureAiContentUnderstandingDotNet.Tests
 {
+    /// <summary>
+    /// Integration tests for content extraction service, covering document, audio, and video analysis scenarios.
+    /// Each test ensures the service produces expected JSON results and handles input files correctly.
+    /// </summary>
     public class ContentExtractionIntegrationTest
     {
         private readonly IContentExtractionService service;
 
+        /// <summary>
+        /// Sets up dependency injection, configures the test host, and validates required configurations.
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// Thrown if required configuration values for "AZURE_CU_CONFIG:Endpoint" or "AZURE_CU_CONFIG:ApiVersion" are missing.
+        /// </exception>
         public ContentExtractionIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
@@ -42,13 +52,10 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Tests the <see cref="Service.AnalyzeDocumentAsync"/> method to ensure it processes a document file correctly
-        /// and returns a valid JSON result.
+        /// Tests document analysis for a PDF using <see cref="IContentExtractionService.AnalyzeDocumentAsync"/>.
+        /// Verifies that the JSON output contains required fields, the contents array is not empty,
+        /// and that markdown and tables are present in the first content item.
         /// </summary>
-        /// <remarks>This test verifies that the <see cref="Service.AnalyzeDocumentAsync"/> method does
-        /// not throw exceptions, produces a non-null JSON result, and includes expected fields such as "result",
-        /// "contents", "markdown", and "tables" in the output.</remarks>
-        /// <returns></returns>
         [Fact]
         public async Task RunAnalyzeDocumentAsync()
         {
@@ -67,12 +74,12 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                 serviceException = ex;
             }
 
-            // no exception should be thrown
+            // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
             Assert.NotNull(resultJson);
             Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-            Assert.True(result.TryGetProperty("warnings", out var values));
-            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
+            Assert.True(result.TryGetProperty("warnings", out var warnings));
+            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
             Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
 
@@ -83,14 +90,10 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Tests the <see cref="AnalyzeAudioAsync"/> method to ensure it processes an audio file correctly and returns
-        /// valid results.
+        /// Tests audio analysis for a WAV file using <see cref="IContentExtractionService.AnalyzeAudioAsync"/>.
+        /// Checks that the output contains all required fields, the contents array is non-empty,
+        /// and verifies presence and validity of markdown and fields.
         /// </summary>
-        /// <remarks>This test verifies that the <see cref="AnalyzeAudioAsync"/> method does not throw
-        /// exceptions, produces a non-null JSON result, and includes expected fields such as "result", "contents",
-        /// "markdown", and "fields" in the output. It also checks that the "contents" array is not empty and that the
-        /// "markdown" field contains non-empty content.</remarks>
-        /// <returns></returns>
         [Fact]
         public async Task RunAnalyzeAudioAsync()
         {
@@ -109,12 +112,12 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                 serviceException = ex;
             }
 
-            // no exception should be thrown
+            // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
             Assert.NotNull(resultJson);
             Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-            Assert.True(result.TryGetProperty("warnings", out var values));
-            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
+            Assert.True(result.TryGetProperty("warnings", out var warnings));
+            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
             Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
 
@@ -125,14 +128,10 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Tests the <see cref="Service.AnalyzeVideoAsync"/> method to ensure it processes a video file correctly and
-        /// returns a valid JSON result.
+        /// Tests video analysis for an MP4 file using <see cref="IContentExtractionService.AnalyzeVideoAsync"/>.
+        /// Ensures the returned JSON contains expected fields and valid non-empty content,
+        /// including markdown and fields in the first content item.
         /// </summary>
-        /// <remarks>This test verifies that the <see cref="Service.AnalyzeVideoAsync"/> method does not
-        /// throw exceptions, correctly analyzes the specified video file, and produces a JSON result containing
-        /// expected fields. The test checks for the presence of the "result" and "contents" fields in the output JSON,
-        /// as well as validates that the "contents" array is non-empty and contains valid "markdown" content.</remarks>
-        /// <returns></returns>
         [Fact]
         public async Task RunAnalyzeVideoAsync()
         {
@@ -149,12 +148,12 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             {
                 serviceException = ex;
             }
-            // no exception should be thrown
+            // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
             Assert.NotNull(resultJson);
             Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-            Assert.True(result.TryGetProperty("warnings", out var values));
-            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
+            Assert.True(result.TryGetProperty("warnings", out var warnings));
+            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
             Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
             var firstContent = contents[0];
@@ -164,13 +163,9 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Tests the <see cref="Service.AnalyzeVideoWithFaceAsync"/> method to ensure it processes a video file and
-        /// returns valid JSON output containing face analysis results.
+        /// Tests video face analysis for an MP4 file using <see cref="IContentExtractionService.AnalyzeVideoWithFaceAsync"/>.
+        /// Verifies that the output JSON contains all required fields, valid non-empty contents, and correct face analysis results.
         /// </summary>
-        /// <remarks>This test verifies that the method does not throw exceptions, correctly analyzes the
-        /// video file,  and produces a JSON result with expected fields such as "result", "contents", "markdown", and
-        /// "fields". It also checks that the "contents" array is not empty and contains valid data.</remarks>
-        /// <returns></returns>
         [Fact]
         public async Task RunAnalyzeVideoWithFaceAsync()
         {
@@ -187,12 +182,12 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             {
                 serviceException = ex;
             }
-            // no exception should be thrown
+            // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
             Assert.NotNull(resultJson);
             Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-            Assert.True(result.TryGetProperty("warnings", out var values));
-            Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
+            Assert.True(result.TryGetProperty("warnings", out var warnings));
+            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
             Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
             Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
             var firstContent = contents[0];

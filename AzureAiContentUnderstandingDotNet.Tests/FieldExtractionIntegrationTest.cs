@@ -9,10 +9,21 @@ using System.Text.Json;
 
 namespace AzureAiContentUnderstandingDotNet.Tests
 {
+    /// <summary>
+    /// Integration tests for field extraction scenarios using IFieldExtractionService.
+    /// Validates that analyzers built from various templates can process different sample files correctly,
+    /// producing valid structured results and handling errors gracefully.
+    /// </summary>
     public class FieldExtractionIntegrationTest
     {
         private readonly IFieldExtractionService service;
 
+        /// <summary>
+        /// Sets up dependency injection, configures the test host, and validates required configurations for field extraction.
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// Thrown if required configuration values for "AZURE_CU_CONFIG:Endpoint" or "AZURE_CU_CONFIG:ApiVersion" are missing.
+        /// </exception>
         public FieldExtractionIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
@@ -42,14 +53,20 @@ namespace AzureAiContentUnderstandingDotNet.Tests
         }
 
         /// <summary>
-        /// Executes an integration test for field extraction using predefined templates and sample files.
+        /// Runs integration tests for field extraction using multiple predefined templates and sample files.
+        /// For each template/sample pair, verifies that the analyzer produces structured results with expected fields.
         /// </summary>
-        /// <remarks>This test validates the functionality of the field extraction service by creating and
-        /// using analyzers with various templates and sample files. It ensures that the service produces valid results
-        /// and does not throw exceptions during execution.  The test uses multiple predefined templates, including
-        /// invoice processing, call recording analytics, conversational audio analytics, and marketing video analysis.
-        /// Each template is paired with a corresponding sample file to simulate real-world usage scenarios.</remarks>
-        /// <returns></returns>
+        /// <remarks>
+        /// This test iterates through several field extraction scenarios:
+        /// <list type="bullet">
+        /// <item><description>Invoice extraction from PDF</description></item>
+        /// <item><description>Call recording analytics from MP3</description></item>
+        /// <item><description>Conversational audio analytics from MP3</description></item>
+        /// <item><description>Marketing video analysis from MP4</description></item>
+        /// </list>
+        /// Each scenario ensures the service does not throw exceptions, produces a valid JSON result,
+        /// and includes expected fields: "result", "contents", "markdown", and "fields".
+        /// </remarks>
         [Fact]
         public async Task RunAsync()
         {
@@ -73,8 +90,8 @@ namespace AzureAiContentUnderstandingDotNet.Tests
 
                     Assert.NotNull(resultJson);
                     Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
-                    Assert.True(result.TryGetProperty("warnings", out var values));
-                    Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
+                    Assert.True(result.TryGetProperty("warnings", out var warnings));
+                    Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
                     Assert.True(result.TryGetProperty("contents", out JsonElement contents));
                     Assert.True(contents.EnumerateArray().Any());
                     var content = contents[0];

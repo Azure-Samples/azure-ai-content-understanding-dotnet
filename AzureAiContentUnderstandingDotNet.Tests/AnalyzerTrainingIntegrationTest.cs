@@ -14,13 +14,17 @@ namespace AzureAiContentUnderstandingDotNet.Tests
     public class AnalyzerTrainingIntegrationTest
     {
         private readonly IAnalyzerTrainingService service;
-        // Replace with your SAS URL for training data
-        private const string trainingDataSasUrl = "https://<your_storage_account_name>.blob.core.windows.net/<your_container_name>?<your_sas_token>";
-        // Replace with your local path for training data
+        // SAS URL for uploading training data to Azure Blob Storage
+        // Replace with your SAS URL for actual usage
+        private string trainingDataSasUrl = "https://<your_storage_account_name>.blob.core.windows.net/<your_container_name>?<your_sas_token>";
+        // Local directory for generated training data (dynamically named for each test run)
         private string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/";
-        // Folder containing training documents
-        private const string trainingDocsFolder = "./data/document_training"; 
+        // Local folder containing source documents for training
+        private const string trainingDocsFolder = "./data/document_training";
 
+        /// <summary>
+        /// Initializes test dependencies and AnalyzerTrainingService via dependency injection.
+        /// </summary>
         public AnalyzerTrainingIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
@@ -47,18 +51,18 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                 .Build();
 
             service = host.Services.GetService<IAnalyzerTrainingService>()!;
+            // Optionally override SAS URL from environment variable
+            trainingDataSasUrl = Environment.GetEnvironmentVariable("TRAINING_DATA_SAS_URL") ?? trainingDataSasUrl;
         }
 
         /// <summary>
-        /// Executes an integration test for the analyzer training process, verifying the generation of training data,
-        /// the creation of a custom analyzer, and the analysis of a sample document using the custom analyzer.
+        /// Executes the complete analyzer training integration test.
+        /// Steps:
+        /// 1. Generates training data and uploads to blob storage.
+        /// 2. Validates upload completeness.
+        /// 3. Creates custom analyzer using template and training data.
+        /// 4. Analyzes sample document with custom analyzer and verifies output structure.
         /// </summary>
-        /// <remarks>This test performs the following steps: 1. Generates training data and uploads it to
-        /// blob storage. 2. Validates that the training data files are correctly uploaded. 3. Creates a custom analyzer
-        /// using a predefined template and the uploaded training data. 4. Analyzes a sample document using the custom
-        /// analyzer and verifies the structure and content of the result.  The test ensures that no exceptions are
-        /// thrown during the process and validates the correctness of the output.</remarks>
-        /// <returns></returns>
         [Fact]
         public async Task RunAsync()
         {
@@ -67,9 +71,10 @@ namespace AzureAiContentUnderstandingDotNet.Tests
             var analyzerId = string.Empty;
 
             try
-            {   // Ensure the training documents folder exists
+            {   // Step 1: Generate training data and upload to blob storage
                 await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
 
+                // Step 2: Validate that all local files are uploaded to blob storage
                 var files = Directory.GetFiles(trainingDocsFolder, "*.*", SearchOption.AllDirectories).ToList().ToHashSet();
                 // check if the training data is uploaded to the blob storage
                 var blobClient = new BlobContainerClient(new Uri(trainingDataSasUrl));
@@ -84,18 +89,21 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                 }
 
                 var fileNames = files.Select(f => Path.GetRelativePath(trainingDocsFolder, f)).ToHashSet();
-                // Check if all files in the trainingDocsFolder have corresponding label and result files
-                Assert.True(JsonSerializer.Serialize(fileNames) == JsonSerializer.Serialize(blobFiles));
+                // Assert: All local files are present in Blob
+                Assert.True(JsonSerializer.Serialize(fileNames) == JsonSerializer.Serialize(blobFiles), "Mismatch between local training data and uploaded blob files");
 
+                // Step 3: Create custom analyzer using training data and template
                 var analyzerTemplatePath = "./analyzer_templates/receipt.json";
                 analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
+
+                // Step 4: Analyze sample document with custom analyzer and verify output
                 var customAnalyzerSampleFilePath = "./data/receipt.png";
                 resultJson = await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);
 
                 Assert.NotNull(resultJson);
                 Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-                Assert.True(result.TryGetProperty("warnings", out var values));
-                Assert.False(values.EnumerateArray().Any(), "The warnings array should be empty");
+                Assert.True(result.TryGetProperty("warnings", out var warnings));
+                Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
                 Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
                 Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
 
@@ -109,7 +117,7 @@ namespace AzureAiContentUnderstandingDotNet.Tests
                 serviceException = ex;
             }
 
-            // no exception should be thrown
+            // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
         }
     }
