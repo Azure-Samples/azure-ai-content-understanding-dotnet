@@ -34,7 +34,7 @@ namespace ContentExtraction.Services
         /// </summary>
         /// <param name="filePath">The path to the document file to be analyzed. Must be a valid file path.</param>
         /// <returns>A task representing the asynchronous operation. The task completes when the document analysis is finished.</returns>
-        public async Task AnalyzeDocumentAsync(string filePath)
+        public async Task<JsonDocument> AnalyzeDocumentAsync(string filePath)
         {
             Console.WriteLine("Document Content Extraction Sample is running...");
 
@@ -62,9 +62,12 @@ namespace ContentExtraction.Services
             Console.WriteLine("\n===== The markdown output contains layout information, which is very useful for Retrieval-Augmented Generation (RAG) scenarios. You can paste the markdown into a viewer such as Visual Studio Code and preview the layout structure. =====");
             Console.WriteLine(firstContent.GetProperty("markdown").GetString());
             Console.WriteLine("\n===== This statement allows you to get structural information of the tables in the documents. =====");
-            Console.WriteLine("\nFor examle, the following code will print the first table in the document.");
+            Console.WriteLine("\nFor example, the following code will print the first table in the document.");
             var tables = firstContent.GetProperty("tables");
             Console.WriteLine(JsonSerializer.Serialize(tables[0], new JsonSerializerOptions { WriteIndented = true }));
+
+            // Return the result JSON document
+            return resultJson;
         }
 
         /// <summary>
@@ -84,7 +87,7 @@ namespace ContentExtraction.Services
         /// audio file. The analysis results are serialized and displayed in the console.</remarks>
         /// <param name="filePath">The path to the audio file to be analyzed. The file must exist and be accessible.</param>
         /// <returns>A task that represents the asynchronous operation. The task completes when the analysis is finished.</returns>
-        public async Task AnalyzeAudioAsync(string filePath)
+        public async Task<JsonDocument> AnalyzeAudioAsync(string filePath)
         {
             Console.WriteLine("\nAudio Content Extraction Sample is running...");
 
@@ -104,6 +107,9 @@ namespace ContentExtraction.Services
 
             Console.WriteLine("\n===== Audio Extraction has been saved to the following output file path =====");
             Console.WriteLine($"\n{output}");
+
+            // Return the result JSON document
+            return resultJson;
         }
 
         /// <summary>
@@ -121,7 +127,7 @@ namespace ContentExtraction.Services
         /// provided <paramref name="filePath"/> points to a valid video file.</remarks>
         /// <param name="filePath">The path to the video file to be analyzed. The file must exist and be accessible.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task AnalyzeVideoAsync(string filePath)
+        public async Task<JsonDocument> AnalyzeVideoAsync(string filePath)
         {
             Console.WriteLine("\nVideo Content Extraction Sample is running");
 
@@ -144,6 +150,9 @@ namespace ContentExtraction.Services
 
             // keep key frames
             await SaveKeyFrames(resultJson, response);
+
+            // Return the result JSON document
+            return resultJson;
         }
 
         /// <summary>
@@ -153,7 +162,7 @@ namespace ContentExtraction.Services
         /// <param name="filePath">The path to the video file to be analyzed. Must be a valid file path.</param>
         /// <returns>A task that represents the asynchronous operation. The task completes when the analysis is finished and the
         /// extracted content, including key frames and face data, has been processed.</returns>
-        public async Task AnalyzeVideoWithFaceAsync(string filePath)
+        public async Task<JsonDocument> AnalyzeVideoWithFaceAsync(string filePath)
         {
             Console.WriteLine("\nVideo Content(with face) Extraction Sample is running...");
             Console.WriteLine("\nThis is a gated feature: FaceID will not be extracted unless your account has been approved for Face API access.");
@@ -178,6 +187,9 @@ namespace ContentExtraction.Services
 
             // Save key frames and face pictures
             await SaveFacesAndKeyFrames(resultJson, response);
+
+            // Return the result JSON document
+            return resultJson;
         }
 
         /// <summary>

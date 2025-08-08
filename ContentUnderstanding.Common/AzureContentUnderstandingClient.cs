@@ -210,7 +210,7 @@ namespace ContentUnderstanding.Common
         /// </summary>
         /// <param name="analyzerId">The unique identifier for the analyzer.</param>
         /// <returns>A dictionary containing the JSON response from the service, which includes the target analyzer detail.</returns>
-        public async Task<dynamic?> GetAnalyzerDetailByIdAsync(string analyzerId)
+        public async Task<Dictionary<string, object>> GetAnalyzerDetailByIdAsync(string analyzerId)
         {
             var url = GetAnalyzerUrl(analyzerId);
             var request = await CreateRequestAsync(HttpMethod.Get, url).ConfigureAwait(false);
@@ -220,7 +220,7 @@ namespace ContentUnderstanding.Common
 
             var content = await response.Content.ReadAsStringAsync();
             
-            return JsonSerializer.Deserialize<dynamic>(content);
+            return JsonSerializer.Deserialize<Dictionary<string, object>>(content) ?? new Dictionary<string, object>();
         }
 
         /// <summary>

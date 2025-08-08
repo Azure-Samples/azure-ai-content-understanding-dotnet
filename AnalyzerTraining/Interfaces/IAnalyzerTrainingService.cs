@@ -1,4 +1,6 @@
-﻿namespace AnalyzerTraining.Interfaces
+﻿using System.Text.Json;
+
+namespace AnalyzerTraining.Interfaces
 {
     public interface IAnalyzerTrainingService
     {
@@ -40,7 +42,7 @@
         /// <param name="analyzerId">The unique identifier of the custom analyzer to use for document analysis. This value must not be null or empty.</param>
         /// <param name="filePath">The file path of the document to analyze. The file must exist and be accessible.</param>
         /// <returns>A task that represents the asynchronous operation. The task completes when the document analysis is finished.</returns>
-        Task AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath);
+        Task<JsonDocument> AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath);
 
         /// <summary>
         /// Delete exist analyzer in Content Understanding Service.

@@ -1,4 +1,6 @@
-﻿namespace FieldExtraction.Interfaces
+﻿using System.Text.Json;
+
+namespace FieldExtraction.Interfaces
 {
     public interface IFieldExtractionService
     {
@@ -11,6 +13,6 @@
         /// <param name="sampleFilePath">The file path to the sample file to be analyzed. The path must point to a valid file that can  be processed by
         /// the analyzer.</param>
         /// <returns></returns>
-        Task CreateAndUseAnalyzer(string analyzerId, string analyzerTemplatePath, string sampleFilePath);
+        Task<JsonDocument> CreateAndUseAnalyzer(string analyzerId, string analyzerTemplatePath, string sampleFilePath);
     }
 }

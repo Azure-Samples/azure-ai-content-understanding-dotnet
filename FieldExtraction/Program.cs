@@ -56,7 +56,6 @@ namespace FieldExtraction
 
                 await service.CreateAndUseAnalyzer(field_extraction_analyzerId, analyzerTemplatePath, analyzerSampleFilePath);
             }
-
         }
     }
 }
