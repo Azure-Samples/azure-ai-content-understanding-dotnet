@@ -46,16 +46,16 @@ namespace Management.Services
         /// </summary>
         /// <remarks>After the analyzer is successfully created, we can use it to analyze our input files.</remarks>
         /// <returns></returns>
-        public async Task ListAnalyzersAsync()
+        public async Task<JsonElement[]?> ListAnalyzersAsync()
         {
             Console.WriteLine("\n===== Listing All Analyzers =====");
 
-            var analyzers = await _client.GetAllAnalyzersAsync();
+            JsonElement[]? analyzers = await _client.GetAllAnalyzersAsync();
 
             if(analyzers == null || analyzers.Length == 0)
             {
                 Console.WriteLine("No analyzers found.");
-                return;
+                return null;
             }
 
             Console.WriteLine($"Number of analyzers: {analyzers.Length}");
@@ -71,6 +71,8 @@ namespace Management.Services
                 Console.WriteLine("\nThe last analyzer details:");
                 Console.WriteLine(JsonSerializer.Serialize(analyzers.Last(), new JsonSerializerOptions { WriteIndented = true }));
             }
+
+            return analyzers;
         }
 
         /// <summary>
@@ -79,14 +81,16 @@ namespace Management.Services
         /// <remarks>Remember the analyzer id when you create it. You can use the id to look up detail analyzer definitions afterwards.</remarks>
         /// <param name="analyzerId">The unique identifier of the analyzer whose details are to be retrieved. Cannot be null or empty.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task GetAnalyzerDetailsAsync(string analyzerId)
+        public async Task<Dictionary<string, object>> GetAnalyzerDetailsAsync(string analyzerId)
         {
             Console.WriteLine("\n===== Getting Analyzer Details =====");
             Console.WriteLine($"Analyzer ID: {analyzerId}");
 
-            var details = await _client.GetAnalyzerDetailByIdAsync(analyzerId);
+            Dictionary<string, object> details = await _client.GetAnalyzerDetailByIdAsync(analyzerId);
             Console.WriteLine("\nAnalyzer Details:");
             Console.WriteLine(JsonSerializer.Serialize(details, new JsonSerializerOptions { WriteIndented = true }));
+
+            return details;
         }
 
         /// <summary>
@@ -95,13 +99,15 @@ namespace Management.Services
         /// <remarks>If you don't need an analyzer anymore, delete it with its id.</remarks>
         /// <param name="analyzerId">The unique identifier of the analyzer to delete. Cannot be null or empty.</param>
         /// <returns>A task that represents the asynchronous delete operation.</returns>
-        public async Task DeleteAnalyzerAsync(string analyzerId)
+        public async Task<HttpResponseMessage> DeleteAnalyzerAsync(string analyzerId)
         {
             Console.WriteLine("\n===== Deleting Analyzer =====");
             Console.WriteLine($"Analyzer ID: {analyzerId}");
 
-            await _client.DeleteAnalyzerAsync(analyzerId);
+            HttpResponseMessage response = await _client.DeleteAnalyzerAsync(analyzerId);
             Console.WriteLine("Analyzer deleted successfully");
+
+            return response;
         }
     }
 }

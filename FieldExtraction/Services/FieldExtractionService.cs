@@ -28,7 +28,7 @@ namespace FieldExtraction.Services
         /// <param name="sampleFilePath">The file path to the sample file to be analyzed. The path must point to a valid file that can  be processed by
         /// the analyzer.</param>
         /// <returns></returns>
-        public async Task CreateAndUseAnalyzer(string analyzerId, string analyzerTemplatePath, string sampleFilePath)
+        public async Task<JsonDocument> CreateAndUseAnalyzer(string analyzerId, string analyzerTemplatePath, string sampleFilePath)
         {
             Console.WriteLine("Creating Analyzer...");
             Console.WriteLine($"Template: {Path.GetFileName(analyzerTemplatePath)}");
@@ -41,7 +41,7 @@ namespace FieldExtraction.Services
             );
 
             // Poll for creation result
-            var createResult = await _client.PollResultAsync(createResponse);
+            await _client.PollResultAsync(createResponse);
             Console.WriteLine("\nAnalyzer created successfully");
 
             Console.WriteLine("\n===== Analyzing Sample File =====");
@@ -50,18 +50,20 @@ namespace FieldExtraction.Services
             // Extract Fields Using the Analyzer.
             // After the analyzer is successfully created, we can use it to analyze our input files.
             var analyzeResponse = await _client.BeginAnalyzeAsync(analyzerId, sampleFilePath);
-            JsonDocument analyzeResult = await _client.PollResultAsync(analyzeResponse);
+            JsonDocument resultJson = await _client.PollResultAsync(analyzeResponse);
 
             Console.WriteLine("\n===== Extraction Results =====");
-            PrintExtractionResults(analyzeResult, sampleFilePath);
+            PrintExtractionResults(resultJson, sampleFilePath);
 
             // // Optionally, delete the sample analyzer from your resource. In typical usage scenarios, you would analyze multiple files using the same analyzer.
             Console.WriteLine("\n===== Cleaning Up =====");
             await _client.DeleteAnalyzerAsync(analyzerId);
             Console.WriteLine($"Analyzer {analyzerId} deleted");
+
+            return resultJson;
         }
 
-        public void PrintExtractionResults(JsonDocument result, string filePath)
+        public void PrintExtractionResults(JsonDocument resultJson, string filePath)
         {
             string extension = Path.GetExtension(filePath).ToLower();
             string fileName = Path.GetFileName(filePath);
@@ -71,7 +73,7 @@ namespace FieldExtraction.Services
             Console.WriteLine($"Analyzer completed at: {DateTime.Now}");
             Console.WriteLine("\nExtracted Fields:");
 
-            var serializedJson = JsonSerializer.Serialize(result, new JsonSerializerOptions
+            var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -80,13 +82,13 @@ namespace FieldExtraction.Services
             Console.WriteLine("\nField Extraction Results:");
             try
             {
-                if (!result.RootElement.TryGetProperty("result", out JsonElement resultElement))
+                if (!resultJson.RootElement.TryGetProperty("result", out JsonElement result))
                 {
                     Console.WriteLine("No 'result' property found in response.");
                     return;
                 }
 
-                if (!resultElement.TryGetProperty("contents", out JsonElement contents))
+                if (!result.TryGetProperty("contents", out JsonElement contents))
                 {
                     Console.WriteLine("No 'contents' property found in result.");
                     return;
@@ -100,13 +102,13 @@ namespace FieldExtraction.Services
                 }
 
                 var firstContent = contentsArray[0];
-                if (!firstContent.TryGetProperty("fields", out JsonElement fieldsElement))
+                if (!firstContent.TryGetProperty("fields", out JsonElement fields))
                 {
                     Console.WriteLine("No fields extracted from the document.");
                     return;
                 }
 
-                foreach (var field in fieldsElement.EnumerateObject())
+                foreach (var field in fields.EnumerateObject())
                 {
                     PrintFieldValue(field.Name, field.Value, 0);
                 }

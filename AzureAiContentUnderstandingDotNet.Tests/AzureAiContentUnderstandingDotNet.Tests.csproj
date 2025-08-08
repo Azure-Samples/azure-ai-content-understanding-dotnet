@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AnalyzerTraining\AnalyzerTraining.csproj" />
+    <ProjectReference Include="..\BuildPersonDirectory\BuildPersonDirectory.csproj" />
+    <ProjectReference Include="..\Classifier\Classifier.csproj" />
+    <ProjectReference Include="..\ContentExtraction\ContentExtraction.csproj" />
+    <ProjectReference Include="..\ContentUnderstanding.Common\ContentUnderstanding.Common.csproj" />
+    <ProjectReference Include="..\FieldExtractionProMode\FieldExtractionProMode.csproj" />
+    <ProjectReference Include="..\FieldExtraction\FieldExtraction.csproj" />
+    <ProjectReference Include="..\Management\Management.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

@@ -31,7 +31,7 @@ namespace ContentUnderstanding.Common
         /// request.</remarks>
         /// <param name="personDirectoryId">The unique identifier for the person directory to be created.  This value cannot be null or empty.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task CreatePersonDirectoryAsync(string personDirectoryId, string description = "", Dictionary<string, dynamic>? tags = null)
+        public async Task<HttpResponseMessage> CreatePersonDirectoryAsync(string personDirectoryId, string description = "", Dictionary<string, dynamic>? tags = null)
         {
             var requestBody = new Dictionary<string, dynamic>
             {
@@ -40,7 +40,7 @@ namespace ContentUnderstanding.Common
             };
 
             var request = await CreateRequestAsync(HttpMethod.Put, $"personDirectories/{personDirectoryId}", requestBody);
-            await SendRequestAsync(request);
+            return await SendRequestAsync<HttpResponseMessage>(request);
         }
 
         /// <summary>
@@ -51,7 +51,7 @@ namespace ContentUnderstanding.Common
         /// <param name="tags">A dictionary of key-value pairs representing the tags to associate with the person directory. Existing tags will
         /// be replaced with the provided tags. Cannot be null.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task UpdatePersonDirectoryAsync(
+        public async Task<HttpResponseMessage> UpdatePersonDirectoryAsync(
             string personDirectoryId,
             string description,
             Dictionary<string, dynamic>? tags = null)
@@ -67,7 +67,7 @@ namespace ContentUnderstanding.Common
                 $"personDirectories/{personDirectoryId}",
                 requestBody);
 
-            await SendRequestAsync(request);
+            return await SendRequestAsync<HttpResponseMessage>(request);
         }
 
         /// <summary>
@@ -107,7 +107,7 @@ namespace ContentUnderstanding.Common
         /// remain unchanged.</param>
         /// <param name="faceIds">A list of face IDs to associate with the person. If null, face IDs will remain unchanged.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task UpdatePersonAsync(
+        public async Task<HttpResponseMessage?> UpdatePersonAsync(
             string personDirectoryId,
             string? personId,
             Dictionary<string, dynamic>? tags = null,
@@ -116,7 +116,7 @@ namespace ContentUnderstanding.Common
             if (string.IsNullOrWhiteSpace(personId))
             {
                 Console.WriteLine("Person ID is null or empty, cannot associate faces");
-                return;
+                return null;
             }
 
             var requestBody = new Dictionary<string, dynamic>
@@ -128,6 +128,21 @@ namespace ContentUnderstanding.Common
                 HttpMethod.Patch,
                 $"personDirectories/{personDirectoryId}/persons/{personId}",
                 requestBody);
+            return await SendRequestAsync<HttpResponseMessage>(request);
+        }
+
+        /// <summary>
+        /// Deletes a person from the specified person directory.
+        /// </summary>
+        /// <remarks>This method sends a DELETE request to the server to remove the specified person. Ensure that
+        /// the identifiers provided are valid and correspond to existing resources.</remarks>
+        /// <param name="personDirectoryId">The unique identifier of the person directory containing the person to delete. This parameter cannot be null or
+        /// empty.</param>
+        /// <param name="personId">The unique identifier of the person to delete. This parameter cannot be null or empty.</param>
+        /// <returns>A task that represents the asynchronous operation.</returns>
+        public async Task DeletePersonAsync(string personDirectoryId, string personId)
+        {
+            var request = await CreateRequestAsync(HttpMethod.Delete, $"personDirectories/{personDirectoryId}/persons/{personId}");
             await SendRequestAsync(request);
         }
 
@@ -257,7 +272,7 @@ namespace ContentUnderstanding.Common
         /// <param name="faceId">The identifier of the face to update. Cannot be null or empty.</param>
         /// <param name="personId">The identifier of the person to associate with the face. Cannot be null or empty.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task UpdateFaceAsync(
+        public async Task<HttpResponseMessage> UpdateFaceAsync(
             string personDirectoryId,
             string faceId,
             string personId)
@@ -270,7 +285,7 @@ namespace ContentUnderstanding.Common
                 HttpMethod.Patch,
                 $"personDirectories/{personDirectoryId}/faces/{faceId}",
                 requestBody).ConfigureAwait(false);
-            await SendRequestAsync(request);
+            return await SendRequestAsync<HttpResponseMessage>(request);
         }
 
         /// <summary>
@@ -288,21 +303,7 @@ namespace ContentUnderstanding.Common
                 HttpMethod.Delete,
                 $"personDirectories/{personDirectoryId}/faces/{faceId}",
                 null);
-            await SendRequestAsync(request);
-        }
 
-        /// <summary>
-        /// Deletes a person from the specified person directory.
-        /// </summary>
-        /// <remarks>This method sends a DELETE request to the server to remove the specified person. Ensure that
-        /// the identifiers provided are valid and correspond to existing resources.</remarks>
-        /// <param name="personDirectoryId">The unique identifier of the person directory containing the person to delete. This parameter cannot be null or
-        /// empty.</param>
-        /// <param name="personId">The unique identifier of the person to delete. This parameter cannot be null or empty.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task DeletePersonAsync(string personDirectoryId, string personId)
-        {
-            var request = await CreateRequestAsync(HttpMethod.Delete, $"personDirectories/{personDirectoryId}/persons/{personId}");
             await SendRequestAsync(request);
         }
 
@@ -360,12 +361,11 @@ namespace ContentUnderstanding.Common
 
             if (!response.IsSuccessStatusCode)
             {
-                throw new HttpRequestException(
-                    $"API error {(int)response.StatusCode} {response.StatusCode}: {content}",
-                    null,
-                    response.StatusCode);
+                Console.WriteLine($"API error {(int)response.StatusCode} {response.StatusCode}: {content}");
+                return default(T)!; // Return default value for the type T if the request fails
             }
 
+            // Deserialize the content to the specified type
             return JsonSerializer.Deserialize<T>(content) ?? throw new InvalidOperationException("Deserialization returned null");
         }
 
