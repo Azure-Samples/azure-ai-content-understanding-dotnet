@@ -4,22 +4,32 @@ namespace BuildPersonDirectory.Interfaces
 {
     public interface IBuildPersonDirectoryService
     {
-        Task<string> CreatePersonDirectoryAsync(string directoryId);
+        Task<HttpResponseMessage> CreatePersonDirectoryAsync(string directoryId);
 
-        Task<IList<Person>> BuildPersonDirectoryAsync(string directoryId);
+        Task<List<Person>> BuildPersonDirectoryAsync(string directoryId);
 
-        Task IdentifyPersonsInImageAsync(string directoryId, string imagePath);
+        Task<List<DetectedFace>> IdentifyPersonsInImageAsync(string directoryId, string imagePath);
 
         Task<FaceResponse> GetFaceAsync(string personDirectoryId, string faceId);
 
-        Task AddNewFaceToPersonAsync(string directoryId, string? personId, string newFaceImagePath);
+        Task<FaceResponse> AddFaceAsync(string personDirectoryId, string imageData, string? personId = null);
 
-        Task AssociateExistingFacesAsync(string directoryId, string? personId, List<string> faceIds);
+        Task<PersonResponse> GetPersonAsync(string personDirectoryId, string personId);
 
-        Task UpdateFaceAssociationAsync(string directoryId, string faceId, string? personId = null);
+        Task<PersonResponse> AddPersonAsync(string personDirectoryId, Dictionary<string, dynamic> tags);
 
-        Task UpdateMetadataAsync(string directoryId, string? personId = null);
+        Task DeletePersonAsync(string personDirectoryId, string personId);
 
-        Task DeleteFaceAndPersonAsync(string directoryId, string personId);
+        Task<HttpResponseMessage?> UpdatePersonAsync(string personDirectoryId, string personId, Dictionary<string, dynamic>? tags = null, List<string>? faceIds = null);
+
+        Task<FaceResponse?> AddNewFaceToPersonAsync(string directoryId, string? personId, string newFaceImagePath);
+
+        Task<HttpResponseMessage?> AssociateExistingFacesAsync(string directoryId, string? personId, List<string> faceIds);
+
+        Task<FaceResponse?> UpdateFaceAssociationAsync(string directoryId, string faceId, string? personId = null);
+
+        Task<PersonResponse?> UpdateMetadataAsync(string directoryId, string? personId = null);
+
+        Task<PersonResponse> DeleteFaceAndPersonAsync(string directoryId, string personId);
     }
 }

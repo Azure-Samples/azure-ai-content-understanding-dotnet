@@ -24,63 +24,6 @@ namespace FieldExtractionProMode.Services
         }
 
         /// <summary>
-        /// Uploads training data files to a specified Azure Blob Storage container.
-        /// </summary>
-        /// <remarks>This method uploads each document from the specified folder to the blob storage,
-        /// along with its corresponding label and OCR result files. The method expects each document to have a label
-        /// file and an OCR result file with specific suffixes. If these files are not found, a <see
-        /// cref="FileNotFoundException"/> is thrown.</remarks>
-        /// <param name="trainingDocsFolder">The local directory containing the training documents and associated files.</param>
-        /// <param name="storageContainerSasUrl">The SAS URL of the Azure Blob Storage container where files will be uploaded.</param>
-        /// <param name="storageContainerPathPrefix">The path prefix within the storage container where files will be stored. Must end with a slash.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        /// <exception cref="FileNotFoundException">Thrown if the label file or OCR result file for a document does not exist in the specified folder.</exception>
-        public async Task GenerateTrainingDataOnBlobAsync(
-            string trainingDocsFolder,
-            string storageContainerSasUrl,
-            string storageContainerPathPrefix)
-        {
-            if (!storageContainerPathPrefix.EndsWith("/"))
-            {
-                storageContainerPathPrefix += "/";
-            }
-
-            BlobContainerClient containerClient = new BlobContainerClient(new Uri(storageContainerSasUrl));
-
-            foreach (var fileName in Directory.GetFiles(trainingDocsFolder))
-            {
-                string fileNameOnly = Path.GetFileName(fileName);
-                string fileExt = Path.GetExtension(fileName).ToLower();
-
-                if ((fileExt == "" || _client.GetSupportedFileTypesDocument().Contains(fileExt)))
-                {
-                    string labelFilename = fileNameOnly + _client.GetLabelFileSuffix();
-                    string labelPath = Path.Combine(trainingDocsFolder, labelFilename);
-                    string ocrResultFilename = fileNameOnly + _client.GetOcrResultFileSuffix();
-                    string ocrResultPath = Path.Combine(trainingDocsFolder, ocrResultFilename);
-
-                    if (File.Exists(labelPath) && File.Exists(ocrResultPath))
-                    {
-                        string fileBlobPath = storageContainerPathPrefix + fileNameOnly;
-                        string labelBlobPath = storageContainerPathPrefix + labelFilename;
-                        string ocrResultBlobPath = storageContainerPathPrefix + ocrResultFilename;
-
-                        await _client.UploadFileToBlobAsync(containerClient, fileName, fileBlobPath);
-                        await _client.UploadFileToBlobAsync(containerClient, labelPath, labelBlobPath);
-                        await _client.UploadFileToBlobAsync(containerClient, ocrResultPath, ocrResultBlobPath);
-                    }
-                    else
-                    {
-                        throw new FileNotFoundException(
-                            $"Label file '{labelFilename}' or OCR result file '{ocrResultFilename}' does not exist in '{trainingDocsFolder}'. " +
-                            $"Please ensure both files exist for '{fileNameOnly}'."
-                        );
-                    }
-                }
-            }
-        }
-
-        /// <summary>
         /// Generates a knowledge base by analyzing documents in a specified folder and uploading the results to a blob
         /// storage container.
         /// </summary>
@@ -191,7 +134,7 @@ namespace FieldExtractionProMode.Services
         /// <exception cref="ArgumentException">Thrown if <paramref name="analyzerId"/> or <paramref name="analyzerSchema"/> is null, empty, or consists
         /// only of white-space characters.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the analyzer creation fails due to an error in the provided configuration or deployment.</exception>
-        public async Task CreateAnalyzerWithDefinedSchemaForProModeAsync(
+        public async Task<JsonDocument> CreateAnalyzerWithDefinedSchemaForProModeAsync(
             string analyzerId,
             string analyzerSchema,
             string proModeReferenceDocsStorageContainerSasUrl,
@@ -223,6 +166,8 @@ namespace FieldExtractionProMode.Services
                 Console.WriteLine($"Analyzer '{analyzerId}'");
                 Console.WriteLine($"Created successfully with the following schema: {serializedJson}");
             }
+
+            return resultJson;
         }
 
         /// <summary>
@@ -234,10 +179,10 @@ namespace FieldExtractionProMode.Services
         /// <param name="analyzerId">The identifier of the analyzer to be used for processing the document.</param>
         /// <param name="fileLocation">The file path of the document to be analyzed. Must be a valid path to an existing file.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task AnalyzeDocumentWithDefinedSchemaForProModeAsync(string analyzerId, string fileLocation)
+        public async Task<JsonDocument> AnalyzeDocumentWithDefinedSchemaForProModeAsync(string analyzerId, string fileLocation)
         {
             var response = await _client.BeginAnalyzeAsync(analyzerId, fileLocation).ConfigureAwait(false);
-            JsonDocument resultJson = await _client.PollResultAsync(response, timeoutSeconds: 600).ConfigureAwait(false);
+            JsonDocument resultJson = await _client.PollResultAsync(response, timeoutSeconds: 1200).ConfigureAwait(false);
 
             if (resultJson.RootElement.TryGetProperty("error", out JsonElement errorElement))
             {
@@ -278,6 +223,8 @@ namespace FieldExtractionProMode.Services
                     }
                 }
             }
+
+            return resultJson;
         }
 
         /// <summary>

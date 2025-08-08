@@ -1,12 +1,12 @@
 ﻿using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
-using FieldExtraction.Interfaces;
-using FieldExtraction.Services;
+using ConversationalFieldExtraction.Interfaces;
+using ConversationalFieldExtraction.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace FieldExtraction
+namespace ConversationalFieldExtraction
 {
     public class Program
     {
@@ -29,32 +29,38 @@ namespace FieldExtraction
                     {
                         context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/field_extraction";
+                        opts.UserAgent = "azure-ai-content-understanding-dotnet/conversational_field_extraction";
                     });
                     services.AddTokenProvider();
                     services.AddHttpClient<AzureContentUnderstandingClient>();
-                    services.AddSingleton<IFieldExtractionService, FieldExtractionService>();
-
+                    services.AddSingleton<IConversationalFieldExtractionService, ConversationalFieldExtractionService>();
                 })
                 .Build();
 
-            var service = host.Services.GetService<IFieldExtractionService>()!;
+            var service = host.Services.GetService<IConversationalFieldExtractionService>()!;
 
             var ExtractionTemplates = new Dictionary<string, (string, string)>
             {
-                { "invoice", ("./analyzer_templates/invoice.json", "./data/invoice.pdf") },
-                { "call_recording", ("./analyzer_templates/call_recording_analytics.json", "./data/callCenterRecording.mp3") },
-                { "conversation_audio", ("./analyzer_templates/conversational_audio_analytics.json", "./data/callCenterRecording.mp3") },
-                { "marketing_video", ("./analyzer_templates/marketing_video.json", "./data/FlightSimulator.mp4") }
+                { "call_recording_pretranscribe_batch", ("./analyzer_templates/call_recording_analytics_text.json", "./data/batch_pretranscribed.json") },
+                { "call_recording_pretranscribe_fast", ("./analyzer_templates/call_recording_analytics_text.json", "./data/fast_pretranscribed.json") },
+                { "call_recording_pretranscribe_cu", ("./analyzer_templates/call_recording_analytics_text.json", "./data/cu_pretranscribed.json") }
             };
 
-            string field_extraction_analyzerId = $"field-extraction-sample-{Guid.NewGuid()}";
+            var analyzerId = $"conversational-field-extraction-sample-{Guid.NewGuid()}";
 
             foreach (var item in ExtractionTemplates)
             {
+                // Extract the template path and sample file path from the dictionary
                 var (analyzerTemplatePath, analyzerSampleFilePath) = ExtractionTemplates[item.Key];
 
-                await service.CreateAndUseAnalyzer(field_extraction_analyzerId, analyzerTemplatePath, analyzerSampleFilePath);
+                // Create the analyzer from the template
+                await service.CreateAnalyzerFromTemplateAsync(analyzerId, analyzerTemplatePath);
+
+                // Extract fields using the created analyzer
+                await service.ExtractFieldsWithAnalyzerAsync(analyzerId, analyzerSampleFilePath);
+
+                // Clean up the analyzer after use
+                await service.DeleteAnalyzerAsync(analyzerId);
             }
         }
     }

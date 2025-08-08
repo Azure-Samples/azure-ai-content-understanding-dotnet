@@ -1,25 +1,10 @@
 ﻿
+using System.Text.Json;
+
 namespace FieldExtractionProMode.Interfaces
 {
     public interface IFieldExtractionProModeService
     {
-        /// <summary>
-        /// Uploads training data files to a specified Azure Blob Storage container.
-        /// </summary>
-        /// <remarks>This method uploads each document from the specified folder to the blob storage,
-        /// along with its corresponding label and OCR result files. The method expects each document to have a label
-        /// file and an OCR result file with specific suffixes. If these files are not found, a <see
-        /// cref="FileNotFoundException"/> is thrown.</remarks>
-        /// <param name="trainingDocsFolder">The local directory containing the training documents and associated files.</param>
-        /// <param name="storageContainerSasUrl">The SAS URL of the Azure Blob Storage container where files will be uploaded.</param>
-        /// <param name="storageContainerPathPrefix">The path prefix within the storage container where files will be stored. Must end with a slash.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        /// <exception cref="FileNotFoundException">Thrown if the label file or OCR result file for a document does not exist in the specified folder.</exception>
-        Task GenerateTrainingDataOnBlobAsync(
-            string trainingDocsFolder,
-            string storageContainerSasUrl,
-            string storageContainerPathPrefix);
-
         /// <summary>
         /// Generates a knowledge base by analyzing documents in a specified folder and uploading the results to a blob
         /// storage container.
@@ -55,7 +40,7 @@ namespace FieldExtractionProMode.Interfaces
         /// <exception cref="ArgumentException">Thrown if <paramref name="analyzerId"/> or <paramref name="analyzerSchema"/> is null, empty, or consists
         /// only of white-space characters.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the analyzer creation fails due to an error in the provided configuration or deployment.</exception>
-        Task CreateAnalyzerWithDefinedSchemaForProModeAsync(
+        Task<JsonDocument> CreateAnalyzerWithDefinedSchemaForProModeAsync(
             string analyzerId,
             string analyzerSchema,
             string proModeReferenceDocsStorageContainerSasUrl,
@@ -71,7 +56,7 @@ namespace FieldExtractionProMode.Interfaces
         /// <param name="analyzerId">The identifier of the analyzer to be used for processing the document.</param>
         /// <param name="fileLocation">The file path of the document to be analyzed. Must be a valid path to an existing file.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        Task AnalyzeDocumentWithDefinedSchemaForProModeAsync(string analyzerId, string fileLocation);
+        Task<JsonDocument> AnalyzeDocumentWithDefinedSchemaForProModeAsync(string analyzerId, string fileLocation);
 
         /// <summary>
         /// Delete exist analyzer in Content Understanding Service.

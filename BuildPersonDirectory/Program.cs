@@ -60,7 +60,7 @@ namespace BuildPersonDirectory
             // Builds the person directory for the given directory ID and returns a list of all enrolled persons.
             // The returned value 'persons' is a collection of Person objects, where each Person contains details such as name, ID, and associated face metadata.
             // For example, persons[0].Name is the person's name, and persons[0].Faces is the list of face IDs associated with that person.
-            IList<Person> persons = await service.BuildPersonDirectoryAsync(directoryId);
+            List<Person> persons = await service.BuildPersonDirectoryAsync(directoryId);
             Person? person_Alex = persons.Where(s => s.Name == "Alex").FirstOrDefault();
             Person? person_Bill = persons.Where(s => s.Name == "Bill").FirstOrDefault();
             Person? person_Jordan = persons.Where(s => s.Name == "Jordan").FirstOrDefault();
