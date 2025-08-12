@@ -245,6 +245,9 @@ CUSTOMER ID: CID-12345
 - [Azure Content Understanding Documentation](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/overview)
 - [Region and Language Support](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/language-region-support)
 
+## Integration Test
+To validate that all projects are properly configured and working correctly, you can run the integration tests using the `dotnet test` command. Before executing the tests, ensure that you have properly configured the [appsettings.json](ContentUnderstanding.Common/appsettings.json) file with your Azure AI Services endpoint. For detailed configuration instructions, please refer to the [Manually create resources and set environment variables](#option-2-manually-create-resources-and-set-environment-variables) section above.
+
 ---
 
 ## Notes

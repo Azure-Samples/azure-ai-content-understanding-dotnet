@@ -141,8 +141,8 @@ namespace AnalyzerTraining.Services
         /// <remarks>After the analyzer is successfully created, we can use it to analyze our input files.</remarks>
         /// <param name="analyzerId">The unique identifier of the custom analyzer to use for document analysis. This value must not be null or empty.</param>
         /// <param name="filePath">The file path of the document to analyze. The file must exist and be accessible.</param>
-        /// <returns>A task that represents the asynchronous operation. The task completes when the document analysis is finished.</returns>
-        public async Task AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath)
+        /// <returns>A <see cref="JsonDocument"/> containing the analysis results of the document.</returns>
+        public async Task<JsonDocument> AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath)
         {
             Console.WriteLine("\n===== Using Custom Analyzer for Document Analysis =====");
 
@@ -155,6 +155,8 @@ namespace AnalyzerTraining.Services
                 await File.WriteAllTextAsync(output, serializedJson);
 
                 Console.WriteLine($"Document Extraction has been saved to the output file path: {output}");
+
+                return resultJson;
             }
             catch (Exception ex)
             {

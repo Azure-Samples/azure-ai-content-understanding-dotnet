@@ -26,7 +26,7 @@ namespace Classifier.Services
         /// <param name="classifierId">The unique identifier for the classifier to be created.</param>
         /// <param name="classifierSchemaPath">The file path to the schema used for creating the classifier. Must be a valid path to a readable file.</param>
         /// <returns></returns>
-        public async Task CreateClassifierAsync(string classifierId, string classifierSchemaPath)
+        public async Task<JsonDocument> CreateClassifierAsync(string classifierId, string classifierSchemaPath)
         {
             try
             {
@@ -43,6 +43,8 @@ namespace Classifier.Services
 
                 Console.WriteLine("\nClassifier created successfully:");
                 Console.WriteLine(serializedJson);
+
+                return resultJson;
             }
             catch (Exception ex)
             {
@@ -72,7 +74,7 @@ namespace Classifier.Services
         /// <param name="classifierId">The identifier of the classifier to be used for document classification. Cannot be null or empty.</param>
         /// <param name="fileLocation">The file path of the document to be classified. Must be a valid path to an existing file.</param>
         /// <returns></returns>
-        public async Task ClassifyDocumentAsync(string classifierId, string fileLocation)
+        public async Task<JsonDocument> ClassifyDocumentAsync(string classifierId, string fileLocation)
         {
             try
             {
@@ -102,6 +104,8 @@ namespace Classifier.Services
                 await File.WriteAllTextAsync(output, serializedJson);
                 Console.WriteLine("\n===== Document Classifier has been saved to the following output file path =====");
                 Console.WriteLine($"\n{output}\n");
+
+                return resultJson;
             }
             catch (Exception ex)
             {
@@ -163,7 +167,7 @@ namespace Classifier.Services
         /// <param name="enhancedClassifierId">The identifier of the enhanced classifier to be used for processing.</param>
         /// <param name="fileLocation">The file path of the document to be processed.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task ProcessDocumentWithEnhancedClassifierAsync(string enhancedClassifierId, string fileLocation)
+        public async Task<JsonDocument> ProcessDocumentWithEnhancedClassifierAsync(string enhancedClassifierId, string fileLocation)
         {
             Console.WriteLine("Processing document with enhanced classifier");
             Console.WriteLine($"Document: {fileLocation}");
@@ -186,6 +190,8 @@ namespace Classifier.Services
             await File.WriteAllTextAsync(output, serializedJson);
             Console.WriteLine("\n===== Document With Enhanced Classifier has been saved to the following output file path =====");
             Console.WriteLine($"\n{output}");
+
+            return resultJson;
         }
 
         /// <summary>
