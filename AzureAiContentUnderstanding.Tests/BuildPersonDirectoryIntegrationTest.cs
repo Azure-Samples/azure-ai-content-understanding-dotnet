@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace AzureAiContentUnderstandingDotNet.Tests
+namespace AzureAiContentUnderstanding.Tests
 {
     /// <summary>
     /// Integration test for building and managing a person directory using the IBuildPersonDirectoryService.
