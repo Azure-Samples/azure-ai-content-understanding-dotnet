@@ -89,10 +89,18 @@ namespace AzureAiContentUnderstanding.Tests
                 Assert.True(!string.IsNullOrWhiteSpace(fields.GetRawText()));
 
                 // Step 3: List all analyzers (verifies listing API, no assertion)
-                await service.ListAnalyzersAsync();
+                var analyzers = await service.ListAnalyzersAsync();
+                var analyzerIds = analyzers?.Select(s => s.GetProperty("analyzerId").ToString());
+                Assert.True(analyzerIds?.Any(s => s.Equals(analyzerId)), "Created analyzer should be in the list of analyzers");
 
                 // Step 4: Delete analyzer
-                await service.DeleteAnalyzerAsync(analyzerId);
+                HttpResponseMessage response = await service.DeleteAnalyzerAsync(analyzerId);
+                Assert.NotNull(response);
+                Assert.True(response.IsSuccessStatusCode, "Delete operation should succeed");
+
+                var analyzersAfterDelete = await service.ListAnalyzersAsync();
+                var analyzerIdsAfterDelete = analyzersAfterDelete?.Select(s => s.GetProperty("analyzerId").ToString());
+                Assert.False(analyzerIdsAfterDelete?.Any(s => s.Equals(analyzerId)), "Deleted analyzer should not be in the list of analyzers");
             }
             catch (Exception ex)
             {

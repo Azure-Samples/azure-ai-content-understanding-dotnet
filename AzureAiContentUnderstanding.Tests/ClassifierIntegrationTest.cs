@@ -5,6 +5,7 @@ using ContentUnderstanding.Common.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace AzureAiContentUnderstanding.Tests
@@ -71,6 +72,33 @@ namespace AzureAiContentUnderstanding.Tests
                 var (analyzerSchemaPath, enhancedSchemaPath) = ("./analyzer_templates/analyzer_schema.json", "./data/classifier/enhanced_schema.json");
                 var classifierId = $"classifier-sample-{Guid.NewGuid()}";
                 var classifierSchemaPath = "./data/classifier/schema.json";
+
+                // Validate that the required files exist
+                Assert.True(File.Exists(analyzerTemplatePath), "Analyzer template file does not exist.");
+                Assert.True(File.Exists(analyzerSchemaPath), "Analyzer schema file does not exist.");
+                Assert.True(File.Exists(enhancedSchemaPath), "Enhanced schema file does not exist.");
+                Assert.True(File.Exists(classifierSchemaPath), "Classifier schema file does not exist.");
+
+                // Read the JSON content from the schema files
+                var (analyzerSchema, enhancedSchema) = (await File.ReadAllTextAsync(analyzerSchemaPath), await File.ReadAllTextAsync(enhancedSchemaPath));
+                var classifierSchema = await File.ReadAllTextAsync(classifierSchemaPath);
+                Assert.False(string.IsNullOrWhiteSpace(analyzerSchema), "Analyzer schema JSON should not be empty.");
+                Assert.False(string.IsNullOrWhiteSpace(enhancedSchema), "Enhanced schema JSON should not be empty.");
+                Assert.False(string.IsNullOrWhiteSpace(classifierSchema), "Classifier schema JSON should not be empty.");
+
+                JsonElement analyzerSchemaJson = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(analyzerSchemaPath));
+                Assert.True(analyzerSchemaJson.TryGetProperty("fieldSchema", out var fieldSchema));
+                Assert.True(fieldSchema.TryGetProperty("fields", out var fields));
+
+                JsonElement enhancedSchemaJson = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(enhancedSchemaPath));
+                Assert.True(enhancedSchemaJson.TryGetProperty("categories", out var enhancedCategories));
+                Assert.True(enhancedSchemaJson.TryGetProperty("splitMode", out var enhancedSplitMode));
+                Assert.Equal("auto", enhancedSplitMode.ToString());
+
+                JsonElement classifierSchemaJson = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(classifierSchemaPath));
+                Assert.True(classifierSchemaJson.TryGetProperty("categories", out var classifierCategories));
+                Assert.True(classifierSchemaJson.TryGetProperty("splitMode", out var classifierSplitMode));
+                Assert.Equal("auto", classifierSplitMode.ToString());
 
                 // Step 1: Create a basic classifier
                 await CreateClassifierAsync(classifierId, classifierSchemaPath);
