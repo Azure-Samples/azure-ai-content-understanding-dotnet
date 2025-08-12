@@ -23,6 +23,7 @@
     <ProjectReference Include="..\Classifier\Classifier.csproj" />
     <ProjectReference Include="..\ContentExtraction\ContentExtraction.csproj" />
     <ProjectReference Include="..\ContentUnderstanding.Common\ContentUnderstanding.Common.csproj" />
+    <ProjectReference Include="..\ConversationalFieldExtraction\ConversationalFieldExtraction.csproj" />
     <ProjectReference Include="..\FieldExtractionProMode\FieldExtractionProMode.csproj" />
     <ProjectReference Include="..\FieldExtraction\FieldExtraction.csproj" />
     <ProjectReference Include="..\Management\Management.csproj" />

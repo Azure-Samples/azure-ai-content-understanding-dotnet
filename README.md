@@ -180,6 +180,7 @@ Azure AI Content Understanding is a new Generative AI-based [Azure AI service](h
 | [FieldExtraction](FieldExtraction/)   | [FieldExtractionService.cs](FieldExtraction/Services/FieldExtractionService.cs) | In this sample we will show how to create an analyzer to extract fields in your file. For example invoice amount in the document, how many people in an image, names mentioned in an audio, or summary of a video. You can customize the fields by creating your own analyzer template. |
 | [FieldExtractionProMode](FieldExtractionProMode/)  |  [FieldExtractionProModeSerivce.cs](FieldExtractionProMode/Services/FieldExtractionProModeService.cs)  | In this sample we will demonstrate how to use **Pro mode** in Azure AI Content Understanding to enhance your analyzer with multiple inputs and optional reference data. Pro mode is designed for advanced use cases, particularly those requiring multi-step reasoning, and complex decision-making (for instance, identifying inconsistencies, drawing inferences, and making sophisticated decisions). |
 | [Classifier](Classifier/) | [ClassifierService.cs](Classifier/Services/ClassifierService.cs) | This sample will demo how to (1) create a classifier to categorize documents, (2) create a custom analyzer to extract specific fields, and (3) combine classifier and analyzers to classify, optionally split, and analyze documents in a flexible processing pipeline. |
+| [ConversationalFieldExtraction](ConversationalFieldExtraction/) | [ConversationalFieldExtraction.cs](ConversationalFieldExtraction/Services/ConversationalFieldExtractionService.cs) | Shows how to efficiently evaluate conversational audio data previously transcribed with Content Understanding or Azure AI Speech. Enables re-analysis of data cost-effectively. Based on the [FieldExtraction](FieldExtraction/) sample. 
 | [AnalyzerTraining](AnalyzerTraining/) | [AnalyzerTrainingService.cs](AnalyzerTraining/Services/AnalyzerTrainingService.cs) | If you want to futher boost the performance for field extraction, we can do training when you provide few labeled samples to the API. Note: This feature is available to document scenario now. |
 | [Management](Management/)      | [ManagementService.cs](Management/Services/ManagementService.cs) | This sample will demo how to create a minimal analyzer, list all the analyzers in your resource, and delete the analyzer you don't need. |
 | [BuildPersonDirectory](BuildPersonDirectory/)      | [BuildPersonDirectoryService.cs](BuildPersonDirectory/Services/BuildPersonDirectoryService.cs) | This sample will demo how to enroll people’s faces from images and build a Person Directory. |
@@ -244,9 +245,6 @@ CUSTOMER ID: CID-12345
 
 - [Azure Content Understanding Documentation](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/overview)
 - [Region and Language Support](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/language-region-support)
-
-## Integration Test
-To validate that all projects are properly configured and working correctly, you can run the integration tests using the `dotnet test` command. Before executing the tests, ensure that you have properly configured the [appsettings.json](ContentUnderstanding.Common/appsettings.json) file with your Azure AI Services endpoint. For detailed configuration instructions, please refer to the [Manually create resources and set environment variables](#option-2-manually-create-resources-and-set-environment-variables) section above.
 
 ---
 
