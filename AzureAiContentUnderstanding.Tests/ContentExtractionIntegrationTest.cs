@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Text.Json;
 
-namespace AzureAiContentUnderstandingDotNet.Tests
+namespace AzureAiContentUnderstanding.Tests
 {
     /// <summary>
     /// Integration tests for content extraction service, covering document, audio, and video analysis scenarios.

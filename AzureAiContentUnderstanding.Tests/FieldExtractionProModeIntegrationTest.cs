@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Text.Json;
 
-namespace AzureAiContentUnderstandingDotNet.Tests
+namespace AzureAiContentUnderstanding.Tests
 {
     /// <summary>
     /// Integration tests for Field Extraction Pro Mode using IFieldExtractionProModeService.
