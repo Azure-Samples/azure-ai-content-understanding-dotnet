@@ -28,17 +28,25 @@ namespace AzureAiContentUnderstanding.Tests
             var host = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) =>
                 {
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint")))
+                    // Load configuration from environment variables or appsettings.json
+                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_Endpoint") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
+
+                    // API version for Azure Content Understanding service
+                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_ApiVersion") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");
+
+                    if (string.IsNullOrWhiteSpace(endpoint))
                     {
-                        throw new ArgumentException("Endpoint must be provided in appsettings.json.");
+                        throw new ArgumentException("Endpoint must be provided in environment variable or appsettings.json.");
                     }
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion")))
+                    if (string.IsNullOrWhiteSpace(apiVersion))
                     {
-                        throw new ArgumentException("API version must be provided in appsettings.json.");
+                        throw new ArgumentException("API version must be provided in environment variable or appsettings.json.");
                     }
+
                     services.AddConfigurations(opts =>
                     {
-                        context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
+                        opts.Endpoint = endpoint;
+                        opts.ApiVersion = apiVersion;
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/management";
                     });
@@ -89,10 +97,18 @@ namespace AzureAiContentUnderstanding.Tests
                 Assert.True(!string.IsNullOrWhiteSpace(fields.GetRawText()));
 
                 // Step 3: List all analyzers (verifies listing API, no assertion)
-                await service.ListAnalyzersAsync();
+                var analyzers = await service.ListAnalyzersAsync();
+                var analyzerIds = analyzers?.Select(s => s.GetProperty("analyzerId").ToString());
+                Assert.True(analyzerIds?.Any(s => s.Equals(analyzerId)), "Created analyzer should be in the list of analyzers");
 
                 // Step 4: Delete analyzer
-                await service.DeleteAnalyzerAsync(analyzerId);
+                HttpResponseMessage response = await service.DeleteAnalyzerAsync(analyzerId);
+                Assert.NotNull(response);
+                Assert.True(response.IsSuccessStatusCode, "Delete operation should succeed");
+
+                var analyzersAfterDelete = await service.ListAnalyzersAsync();
+                var analyzerIdsAfterDelete = analyzersAfterDelete?.Select(s => s.GetProperty("analyzerId").ToString());
+                Assert.False(analyzerIdsAfterDelete?.Any(s => s.Equals(analyzerId)), "Deleted analyzer should not be in the list of analyzers");
             }
             catch (Exception ex)
             {
