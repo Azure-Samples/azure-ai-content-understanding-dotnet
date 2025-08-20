@@ -5,6 +5,7 @@ using ContentUnderstanding.Common.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace AzureAiContentUnderstanding.Tests
@@ -28,17 +29,25 @@ namespace AzureAiContentUnderstanding.Tests
             var host = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) =>
                 {
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint")))
+                    // Load configuration from environment variables or appsettings.json
+                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_Endpoint") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
+
+                    // API version for Azure Content Understanding service
+                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_ApiVersion") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");
+
+                    if (string.IsNullOrWhiteSpace(endpoint))
                     {
-                        throw new ArgumentException("Endpoint must be provided in appsettings.json.");
+                        throw new ArgumentException("Endpoint must be provided in environment variable or appsettings.json.");
                     }
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion")))
+                    if (string.IsNullOrWhiteSpace(apiVersion))
                     {
-                        throw new ArgumentException("API version must be provided in appsettings.json.");
+                        throw new ArgumentException("API version must be provided in environment variable or appsettings.json.");
                     }
+
                     services.AddConfigurations(opts =>
                     {
-                        context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
+                        opts.Endpoint = endpoint;
+                        opts.ApiVersion = apiVersion;
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/classifier";
                     });
@@ -71,6 +80,33 @@ namespace AzureAiContentUnderstanding.Tests
                 var (analyzerSchemaPath, enhancedSchemaPath) = ("./analyzer_templates/analyzer_schema.json", "./data/classifier/enhanced_schema.json");
                 var classifierId = $"classifier-sample-{Guid.NewGuid()}";
                 var classifierSchemaPath = "./data/classifier/schema.json";
+
+                // Validate that the required files exist
+                Assert.True(File.Exists(analyzerTemplatePath), "Analyzer template file does not exist.");
+                Assert.True(File.Exists(analyzerSchemaPath), "Analyzer schema file does not exist.");
+                Assert.True(File.Exists(enhancedSchemaPath), "Enhanced schema file does not exist.");
+                Assert.True(File.Exists(classifierSchemaPath), "Classifier schema file does not exist.");
+
+                // Read the JSON content from the schema files
+                var (analyzerSchema, enhancedSchema) = (await File.ReadAllTextAsync(analyzerSchemaPath), await File.ReadAllTextAsync(enhancedSchemaPath));
+                var classifierSchema = await File.ReadAllTextAsync(classifierSchemaPath);
+                Assert.False(string.IsNullOrWhiteSpace(analyzerSchema), "Analyzer schema JSON should not be empty.");
+                Assert.False(string.IsNullOrWhiteSpace(enhancedSchema), "Enhanced schema JSON should not be empty.");
+                Assert.False(string.IsNullOrWhiteSpace(classifierSchema), "Classifier schema JSON should not be empty.");
+
+                JsonElement analyzerSchemaJson = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(analyzerSchemaPath));
+                Assert.True(analyzerSchemaJson.TryGetProperty("fieldSchema", out var fieldSchema));
+                Assert.True(fieldSchema.TryGetProperty("fields", out var fields));
+
+                JsonElement enhancedSchemaJson = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(enhancedSchemaPath));
+                Assert.True(enhancedSchemaJson.TryGetProperty("categories", out var enhancedCategories));
+                Assert.True(enhancedSchemaJson.TryGetProperty("splitMode", out var enhancedSplitMode));
+                Assert.Equal("auto", enhancedSplitMode.ToString());
+
+                JsonElement classifierSchemaJson = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(classifierSchemaPath));
+                Assert.True(classifierSchemaJson.TryGetProperty("categories", out var classifierCategories));
+                Assert.True(classifierSchemaJson.TryGetProperty("splitMode", out var classifierSplitMode));
+                Assert.Equal("auto", classifierSplitMode.ToString());
 
                 // Step 1: Create a basic classifier
                 await CreateClassifierAsync(classifierId, classifierSchemaPath);
