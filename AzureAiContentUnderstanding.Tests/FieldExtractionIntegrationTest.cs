@@ -90,12 +90,12 @@ namespace AzureAiContentUnderstanding.Tests
                     { "marketing_video", ("./analyzer_templates/marketing_video.json", "./data/FlightSimulator.mp4") }
                 };
 
-                string field_extraction_analyzerId = $"field-extraction-sample-{Guid.NewGuid()}";
+                string analyzerId = $"field-extraction-sample-{Guid.NewGuid()}";
 
                 foreach (var item in ExtractionTemplates)
                 {
                     var (analyzerTemplatePath, analyzerSampleFilePath) = ExtractionTemplates[item.Key];
-                    JsonDocument resultJson = await service.CreateAndUseAnalyzer(field_extraction_analyzerId, analyzerTemplatePath, analyzerSampleFilePath);
+                    JsonDocument resultJson = await service.CreateAndUseAnalyzer(analyzerId, analyzerTemplatePath, analyzerSampleFilePath);
 
                     Assert.NotNull(resultJson);
                     Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
