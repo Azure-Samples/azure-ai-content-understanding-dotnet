@@ -1,4 +1,6 @@
-﻿using Azure.Storage.Blobs;
+﻿using Azure.Identity;
+using Azure.Storage.Blobs;
+using Azure.Storage.Sas;
 using ContentUnderstanding.Common.Models;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
@@ -600,6 +602,57 @@ namespace ContentUnderstanding.Common
                 return false;
             string fileExt = Path.GetExtension(filePath).ToLower();
             return IsSupportedDocTypeByFileExt(fileExt, isDocument);
+        }
+
+        /// <summary>
+        /// Generates a Shared Access Signature (SAS) URL for a specified Azure Blob Storage container.
+        /// </summary>
+        /// <remarks>The generated SAS URL grants access to the specified container with the specified
+        /// permissions for the specified duration. The method uses the Azure Identity library to authenticate and
+        /// generate the SAS token.</remarks>
+        /// <param name="accountName">The name of the Azure Storage account. This value cannot be null, empty, or whitespace.</param>
+        /// <param name="containerName">The name of the blob container for which the SAS URL is generated. This value cannot be null, empty, or
+        /// whitespace.</param>
+        /// <param name="permissions">The permissions to include in the SAS token. If not specified, the default permissions are  <see
+        /// cref="BlobContainerSasPermissions.Read"/>, <see cref="BlobContainerSasPermissions.Write"/>, and <see
+        /// cref="BlobContainerSasPermissions.List"/>.</param>
+        /// <param name="expiryHours">The number of hours until the SAS token expires. The default value is 1 hour. Must be a positive integer.</param>
+        /// <returns>A string containing the SAS URL for the specified container, including the SAS token.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="accountName"/> or <paramref name="containerName"/> is null, empty, or consists
+        /// only of whitespace.</exception>
+        public async Task<string> GenerateContainerSasUrlAsync(
+            string accountName, 
+            string containerName,
+            BlobContainerSasPermissions? permissions = null,
+            int expiryHours = 1)
+        {
+            Console.WriteLine($"accountName: {accountName}");
+
+            if(string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(containerName))
+            {
+                throw new ArgumentException("Account name and container name must be provided.");
+            }
+
+            var sasPermissions = permissions ?? BlobContainerSasPermissions.Read | BlobContainerSasPermissions.Write | BlobContainerSasPermissions.List;
+            var now = DateTimeOffset.UtcNow;
+            var expiry = now.AddHours(expiryHours);
+            var accountUrl = $"https://{accountName}.blob.core.windows.net";
+            var blobServiceClient = new BlobServiceClient(new Uri(accountUrl), new DefaultAzureCredential());
+            var delegationKey = await blobServiceClient.GetUserDelegationKeyAsync(now, expiry);
+
+            var sasBuilder = new BlobSasBuilder
+            {
+                BlobContainerName = containerName,
+                Resource = "c", // c for container
+                StartsOn = now,
+                ExpiresOn = expiry,
+                Protocol = SasProtocol.Https
+            };
+            
+            sasBuilder.SetPermissions(sasPermissions);
+            var sasToken = sasBuilder.ToSasQueryParameters(delegationKey, accountName).ToString();
+
+            return $"{accountUrl}/{containerName}?{sasToken}";
         }
 
         /// <summary>
