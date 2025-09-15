@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Allows manual run from GitHub UI
 
 permissions:
   id-token: write
