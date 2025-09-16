@@ -35,20 +35,6 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Debug environment variables
-        run: |
-          echo "AZURE_CONTENT_UNDERSTANDING_ENDPOINT: $AZURE_CONTENT_UNDERSTANDING_ENDPOINT"
-          echo "TRAINING_DATA_STORAGE_ACCOUNT_NAME: $TRAINING_DATA_STORAGE_ACCOUNT_NAME"
-          echo "TRAINING_DATA_CONTAINER_NAME: $TRAINING_DATA_CONTAINER_NAME"
-          echo "REFERENCE_DOC_STORAGE_ACCOUNT_NAME: $REFERENCE_DOC_STORAGE_ACCOUNT_NAME"
-          echo "REFERENCE_DOC_CONTAINER_NAME: $REFERENCE_DOC_CONTAINER_NAME"
-
-      - name: Set TRAINING_DATA_PATH and REFERENCE_DOC_PATH with datetime
-        run: |
-          TS=$(date -u +'%Y%m%d_%H%M%S')
-          echo "TRAINING_DATA_PATH=test_notebooks/training_data_${TS}" >> $GITHUB_ENV
-          echo "REFERENCE_DOC_PATH=test_notebooks/reference_docs_${TS}" >> $GITHUB_ENV
-          
       - name: Azure Login
         uses: azure/login@v2
         with:         
