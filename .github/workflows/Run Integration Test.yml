@@ -52,6 +52,13 @@ jobs:
           echo "Listing AZURE-related env vars (names only):"
           env | grep AZURE | sed -E 's/=.*/=<redacted>/' || true
 
+      - name: Debug AZURE_CONTENT_UNDERSTANDING_ENDPOINT host only 
+        run: |
+          if [ -z "$AZURE_CONTENT_UNDERSTANDING_ENDPOINT" ]; then
+            echo "AZURE_CONTENT_UNDERSTANDING_ENDPOINT is EMPTY"
+            exit 0
+          fi
+
       - name: Pull LFS files
         run: git lfs pull
           
