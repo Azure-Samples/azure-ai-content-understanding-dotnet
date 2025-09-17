@@ -28,36 +28,18 @@ namespace AzureAiContentUnderstanding.Tests
         public AnalyzerTrainingIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
+                .ConfigureAppConfiguration((context, config) =>
+                {
+                    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                    config.AddEnvironmentVariables();
+                })
                 .ConfigureServices((context, services) =>
                 {
-                    // --- DEBUG: 检查环境变量与配置的可见性（临时，运行后可移除） ---
-                    var envRaw = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT");
-                    var configValue = context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
-                    var cuEnvVar = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG__Endpoint");
-
-                    Console.WriteLine("DEBUG: AZURE_CONTENT_UNDERSTANDING_ENDPOINT env: " + (string.IsNullOrEmpty(envRaw) ? "<EMPTY>" : "<SET>"));
-                    Console.WriteLine("DEBUG: AZURE_CU_CONFIG:Endpoint from IConfiguration: " + (string.IsNullOrEmpty(configValue) ? "<EMPTY>" : "<SET>"));
-                    Console.WriteLine("DEBUG: AZURE_CU_CONFIG__Endpoint env (double-underscore): " + (string.IsNullOrEmpty(cuEnvVar) ? "<EMPTY>" : "<SET>"));
-
-                    if (!string.IsNullOrEmpty(envRaw))
-                    {
-                        try
-                        {
-                            var uri = new Uri(envRaw);
-                            Console.WriteLine("DEBUG: AZURE_CONTENT_UNDERSTANDING_ENDPOINT host: " + uri.Host);
-                        }
-                        catch
-                        {
-                            Console.WriteLine("DEBUG: AZURE_CONTENT_UNDERSTANDING_ENDPOINT host: (could not parse)");
-                        }
-                    }
-                    // --- END DEBUG ---
-
                     // Load configuration from environment variables or appsettings.json
-                    string? endpoint = envRaw ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
+                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") ?? context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_ENDPOINT");
 
                     // API version for Azure Content Understanding service
-                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_APIVERSION") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");
+                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_APIVERSION") ?? context.Configuration.GetValue<string>("AZURE_APIVERSION");
 
                     if (string.IsNullOrWhiteSpace(endpoint))
                     {
@@ -69,10 +51,10 @@ namespace AzureAiContentUnderstanding.Tests
                     }
 
                     // account name
-                    accountName = Environment.GetEnvironmentVariable("TRAINING_DATA_STORAGE_ACCOUNT_NAME") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:TrainingDataStorageAccountName") ?? "";
+                    accountName = Environment.GetEnvironmentVariable("TRAINING_DATA_STORAGE_ACCOUNT_NAME") ?? context.Configuration.GetValue<string>("TRAINING_DATA_STORAGE_ACCOUNT_NAME") ?? "";
 
                     // container name
-                    containerName = Environment.GetEnvironmentVariable("TRAINING_DATA_CONTAINER_NAME") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:TrainingDataContainerName") ?? "";
+                    containerName = Environment.GetEnvironmentVariable("TRAINING_DATA_CONTAINER_NAME") ?? context.Configuration.GetValue<string>("TRAINING_DATA_CONTAINER_NAME") ?? "";
 
                     if (string.IsNullOrWhiteSpace(accountName))
                     {
@@ -88,6 +70,7 @@ namespace AzureAiContentUnderstanding.Tests
                     {
                         opts.Endpoint = endpoint;
                         opts.ApiVersion = apiVersion;
+
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/analyzer_training";
                     });

@@ -16,19 +16,24 @@ namespace BuildPersonDirectory
             var host = Host.CreateDefaultBuilder(args)
                 .ConfigureServices((context, services) =>
                 {
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint")))
+                    string endpoint = context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(endpoint))
                     {
                         throw new ArgumentException("Endpoint must be provided in appsettings.json.");
                     }
 
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion")))
+                    string apiVersion = context.Configuration.GetValue<string>("AZURE_APIVERSION") ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(apiVersion))
                     {
                         throw new ArgumentException("API version must be provided in appsettings.json.");
                     }
 
                     services.AddConfigurations(opts =>
                     {
-                        context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
+                        opts.Endpoint = endpoint;
+                        opts.ApiVersion = apiVersion;
+                        opts.SubscriptionKey = context.Configuration.GetValue<string>("AZURE_SUBSCRIPTION_ID") ?? string.Empty;
+
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/build_person_directory";
                     });

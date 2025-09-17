@@ -207,7 +207,7 @@ namespace FieldExtractionProMode.Services
         public async Task<JsonDocument> AnalyzeDocumentWithDefinedSchemaForProModeAsync(string analyzerId, string fileLocation)
         {
             var response = await _client.BeginAnalyzeAsync(analyzerId, fileLocation).ConfigureAwait(false);
-            JsonDocument resultJson = await _client.PollResultAsync(response, timeoutSeconds: 1200).ConfigureAwait(false);
+            JsonDocument resultJson = await _client.PollResultAsync(response, timeoutSeconds: 3600).ConfigureAwait(false);
 
             if (resultJson.RootElement.TryGetProperty("error", out JsonElement errorElement))
             {
