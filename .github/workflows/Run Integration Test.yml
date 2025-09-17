@@ -42,23 +42,6 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Debug AZURE_CONTENT_UNDERSTANDING_ENDPOINT presence
-        run: |
-          if [ -z "$AZURE_CONTENT_UNDERSTANDING_ENDPOINT" ]; then
-            echo "AZURE_CONTENT_UNDERSTANDING_ENDPOINT is EMPTY"
-          else
-            echo "AZURE_CONTENT_UNDERSTANDING_ENDPOINT is SET (value hidden)"
-          fi
-          echo "Listing AZURE-related env vars (names only):"
-          env | grep AZURE | sed -E 's/=.*/=<redacted>/' || true
-
-      - name: Debug AZURE_CONTENT_UNDERSTANDING_ENDPOINT host only 
-        run: |
-          if [ -z "$AZURE_CONTENT_UNDERSTANDING_ENDPOINT" ]; then
-            echo "AZURE_CONTENT_UNDERSTANDING_ENDPOINT is EMPTY"
-            exit 0
-          fi
-
       - name: Pull LFS files
         run: git lfs pull
           
