@@ -42,16 +42,6 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Check AZURE env presence
-        run: |
-          echo "AZURE_CONTENT_UNDERSTANDING_ENDPOINT is ${AZURE_CONTENT_UNDERSTANDING_ENDPOINT:+SET}"
-          echo "TRAINING_DATA_STORAGE_ACCOUNT_NAME is ${TRAINING_DATA_STORAGE_ACCOUNT_NAME:+SET}"
-          if [ -n "${AZURE_CONTENT_UNDERSTANDING_ENDPOINT:-}" ]; then
-            host=$(echo "$AZURE_CONTENT_UNDERSTANDING_ENDPOINT" | sed -E 's#^https?://([^/]+).*#\1#' || echo "")
-            echo "AZURE_CONTENT_UNDERSTANDING_ENDPOINT host: $host"
-          fi
-          env | grep AZURE | sed -E 's/=.*/=<redacted>/' || true
-
       - name: Pull LFS files
         run: git lfs pull
           
