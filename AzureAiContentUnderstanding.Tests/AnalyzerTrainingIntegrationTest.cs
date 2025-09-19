@@ -14,10 +14,6 @@ namespace AzureAiContentUnderstanding.Tests
     public class AnalyzerTrainingIntegrationTest
     {
         private readonly IAnalyzerTrainingService service;
-        // Local directory for generated training data (dynamically named for each test run)
-        private string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/";
-        // Local folder containing source documents for training
-        private const string trainingDocsFolder = "./data/document_training";
         // SAS URL for the Azure Blob Storage container to upload training data
         private string accountName = "";
         private string containerName = "";
@@ -99,6 +95,10 @@ namespace AzureAiContentUnderstanding.Tests
             Exception? serviceException = null;
             JsonDocument? resultJson = null;
             var analyzerId = string.Empty;
+            // Local directory for generated training data (dynamically named for each test run)
+            string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/";
+            // Local folder containing source documents for training
+            string trainingDocsFolder = "./data/document_training";
 
             try
             {
@@ -125,6 +125,8 @@ namespace AzureAiContentUnderstanding.Tests
 
                 var fileNames = files.Select(f => Path.GetRelativePath(trainingDocsFolder, f)).ToHashSet();
                 // Assert: All local files are present in Blob
+                Console.WriteLine("filesNames: ", JsonSerializer.Serialize(fileNames));
+                Console.WriteLine("blobFiles:", JsonSerializer.Serialize(blobFiles));
                 Assert.True(JsonSerializer.Serialize(fileNames) == JsonSerializer.Serialize(blobFiles), "Mismatch between local training data and uploaded blob files");
 
                 // Step 3: Create custom analyzer using training data and template
