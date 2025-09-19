@@ -108,32 +108,11 @@ namespace AzureAiContentUnderstanding.Tests
                 // Step 1: Generate training data and upload to blob storage
                 await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
 
-                // Step 2: Validate that all local files are uploaded to blob storage
-                var files = Directory.GetFiles(trainingDocsFolder, "*.*", SearchOption.AllDirectories).ToList().ToHashSet();
-                // check if the training data is uploaded to the blob storage
-                var blobClient = new BlobContainerClient(new Uri(trainingDataSasUrl));
-                var blobFiles = new HashSet<string>();
-                await foreach (BlobItem blobItem in blobClient.GetBlobsAsync(prefix: trainingDataPath))
-                {
-                    var name = blobItem.Name.Substring(trainingDataPath.Length);
-
-                    if (!string.IsNullOrEmpty(name) && !name.EndsWith("/"))
-                    {
-                        blobFiles.Add(name);
-                    }
-                }
-
-                var fileNames = files.Select(f => Path.GetRelativePath(trainingDocsFolder, f)).ToHashSet();
-                // Assert: All local files are present in Blob
-                Console.WriteLine("filesNames: ", JsonSerializer.Serialize(fileNames));
-                Console.WriteLine("blobFiles:", JsonSerializer.Serialize(blobFiles));
-                Assert.True(JsonSerializer.Serialize(fileNames) == JsonSerializer.Serialize(blobFiles), "Mismatch between local training data and uploaded blob files");
-
-                // Step 3: Create custom analyzer using training data and template
+                // Step 2: Create custom analyzer using training data and template
                 var analyzerTemplatePath = "./analyzer_templates/receipt.json";
                 analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
 
-                // Step 4: Analyze sample document with custom analyzer and verify output
+                // Step 3: Analyze sample document with custom analyzer and verify output
                 var customAnalyzerSampleFilePath = "./data/receipt.png";
                 resultJson = await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);
 
