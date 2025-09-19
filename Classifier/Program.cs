@@ -30,7 +30,7 @@ namespace Classifier {
                     {
                         opts.Endpoint = endpoint;
                         opts.ApiVersion = apiVersion;
-                        opts.SubscriptionKey = context.Configuration.GetValue<string>("AZURE_SUBSCRIPTION_ID") ?? string.Empty;
+                        opts.SubscriptionKey = context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_KEY") ?? string.Empty;
 
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/classifier";

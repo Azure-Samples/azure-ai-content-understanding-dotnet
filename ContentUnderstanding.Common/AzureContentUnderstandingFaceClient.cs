@@ -33,14 +33,24 @@ namespace ContentUnderstanding.Common
         /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task<HttpResponseMessage> CreatePersonDirectoryAsync(string personDirectoryId, string description = "", Dictionary<string, dynamic>? tags = null)
         {
-            var requestBody = new Dictionary<string, dynamic>
+            try
             {
-                ["description"] = description,
-                ["tags"] = tags ?? new Dictionary<string, dynamic>()
-            };
+                var requestBody = new Dictionary<string, dynamic>
+                {
+                    ["description"] = description,
+                    ["tags"] = tags ?? new Dictionary<string, dynamic>()
+                };
 
-            var request = await CreateRequestAsync(HttpMethod.Put, $"personDirectories/{personDirectoryId}", requestBody);
-            return await SendRequestAsync<HttpResponseMessage>(request);
+                var request = await CreateRequestAsync(HttpMethod.Put, $"personDirectories/{personDirectoryId}", requestBody);
+                var response = await SendRequestAsync<HttpResponseMessage>(request);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating person directory: {ex.Message}");
+                throw;
+            }
         }
 
         /// <summary>

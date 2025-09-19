@@ -53,7 +53,7 @@ namespace AzureAiContentUnderstanding.Tests
                     {
                         opts.Endpoint = endpoint;
                         opts.ApiVersion = apiVersion;
-                        opts.SubscriptionKey = Environment.GetEnvironmentVariable("AZURE_SUBSCRIPTION_ID") ?? "";
+                        opts.SubscriptionKey = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_KEY") ?? context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_KEY") ?? "";
 
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/classifier";
