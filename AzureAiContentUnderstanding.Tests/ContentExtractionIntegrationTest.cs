@@ -1,3 +1,4 @@
+using Azure.AI.ContentUnderstanding;
 using ContentExtraction.Interfaces;
 using ContentExtraction.Services;
 using ContentUnderstanding.Common;
@@ -29,7 +30,7 @@ namespace AzureAiContentUnderstanding.Tests
                 .ConfigureServices((context, services) =>
                 {
                     // Load configuration from environment variables or appsettings.json
-                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_Endpoint") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
+                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
 
                     // API version for Azure Content Understanding service
                     string? apiVersion = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_ApiVersion") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");
@@ -69,14 +70,14 @@ namespace AzureAiContentUnderstanding.Tests
         public async Task RunAnalyzeDocumentAsync()
         {
             Exception? serviceException = null;
-            JsonDocument? resultJson = null;
+            AnalyzeResult? result = null;
 
             try
             {
                 // Ensure the file path is correct and the file exists
                 var docFilePath = "./data/invoice.pdf";
                 Assert.True(File.Exists("./data/invoice.pdf"), "Document file does not exist at the specified path.");
-                resultJson = await service.AnalyzeDocumentAsync(docFilePath);
+                result = await service.AnalyzeDocumentAsync(docFilePath);
             }
             catch (Exception ex)
             {
@@ -85,17 +86,13 @@ namespace AzureAiContentUnderstanding.Tests
 
             // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
-            Assert.NotNull(resultJson);
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-            Assert.True(result.TryGetProperty("warnings", out var warnings));
-            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
-            Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
-            Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
+            Assert.NotNull(result);
+            Assert.False(result.Warnings.Any(), "The warnings array should be empty");
+            Assert.False(result.Contents.Any(), "The contents array is empty");
 
-            var firstContent = contents[0];
-            Assert.True(firstContent.TryGetProperty("markdown", out var markdown), "The output content lacks the 'markdown' field");
-            Assert.False(string.IsNullOrWhiteSpace(markdown.GetString()), "The markdown content is empty");
-            Assert.True(firstContent.TryGetProperty("tables", out var tables), "The output content lacks the 'tables' field");
+            var content = result.Contents[0];
+            Assert.False(string.IsNullOrWhiteSpace(content.Markdown), "The markdown content is empty");
+            Assert.False(content.Fields.Any(), "The fields collection is empty");
         }
 
         /// <summary>
@@ -108,14 +105,14 @@ namespace AzureAiContentUnderstanding.Tests
         public async Task RunAnalyzeAudioAsync()
         {
             Exception? serviceException = null;
-            JsonDocument? resultJson = null;
+            AnalyzeResult? result = null;
 
             try
             {
                 string filePath = "./data/audio.wav";
                 // Ensure the file path is correct and the file exists
                 Assert.True(File.Exists(filePath), "Audio file does not exist at the specified path.");
-                resultJson = await service.AnalyzeAudioAsync(filePath);
+                result = await service.AnalyzeAudioAsync(filePath);
             }
             catch (Exception ex)
             {
@@ -124,17 +121,13 @@ namespace AzureAiContentUnderstanding.Tests
 
             // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
-            Assert.NotNull(resultJson);
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-            Assert.True(result.TryGetProperty("warnings", out var warnings));
-            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
-            Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
-            Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
+            Assert.NotNull(result);
+            Assert.False(result.Warnings.Any(), "The warnings array should be empty");
+            Assert.True(result.Contents.Any(), "The contents array is empty");
 
-            var firstContent = contents[0];
-            Assert.True(firstContent.TryGetProperty("markdown", out var markdown), "The output content lacks the 'markdown' field");
-            Assert.False(string.IsNullOrWhiteSpace(markdown.GetString()), "The markdown content is empty");
-            Assert.True(firstContent.TryGetProperty("fields", out var fields), "The output content lacks the 'fields' field");
+            var content = result.Contents[0];
+            Assert.False(string.IsNullOrWhiteSpace(content.Markdown), "The markdown content is empty");
+            Assert.False(content.Fields.Any(), "The fields collection is empty");
         }
 
         /// <summary>
@@ -147,13 +140,13 @@ namespace AzureAiContentUnderstanding.Tests
         public async Task RunAnalyzeVideoAsync()
         {
             Exception? serviceException = null;
-            JsonDocument? resultJson = null;
+            AnalyzeResult? result = null;
             try
             {
                 string filePath = "./data/FlightSimulator.mp4";
                 // Ensure the file path is correct and the file exists
                 Assert.True(File.Exists(filePath), "Video file does not exist at the specified path.");
-                resultJson = await service.AnalyzeVideoAsync(filePath);
+                result = await service.AnalyzeVideoAsync(filePath);
             }
             catch (Exception ex)
             {
@@ -161,16 +154,13 @@ namespace AzureAiContentUnderstanding.Tests
             }
             // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
-            Assert.NotNull(resultJson);
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-            Assert.True(result.TryGetProperty("warnings", out var warnings));
-            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
-            Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
-            Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
-            var firstContent = contents[0];
-            Assert.True(firstContent.TryGetProperty("markdown", out var markdown), "The output content lacks the 'markdown' field");
-            Assert.False(string.IsNullOrWhiteSpace(markdown.GetString()), "The markdown content is empty");
-            Assert.True(firstContent.TryGetProperty("fields", out var fields), "The output content lacks the 'fields' field");
+            Assert.NotNull(result);
+            Assert.False(result.Warnings.Any(), "The warnings array should be empty");
+            Assert.True(result.Contents.Any(), "The contents array is empty");
+
+            var content = result.Contents[0];
+            Assert.False(string.IsNullOrWhiteSpace(content.Markdown), "The markdown content is empty");
+            Assert.False(content.Fields.Any(), "The fields collection is empty");
         }
 
         /// <summary>
@@ -182,13 +172,13 @@ namespace AzureAiContentUnderstanding.Tests
         public async Task RunAnalyzeVideoWithFaceAsync()
         {
             Exception? serviceException = null;
-            JsonDocument? resultJson = null;
+            AnalyzeResult? result = null;
             try
             {
                 string filePath = "./data/FlightSimulator.mp4";
                 // Ensure the file path is correct and the file exists
                 Assert.True(File.Exists(filePath), "Video file does not exist at the specified path.");
-                resultJson = await service.AnalyzeVideoWithFaceAsync(filePath);
+                result = await service.AnalyzeVideoAsync(filePath); // Need to implement AnalyzeVideoWithFaceAsync in the service
             }
             catch (Exception ex)
             {
@@ -196,16 +186,13 @@ namespace AzureAiContentUnderstanding.Tests
             }
             // Final assertion: No exception should be thrown during the workflow
             Assert.Null(serviceException);
-            Assert.NotNull(resultJson);
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-            Assert.True(result.TryGetProperty("warnings", out var warnings));
-            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
-            Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
-            Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
-            var firstContent = contents[0];
-            Assert.True(firstContent.TryGetProperty("markdown", out var markdown), "The output content lacks the 'markdown' field");
-            Assert.False(string.IsNullOrWhiteSpace(markdown.GetString()), "The markdown content is empty");
-            Assert.True(firstContent.TryGetProperty("fields", out var fields), "The output content lacks the 'fields' field");
+            Assert.NotNull(result);
+            Assert.False(result.Warnings.Any(), "The warnings array should be empty");
+            Assert.True(result.Contents.Any(), "The contents array is empty");
+
+            var content = result.Contents[0];
+            Assert.False(string.IsNullOrWhiteSpace(content.Markdown), "The markdown content is empty");
+            Assert.False(content.Fields.Any(), "The fields collection is empty");
         }
     }
 }

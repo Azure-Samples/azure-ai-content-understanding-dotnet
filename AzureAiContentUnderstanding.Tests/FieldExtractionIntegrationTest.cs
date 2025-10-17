@@ -30,7 +30,7 @@ namespace AzureAiContentUnderstanding.Tests
                 .ConfigureServices((context, services) =>
                 {
                     // Load configuration from environment variables or appsettings.json
-                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_Endpoint") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
+                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
 
                     // API version for Azure Content Understanding service
                     string? apiVersion = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_ApiVersion") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");

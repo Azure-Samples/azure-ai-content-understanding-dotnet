@@ -1,5 +1,8 @@
-﻿using Azure.Core;
+﻿using Azure;
+using Azure.AI.ContentUnderstanding;
+using Azure.Core;
 using Azure.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ContentUnderstanding.Common.Extensions
@@ -11,6 +14,35 @@ namespace ContentUnderstanding.Common.Extensions
     /// content understanding options and token providers, into the dependency injection container.</remarks>
     public static class ServiceCollectionExtensions
     {
+        public static IServiceCollection AddContentUnderstandingClient(this IServiceCollection services, IConfiguration configuration)
+        {
+            // Read `endpoint` and `key` from environment variables or configuration
+            string endpoint = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") 
+                ?? configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") 
+                ?? throw new InvalidOperationException("AZURE_CONTENT_UNDERSTANDING_ENDPOINT environment variable is not set.");
+
+            string key = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_KEY") 
+                ?? configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_KEY") 
+                ?? throw new InvalidOperationException("AZURE_CONTENT_UNDERSTANDING_KEY environment variable is not set.");
+
+            // Register ContentUnderstandingClient with the appropriate credentials
+            services.AddSingleton(provider =>
+            {
+                if (!string.IsNullOrEmpty(key))
+                {
+                    return new ContentUnderstandingClient(new Uri(endpoint), new AzureKeyCredential(key));
+                }
+                else
+                {
+                    // Use DefaultAzureCredential for local development (works with 'az login')
+                    return new ContentUnderstandingClient(new Uri(endpoint), new AzureCliCredential());
+                }
+            });
+
+            return services;
+        }
+
+        #region Need to delete
         /// <summary>
         /// Adds configuration settings for content understanding to the specified service collection.
         /// </summary>
@@ -51,5 +83,7 @@ namespace ContentUnderstanding.Common.Extensions
 
             return services;
         }
+
+        #endregion
     }
 }
