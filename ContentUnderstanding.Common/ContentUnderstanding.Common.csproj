@@ -13,7 +13,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.10" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.10" />
-	<PackageReference Include="Azure.AI.ContentUnderstanding" Version="1.0.0-alpha.20251017.1" />
+	<PackageReference Include="Azure.AI.ContentUnderstanding" Version="1.0.0-alpha.20251020.1" />
   </ItemGroup>
 
   <ItemGroup>

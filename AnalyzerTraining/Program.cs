@@ -68,13 +68,13 @@ namespace AnalyzerTraining
             await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
 
             var analyzerTemplatePath = "./analyzer_templates/receipt.json";
-            var analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
+            var contentAnalyzer = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
 
             var customAnalyzerSampleFilePath = "./data/receipt.png";
-            await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);
+            await service.AnalyzeDocumentWithCustomAnalyzerAsync(contentAnalyzer.AnalyzerId, customAnalyzerSampleFilePath);
 
             // delete analyzer
-            await service.DeleteAnalyzerAsync(analyzerId);
+            await service.DeleteAnalyzerAsync(contentAnalyzer.AnalyzerId);
         }
     }
 }

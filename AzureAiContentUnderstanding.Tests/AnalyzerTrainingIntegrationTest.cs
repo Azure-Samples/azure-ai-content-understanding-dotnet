@@ -1,5 +1,6 @@
 ﻿using AnalyzerTraining.Interfaces;
 using AnalyzerTraining.Services;
+using Azure.AI.ContentUnderstanding;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using ContentUnderstanding.Common;
@@ -76,7 +77,7 @@ namespace AzureAiContentUnderstanding.Tests
         public async Task RunAsync()
         {
             Exception? serviceException = null;
-            JsonDocument? resultJson = null;
+            AnalyzeResult? result = null;
             var analyzerId = string.Empty;
 
             try
@@ -103,23 +104,18 @@ namespace AzureAiContentUnderstanding.Tests
 
                 // Step 3: Create custom analyzer using training data and template
                 var analyzerTemplatePath = "./analyzer_templates/receipt.json";
-                analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
+                var contentAnalyzer = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
 
                 // Step 4: Analyze sample document with custom analyzer and verify output
                 var customAnalyzerSampleFilePath = "./data/receipt.png";
-                resultJson = await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);
+                result = await service.AnalyzeDocumentWithCustomAnalyzerAsync(contentAnalyzer.AnalyzerId, customAnalyzerSampleFilePath);
 
-                Assert.NotNull(resultJson);
-                Assert.True(resultJson.RootElement.TryGetProperty("result", out var result), "The output JSON lacks the 'result' field");
-                Assert.True(result.TryGetProperty("warnings", out var warnings));
-                Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
-                Assert.True(result.TryGetProperty("contents", out var contents), "The output JSON lacks the 'contents' field");
-                Assert.True(contents.GetArrayLength() > 0, "The contents array is empty");
+                Assert.False(result?.Warnings.Any(), "The warnings array should be empty");
+                Assert.False(result?.Contents.Any(), "The contents array is empty");
 
-                var firstContent = contents[0];
-                Assert.True(firstContent.TryGetProperty("markdown", out var markdown), "The output content lacks the 'markdown' field");
-                Assert.False(string.IsNullOrWhiteSpace(markdown.GetString()), "The markdown content is empty");
-                Assert.True(firstContent.TryGetProperty("fields", out var fields), "The output content lacks the 'fields' field");
+                var content = result?.Contents[0];
+                Assert.True(string.IsNullOrWhiteSpace(content?.Markdown), "The markdown content is empty");
+                Assert.False(content?.Fields.Any(), "The output content lacks the 'fields' field");
             }
             catch (Exception ex)
             {

@@ -178,7 +178,7 @@ namespace AzureAiContentUnderstanding.Tests
                 string filePath = "./data/FlightSimulator.mp4";
                 // Ensure the file path is correct and the file exists
                 Assert.True(File.Exists(filePath), "Video file does not exist at the specified path.");
-                result = await service.AnalyzeVideoAsync(filePath); // Need to implement AnalyzeVideoWithFaceAsync in the service
+                result = await service.AnalyzeVideoWithFaceAsync(filePath);
             }
             catch (Exception ex)
             {

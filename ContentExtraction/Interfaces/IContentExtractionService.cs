@@ -30,5 +30,13 @@ namespace ContentExtraction.Interfaces
         /// <returns></returns>
         /// <exception cref="FileNotFoundException"></exception>
         Task<AnalyzeResult> AnalyzeVideoAsync(string filePath);
+
+        /// <summary>
+        /// Analyzes the video file at the specified file path.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        /// <exception cref="FileNotFoundException"></exception>
+        Task<AnalyzeResult> AnalyzeVideoWithFaceAsync(string filePath);
     }
 }

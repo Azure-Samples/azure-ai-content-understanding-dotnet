@@ -1,16 +1,19 @@
 ﻿using AnalyzerTraining.Interfaces;
+using Azure;
+using Azure.AI.ContentUnderstanding;
 using Azure.Storage.Blobs;
 using ContentUnderstanding.Common;
+using ContentUnderstanding.Common.Extensions;
 using System.Text.Json;
 
 namespace AnalyzerTraining.Services
 {
     public class AnalyzerTrainingService : IAnalyzerTrainingService
     {
-        private readonly AzureContentUnderstandingClient _client;
+        private readonly ContentUnderstandingClient _client;
         private readonly string OutputPath = "./outputs/analyzer_training/";
 
-        public AnalyzerTrainingService(AzureContentUnderstandingClient client) 
+        public AnalyzerTrainingService(ContentUnderstandingClient client) 
         {
             _client = client;
 
@@ -53,30 +56,30 @@ namespace AnalyzerTraining.Services
                 string fileName = Path.GetFileName(file);
                 string fileExtension = Path.GetExtension(fileName);
 
-                if (string.IsNullOrEmpty(fileExtension) || _client.GetSupportedFileTypesDocument().Contains(fileExtension.ToLower()))
+                if (string.IsNullOrEmpty(fileExtension) || BlobFileConstants.IsSupportedDocumentType(fileName))
                 {
-                    string labelFilename = fileName + _client.GetLabelFileSuffix();
-                    string labelPath = Path.Combine(trainingDocsFolder, labelFilename);
-                    string ocrResultFilename = fileName + _client.GetOcrResultFileSuffix();
-                    string ocrResultPath = Path.Combine(trainingDocsFolder, ocrResultFilename);
+                    string labelFileName = BlobFileConstants.GetLabelFilePath(fileName);
+                    string labelPath = Path.Combine(trainingDocsFolder, labelFileName);
+                    string ocrResultFileName = BlobFileConstants.GetOcrResultFilePath(fileName);
+                    string ocrResultPath = Path.Combine(trainingDocsFolder, ocrResultFileName);
 
                     if (File.Exists(labelPath) && File.Exists(ocrResultPath))
                     {
                         string fileBlobPath = storageContainerPathPrefix + fileName;
-                        string labelBlobPath = storageContainerPathPrefix + labelFilename;
-                        string ocrResultBlobPath = storageContainerPathPrefix + ocrResultFilename;
+                        string labelBlobPath = storageContainerPathPrefix + labelFileName;
+                        string ocrResultBlobPath = storageContainerPathPrefix + ocrResultFileName;
 
                         // Upload files
-                        await _client.UploadFileToBlobAsync(containerClient, file, fileBlobPath);
-                        await _client.UploadFileToBlobAsync(containerClient, labelPath, labelBlobPath);
-                        await _client.UploadFileToBlobAsync(containerClient, ocrResultPath, ocrResultBlobPath);
+                        await containerClient.UploadFileAsync(file, fileBlobPath);
+                        await containerClient.UploadFileAsync(labelPath, labelBlobPath);
+                        await containerClient.UploadFileAsync(ocrResultPath, ocrResultBlobPath);
 
                         Console.WriteLine($"Uploaded training data for {fileName}");
                     }
                     else
                     {
                         throw new FileNotFoundException(
-                            $"Label file '{labelFilename}' or OCR result file '{ocrResultFilename}' " +
+                            $"Label file '{labelFileName}' or OCR result file '{ocrResultFileName}' " +
                             $"does not exist in '{trainingDocsFolder}'. " +
                             $"Please ensure both files exist for '{fileName}'.");
                     }
@@ -96,43 +99,133 @@ namespace AnalyzerTraining.Services
         /// will use a default value.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation. The result contains the unique identifier
         /// of the created analyzer.</returns>
-        public async Task<string> CreateAnalyzerAsync(string analyzerTemplatePath, string trainingStorageContainerSasUrl, string trainingStorageContainerPathPrefix)
+        public async Task<ContentAnalyzer> CreateAnalyzerAsync(string analyzerTemplatePath, string trainingStorageContainerSasUrl, string trainingStorageContainerPathPrefix)
         {
-            Console.WriteLine("Creating Custom Analyzer with Training Data...");
+            // Generate a unique analyzer ID using current timestamp
+            string analyzerId = $"analyzer-training-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
-            // Generate unique analyzer ID
-            string analyzerId = $"train-sample-{Guid.NewGuid()}";
-            Console.WriteLine($"Creating analyzer: {analyzerId}");
+            // Create analyzer
+            var contentAnalyzer = new ContentAnalyzer
+            {
+                BaseAnalyzerId = "prebuilt-documentAnalyzer",
+                Description = "Custom analyzer created with labeled data",
+                Config = new ContentAnalyzerConfig
+                {
+                    EnableFormula = true,
+                    EnableLayout = true,
+                    EnableOcr = true,
+                    EstimateFieldSourceAndConfidence = true,
+                    ReturnDetails = true
+                },
+                FieldSchema = new ContentFieldSchema(fields: new Dictionary<string, ContentFieldDefinition>
+                {
+                    ["MerchantName"] = new ContentFieldDefinition
+                    {
+                        Type = ContentFieldType.String,
+                        Method = GenerationMethod.Extract,
+                        Description = "",
+                    },
+                    ["Items"] = new ContentFieldDefinition
+                    {
+                        Type = ContentFieldType.Array,
+                        Method = GenerationMethod.Generate,
+                        Description = "",
+                        Items = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.Object,
+                            Method = GenerationMethod.Extract
+                        }
+                    },
+                    ["TotalPrice"] = new ContentFieldDefinition
+                    {
+                        Type = ContentFieldType.String,
+                        Method = GenerationMethod.Extract,
+                        Description = "",
+                    },
+                }),
+                Mode = AnalysisMode.Standard,
+                ProcessingLocation = ProcessingLocation.Geography,
+                TrainingData = new BlobDataSource(new Uri(trainingStorageContainerSasUrl))
+                {
+                    Prefix = trainingStorageContainerPathPrefix,
+                }
+            };
+
+            contentAnalyzer.FieldSchema.Fields["Items"].Items.Properties.Add("Quantity", new ContentFieldDefinition
+            {
+                Type = ContentFieldType.String,
+                Method = GenerationMethod.Extract,
+                Description = "",
+            });
+            contentAnalyzer.FieldSchema.Fields["Items"].Items.Properties.Add("Name", new ContentFieldDefinition
+            {
+                Type = ContentFieldType.String,
+                Method = GenerationMethod.Extract,
+                Description = "",
+            });
+            contentAnalyzer.FieldSchema.Fields["Items"].Items.Properties.Add("Price", new ContentFieldDefinition
+            {
+                Type = ContentFieldType.String,
+                Method = GenerationMethod.Extract,
+                Description = "",
+            });
+            contentAnalyzer.Tags.Add("demo_type", "get_result");
+
+            ContentAnalyzer result = new ContentAnalyzer();
 
             try
             {
-                var createResponse = await _client.BeginCreateAnalyzerAsync(
-                    analyzerId: analyzerId,
-                    analyzerTemplatePath: analyzerTemplatePath,
-                    trainingStorageContainerSasUrl,
-                    trainingStorageContainerPathPrefix
-                );
+                Console.WriteLine($"🔧 Creating custom analyzer '{analyzerId}'...");
 
-                // Poll for creation result
-                var resultJson = await _client.PollResultAsync(createResponse);
-                var status = resultJson.RootElement.GetProperty("status").GetString();
+                var operation = await _client.GetContentAnalyzersClient()
+                    .CreateOrReplaceAsync(waitUntil: WaitUntil.Completed, analyzerId, contentAnalyzer)
+                    .ConfigureAwait(false);
 
-                if (status == "Succeeded")
+                result = operation.Value;
+
+                Console.WriteLine($"✅ Analyzer '{analyzerId}' created successfully!");
+                Console.WriteLine($"   Status: {result.Status}");
+                Console.WriteLine($"   Created At: {result.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"   Base Analyzer: {result.BaseAnalyzerId}");
+                Console.WriteLine($"   Description: {result.Description}");
+
+                // Display field schema information
+                if (result.FieldSchema != null)
                 {
-                    var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
-                    Console.WriteLine($"Analyzer created successfully: {resultJson.RootElement.GetProperty("result").GetProperty("analyzerId")}");
-                    Console.WriteLine(serializedJson);
-
-                    return analyzerId;
+                    Console.WriteLine($"\n📋 Field Schema: {result.FieldSchema.Name}");
+                    Console.WriteLine($"   {result.FieldSchema.Description}");
+                    Console.WriteLine($"   Fields:");
+                    foreach (var field in result.FieldSchema.Fields)
+                    {
+                        Console.WriteLine($"      - {field.Key}: {field.Value.Type} ({field.Value.Method})");
+                        Console.WriteLine($"        {field.Value.Description}");
+                    }
                 }
 
-                throw new ApplicationException($"Analyzer creation failed. Status: {status}");
+                // Display any warnings
+                if (result.Warnings != null && result.Warnings.Count > 0)
+                {
+                    Console.WriteLine($"\n⚠️  Warnings:");
+                    foreach (var warning in result.Warnings)
+                    {
+                        Console.WriteLine($"      - {warning.Code}: {warning.Message}");
+                    }
+                }
+            }
+            catch (RequestFailedException ex)
+            {
+                Console.WriteLine($"❌ Azure service request failed:");
+                Console.WriteLine($"   Status: {ex.Status}");
+                Console.WriteLine($"   Error Code: {ex.ErrorCode}");
+                Console.WriteLine($"   Message: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error creating analyzer: {ex.Message}");
-                throw;
+                Console.WriteLine($"❌ An error occurred: {ex.Message}");
+                Console.WriteLine($"   {ex.GetType().Name}");
             }
+
+            return result;
         }
 
         /// <summary>
@@ -142,27 +235,44 @@ namespace AnalyzerTraining.Services
         /// <param name="analyzerId">The unique identifier of the custom analyzer to use for document analysis. This value must not be null or empty.</param>
         /// <param name="filePath">The file path of the document to analyze. The file must exist and be accessible.</param>
         /// <returns>A <see cref="JsonDocument"/> containing the analysis results of the document.</returns>
-        public async Task<JsonDocument> AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath)
+        public async Task<AnalyzeResult?> AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath)
         {
             Console.WriteLine("\n===== Using Custom Analyzer for Document Analysis =====");
-
+            AnalyzeResult? analyzeResult = null;
             try
             {
-                var response = await _client.BeginAnalyzeAsync(analyzerId, filePath);
-                var resultJson = await _client.PollResultAsync(response);
-                var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
-                var output = $"{Path.Combine(OutputPath, $"{nameof(AnalyzeDocumentWithCustomAnalyzerAsync)}_{DateTime.Now.ToString("yyyyMMddHHmmss")}.json")}";
-                await File.WriteAllTextAsync(output, serializedJson);
+                byte[] bytes = await File.ReadAllBytesAsync(filePath);
+                BinaryData binaryData = new BinaryData(bytes);
+                Operation<AnalyzeResult> analyzeOperation = await _client.GetContentAnalyzersClient().AnalyzeBinaryAsync(
+                    waitUntil: WaitUntil.Completed, analyzerId, contentType: "application/octet-stream", binaryData);
 
-                Console.WriteLine($"Document Extraction has been saved to the output file path: {output}");
+                analyzeResult = analyzeOperation.Value;
+                Console.WriteLine("✅ Document analysis completed successfully!");
 
-                return resultJson;
+                // Display any warnings
+                if (analyzeResult.Warnings != null && analyzeResult.Warnings.Count > 0)
+                {
+                    Console.WriteLine($"\n⚠️  Warnings:");
+                    foreach (var warning in analyzeResult.Warnings)
+                    {
+                        Console.WriteLine($"      - {warning.Code}: {warning.Message}");
+                    }
+                }
+            }
+            catch (RequestFailedException ex)
+            {
+                Console.WriteLine($"❌ Azure service request failed:");
+                Console.WriteLine($"   Status: {ex.Status}");
+                Console.WriteLine($"   Error Code: {ex.ErrorCode}");
+                Console.WriteLine($"   Message: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error during document analysis: {ex.Message}");
-                throw;
+                Console.WriteLine($"❌ An error occurred: {ex.Message}");
+                Console.WriteLine($"   {ex.GetType().Name}");
             }
+
+            return analyzeResult;
         }
 
         /// <summary>
@@ -173,18 +283,29 @@ namespace AnalyzerTraining.Services
         /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task DeleteAnalyzerAsync(string analyzerId)
         {
-            Console.WriteLine("\n===== Deleting Analyzer =====");
-            Console.WriteLine($"Deleting analyzer: {analyzerId}");
-
             try
             {
-                var response = await _client.DeleteAnalyzerAsync(analyzerId);
-                Console.WriteLine($"Analyzer {analyzerId} deleted successfully (Status: {response.StatusCode})");
+                // Clean up the created analyzer
+                Console.WriteLine($"\n🗑️  Deleting analyzer '{analyzerId}'...");
+                await _client.GetContentAnalyzersClient().DeleteAsync(analyzerId);
+                Console.WriteLine($"✅ Analyzer '{analyzerId}' deleted successfully!");
+
+                Console.WriteLine("\n💡 Next steps:");
+                Console.WriteLine("   - To retrieve an analyzer: see GetAnalyzer sample");
+                Console.WriteLine("   - To use the analyzer for analysis: see AnalyzeBinary sample");
+                Console.WriteLine("   - To delete an analyzer: see DeleteAnalyzer sample");
+            }
+            catch (RequestFailedException ex)
+            {
+                Console.WriteLine($"❌ Azure service request failed:");
+                Console.WriteLine($"   Status: {ex.Status}");
+                Console.WriteLine($"   Error Code: {ex.ErrorCode}");
+                Console.WriteLine($"   Message: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error deleting analyzer: {ex.Message}");
-                throw;
+                Console.WriteLine($"❌ An error occurred: {ex.Message}");
+                Console.WriteLine($"   {ex.GetType().Name}");
             }
         }
     }
