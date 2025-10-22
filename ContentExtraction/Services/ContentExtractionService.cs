@@ -34,7 +34,7 @@ namespace ContentExtraction.Services
         public async Task<AnalyzeResult> AnalyzeDocumentAsync(string filePath)
         {
             // Check if file exists
-            if(!File.Exists(filePath))
+            if (!File.Exists(filePath))
             {
                 Console.WriteLine($"❌ File '{filePath}' not found.");
                 Console.WriteLine("💡 Sample files should be in: ContentUnderstanding.Common/data/");
@@ -65,7 +65,7 @@ namespace ContentExtraction.Services
                 // Display the markdown content
                 Console.WriteLine("\n📄 Markdown Content:");
                 Console.WriteLine("==================================================");
-                
+
                 MediaContent content = result.Contents[0];
                 Console.WriteLine(content.Markdown);
                 Console.WriteLine("==================================================");
@@ -289,10 +289,84 @@ namespace ContentExtraction.Services
                         contentType: "application/octet-stream",
                         input: binaryData);
 
+                var operationId = analyzeOperation.GetRehydrationToken()!.Value.Id;
+
                 AnalyzeResult analyzeResult = analyzeOperation.Value;
 
-                // Clean up: Delete the analyzer (demo cleanup)
-                Console.WriteLine($"\n🗑️  Deleting analyzer '{analyzerId}' (demo cleanup)...");
+                // Look for keyframe times in the analysis result
+                var keyframeTimesMs = new List<long>();
+                foreach (var content in analyzeResult.Contents)
+                {
+                    if (content is AudioVisualContent videoContent)
+                    {
+                        Console.WriteLine($"KeyFrameTimesMs: {string.Join(", ", videoContent.KeyFrameTimesMs ?? new List<long>())}");
+                        Console.WriteLine(videoContent);
+
+                        if (videoContent.KeyFrameTimesMs != null)
+                        {
+                            keyframeTimesMs.AddRange(videoContent.KeyFrameTimesMs);
+                        }
+
+                        Console.WriteLine($"📹 Found {keyframeTimesMs.Count} keyframes in video content");
+                        break;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Content is not an AudioVisualContent: {content}");
+                    }
+                }
+
+                if (keyframeTimesMs.Count == 0)
+                {
+                    Console.WriteLine("⚠️  No keyframe times found in the analysis result");
+                }
+                else
+                {
+                    Console.WriteLine($"🖼️  Found {keyframeTimesMs.Count} keyframe times in milliseconds");
+                }
+
+                // Build keyframe filenames using the time values
+                List<string> keyframeFiles = keyframeTimesMs
+                    .Select(timeMs => $"keyFrame.{timeMs}")
+                    .ToList();
+
+                // Download and save a few keyframe images as examples (first, middle, last)
+                HashSet<string> framesToDownload;
+
+                if (keyframeFiles.Count >= 3)
+                {
+                    framesToDownload = new HashSet<string>
+                    {
+                        keyframeFiles[0],
+                        keyframeFiles[keyframeFiles.Count - 1],
+                        keyframeFiles[keyframeFiles.Count / 2]
+                    };
+                }
+                else
+                {
+                    framesToDownload = new HashSet<string>(keyframeFiles);
+                }
+
+                List<string> filesToDownload = framesToDownload.ToList();
+                Console.WriteLine($"📥 Downloading {filesToDownload.Count} keyframe images as examples: {string.Join(", ", filesToDownload)}");
+
+                foreach (var keyframeId in filesToDownload)
+                {
+                    Console.WriteLine($"📥 Getting result file: {keyframeId}");
+
+                    // Get the result file (keyframe image)
+                    var response = await _client.GetContentAnalyzersClient()
+                        .GetResultFileAsync(operationId, keyframeId);
+                    var contentType = response.GetRawResponse().Headers.ContentType;
+                    var outputFileName = $"{keyframeId}{GetFileExtensionFromContentType(contentType)}";
+                    var outputPath = Path.Combine(OutputPath, outputFileName);
+                    // Download file
+                    await File.WriteAllBytesAsync(outputPath, response.Value.ToArray());
+                    Console.WriteLine($"✅ Saved keyframe to: {outputPath} (Content-Type: {contentType ?? "unknown"})");
+                }
+
+                // Clean up: Delete the analyzer
+                Console.WriteLine($"\n🗑️  Deleting analyzer '{analyzerId}'...");
                 await _client.GetContentAnalyzersClient().DeleteAsync(analyzerId);
                 Console.WriteLine($"✅ Analyzer '{analyzerId}' deleted successfully!");
 
@@ -384,10 +458,84 @@ namespace ContentExtraction.Services
                         contentType: "application/octet-stream",
                         input: binaryData);
 
+                var operationId = analyzeOperation.GetRehydrationToken()!.Value.Id;
+
                 AnalyzeResult analyzeResult = analyzeOperation.Value;
 
-                // Clean up: Delete the analyzer (demo cleanup)
-                Console.WriteLine($"\n🗑️  Deleting analyzer '{analyzerId}' (demo cleanup)...");
+                // Look for keyframe times in the analysis result
+                var keyframeTimesMs = new List<long>();
+                foreach (var content in analyzeResult.Contents)
+                {
+                    if (content is AudioVisualContent videoContent)
+                    {
+                        Console.WriteLine($"KeyFrameTimesMs: {string.Join(", ", videoContent.KeyFrameTimesMs ?? new List<long>())}");
+                        Console.WriteLine(videoContent);
+
+                        if (videoContent.KeyFrameTimesMs != null)
+                        {
+                            keyframeTimesMs.AddRange(videoContent.KeyFrameTimesMs);
+                        }
+
+                        Console.WriteLine($"📹 Found {keyframeTimesMs.Count} keyframes in video content");
+                        break;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Content is not an AudioVisualContent: {content}");
+                    }
+                }
+
+                if (keyframeTimesMs.Count == 0)
+                {
+                    Console.WriteLine("⚠️  No keyframe times found in the analysis result");
+                }
+                else
+                {
+                    Console.WriteLine($"🖼️  Found {keyframeTimesMs.Count} keyframe times in milliseconds");
+                }
+
+                // Build keyframe filenames using the time values
+                List<string> keyframeFiles = keyframeTimesMs
+                    .Select(timeMs => $"keyFrame.{timeMs}")
+                    .ToList();
+
+                // Download and save a few keyframe images as examples (first, middle, last)
+                HashSet<string> framesToDownload;
+
+                if (keyframeFiles.Count >= 3)
+                {
+                    framesToDownload = new HashSet<string>
+                    {
+                        keyframeFiles[0],
+                        keyframeFiles[keyframeFiles.Count - 1],
+                        keyframeFiles[keyframeFiles.Count / 2]
+                    };
+                }
+                else
+                {
+                    framesToDownload = new HashSet<string>(keyframeFiles);
+                }
+
+                List<string> filesToDownload = framesToDownload.ToList();
+                Console.WriteLine($"📥 Downloading {filesToDownload.Count} keyframe images as examples: {string.Join(", ", filesToDownload)}");
+
+                foreach (var keyframeId in filesToDownload)
+                {
+                    Console.WriteLine($"📥 Getting result file: {keyframeId}");
+
+                    // Get the result file (keyframe image)
+                    var response = await _client.GetContentAnalyzersClient()
+                        .GetResultFileAsync(operationId, keyframeId);
+                    var contentType = response.GetRawResponse().Headers.ContentType;
+                    var outputFileName = $"{keyframeId}{GetFileExtensionFromContentType(contentType)}";
+                    var outputPath = Path.Combine(OutputPath, outputFileName);
+                    // Download file
+                    await File.WriteAllBytesAsync(outputPath, response.Value.ToArray());
+                    Console.WriteLine($"✅ Saved keyframe to: {outputPath} (Content-Type: {contentType ?? "unknown"})");
+                }
+
+                // Clean up: Delete the analyzer
+                Console.WriteLine($"\n🗑️  Deleting analyzer '{analyzerId}'...");
                 await _client.GetContentAnalyzersClient().DeleteAsync(analyzerId);
                 Console.WriteLine($"✅ Analyzer '{analyzerId}' deleted successfully!");
 
@@ -408,6 +556,37 @@ namespace ContentExtraction.Services
                 Console.WriteLine($"Message: {ex.Message}");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Determines the file extension associated with a given MIME content type.
+        /// </summary>
+        /// <remarks>This method normalizes the content type by removing any parameters (e.g., charset)
+        /// and converting it to lowercase before determining the file extension.</remarks>
+        /// <param name="contentType">The MIME content type to evaluate. Can be null or whitespace.</param>
+        /// <returns>A string representing the file extension corresponding to the specified content type. Returns ".jpg" if the
+        /// content type is null, whitespace, or unrecognized.</returns>
+        private string GetFileExtensionFromContentType(string? contentType)
+        {
+            if (string.IsNullOrWhiteSpace(contentType))
+            {
+                return ".jpg"; // Default extension
+            }
+
+            // Normalize the content type (remove any parameters like charset)
+            var normalizedContentType = contentType.Split(';')[0].Trim().ToLowerInvariant();
+
+            return normalizedContentType switch
+            {
+                "image/png" => ".png",
+                "image/jpeg" => ".jpg",
+                "image/jpg" => ".jpg",
+                "image/gif" => ".gif",
+                "image/bmp" => ".bmp",
+                "image/webp" => ".webp",
+                "image/tiff" => ".tiff",
+                _ => ".jpg" // Default to jpg for unknown types
+            };
         }
     }
 }

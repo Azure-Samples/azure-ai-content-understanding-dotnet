@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using Azure.AI.ContentUnderstanding;
+using System.Text.Json;
 
 namespace FieldExtraction.Interfaces
 {
@@ -13,6 +14,6 @@ namespace FieldExtraction.Interfaces
         /// <param name="sampleFilePath">The file path to the sample file to be analyzed. The path must point to a valid file that can  be processed by
         /// the analyzer.</param>
         /// <returns></returns>
-        Task<JsonDocument> CreateAndUseAnalyzer(string analyzerId, string analyzerTemplatePath, string sampleFilePath);
+        Task<AnalyzeResult> CreateAndUseAnalyzer(string analyzerId, ContentAnalyzer analyzer, string fileName);
     }
 }
