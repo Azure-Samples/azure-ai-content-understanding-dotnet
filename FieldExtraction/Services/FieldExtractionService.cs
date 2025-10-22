@@ -87,7 +87,7 @@ namespace FieldExtraction.Services
             var analyzeOperation = await _client.GetContentAnalyzersClient()
                 .AnalyzeAsync(
                     waitUntil: WaitUntil.Completed,
-                    analyzerId: analyzer.BaseAnalyzerId,
+                    analyzerId: analyzerId,
                     data: binaryData);
 
             // Get the result
@@ -96,10 +96,6 @@ namespace FieldExtraction.Services
             // Display markdown content
             Console.WriteLine("\n📄 Markdown Content:");
             Console.WriteLine("=" + new string('=', 49));
-
-            // Display document-specific information if available
-            PrintExtractionResults(analyzeResult, fileName);
-
             Console.WriteLine("\n✅ Analysis complete!");
 
             // Clean up the created analyzer
@@ -114,156 +110,6 @@ namespace FieldExtraction.Services
 
             return analyzeResult;
         }
-
-        public void PrintExtractionResults(AnalyzeResult analyzeResult, string filePath)
-        {
-            string extension = Path.GetExtension(filePath).ToLower();
-            string fileName = Path.GetFileName(filePath);
-
-            Console.WriteLine($"File: {fileName}");
-            Console.WriteLine($"Type: {GetFileTypeDescription(extension)}");
-            Console.WriteLine($"Analyzer completed at: {DateTime.Now}");
-            Console.WriteLine("\nExtracted Fields:");
-
-            Console.WriteLine("\nField Extraction Results:");
-            try
-            {
-                var contents = analyzeResult.Contents;
-                var content = contents[0];
-                foreach (var field in content.Fields)
-                {
-                    // PrintFieldValue(field, 0);
-                }
-            }
-            catch (JsonException ex)
-            {
-                Console.WriteLine($"Error parsing the result JSON: {ex.Message}");
-                return;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Unexpected error processing results: {ex.Message}");
-                return;
-            }
-        }
-
-        /// <summary>
-        /// Prints a field value with proper formatting based on its type.
-        /// </summary>
-        /// <param name="fieldName">The name of the field</param>
-        /// <param name="fieldValue">The JSON element containing the field value and type information</param>
-        /// <param name="indentLevel">The indentation level for nested structures</param>
-        //private static void PrintFieldValue(KeyValuePair<string, ContentField> field, int indentLevel)
-        //{
-        //    string indent = new string(' ', indentLevel * 2);
-        //    string fieldType = field.Value.Source ?? "unknown";
-
-        //    try
-        //    {
-        //        switch (fieldType.ToLower())
-        //        {
-        //            case "string":
-        //            case "number":
-        //            case "boolean":
-        //            case "date":
-        //                var simpleValue = GetSimpleTypeValue(field.Value, fieldType);
-        //                Console.WriteLine($"{indent}- {fieldName} ({fieldType}): {simpleValue}");
-        //                break;
-
-        //            case "array":
-        //                Console.WriteLine($"{indent}- {fieldName} (array):");
-        //                if (fieldValue.TryGetProperty("valueArray", out JsonElement arrayValue))
-        //                {
-        //                    var arrayItems = arrayValue.EnumerateArray().ToArray();
-        //                    if (arrayItems.Length == 0)
-        //                    {
-        //                        Console.WriteLine($"{indent}  [Empty array]");
-        //                    }
-        //                    else
-        //                    {
-        //                        for (int i = 0; i < arrayItems.Length; i++)
-        //                        {
-        //                            Console.WriteLine($"{indent}  Item {i + 1}:");
-        //                            PrintFieldValue($"", arrayItems[i], indentLevel + 2);
-        //                        }
-        //                    }
-        //                }
-        //                else
-        //                {
-        //                    Console.WriteLine($"{indent}  [No array value]");
-        //                }
-        //                break;
-
-        //            case "object":
-        //                Console.WriteLine($"{indent}- {fieldName} (object):");
-        //                if (fieldValue.TryGetProperty("valueObject", out JsonElement objectValue))
-        //                {
-        //                    foreach (var property in objectValue.EnumerateObject())
-        //                    {
-        //                        PrintFieldValue(property.Name, property.Value, indentLevel + 1);
-        //                    }
-        //                }
-        //                else
-        //                {
-        //                    Console.WriteLine($"{indent}  [No object value]");
-        //                }
-        //                break;
-
-        //            default:
-        //                Console.WriteLine($"{indent}- {fieldName} ({fieldType}): [Unsupported type]");
-        //                break;
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine($"{indent}- {fieldName} ({fieldType}): [Error reading value: {ex.Message}]");
-        //        throw;
-        //    }
-        //}
-
-        /// <summary>
-        /// Gets the value for simple types (string, number, boolean, date) based on the pattern "value<Type>".
-        /// </summary>
-        /// <param name="fieldValue">The JSON element containing the field value and type information</param>
-        /// <param name="fieldType">The type of the field</param>
-        /// <returns>A string representation of the value or an error message</returns>
-        //private static string GetSimpleTypeValue(ContentField fieldValue, string fieldType)
-        //{
-        //    var typeToPropertyMap = new Dictionary<string, string>
-        //    {
-        //        { "string", "valueString" },
-        //        { "number", "valueNumber" },
-        //        { "boolean", "valueBoolean" },
-        //        { "date", "valueDate" }
-        //    };
-
-        //    string fieldTypeLower = fieldType.ToLower();
-        //    if (!typeToPropertyMap.TryGetValue(fieldTypeLower, out string? propertyName))
-        //    {
-        //        return "[Unknown type]";
-        //    }
-
-        //    if (!fieldValue.TryGetProperty(propertyName, out JsonElement valueElement))
-        //    {
-        //        return "[No value]";
-        //    }
-
-        //    try
-        //    {
-        //        return fieldTypeLower switch
-        //        {
-        //            "string" => valueElement.GetString() ?? "[Null string]",
-        //            "number" => valueElement.GetDecimal().ToString(),
-        //            "boolean" => valueElement.GetBoolean().ToString(),
-        //            "date" => valueElement.GetString() ?? "[Null date]",
-        //            _ => "[Unknown type]"
-        //        };
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return $"[Error reading {fieldType}: {ex.Message}]";
-        //    }
-        //}
 
         public string GetFileTypeDescription(string extension) => extension switch
         {

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Azure.AI.ContentUnderstanding;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -18,7 +19,7 @@ namespace ConversationalFieldExtraction.Interfaces
         /// <param name="analyzerTemplatePath">The file path to the analyzer template. This value must point to a valid template file and must not be null or
         /// empty.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        Task<JsonDocument> CreateAnalyzerFromTemplateAsync(string analyzerId, string analyzerTemplatePath);
+        Task<ContentAnalyzer> CreateAnalyzerFromTemplateAsync(string analyzerId, ContentAnalyzer analyzer);
 
         /// <summary>
         /// Extracts structured fields from conversation data using a specified analyzer.
@@ -41,7 +42,7 @@ namespace ConversationalFieldExtraction.Interfaces
         /// 4. Polls for the completion of the analysis operation
         /// 5. Returns the structured field extraction results as JSON
         /// </remarks>
-        Task<JsonDocument?> ExtractFieldsWithAnalyzerAsync(string analyzerId, string sampleFilePath);
+        Task<AnalyzeResult?> ExtractFieldsWithAnalyzerAsync(string analyzerId, string filePath);
 
         /// <summary>
         /// Clean Up

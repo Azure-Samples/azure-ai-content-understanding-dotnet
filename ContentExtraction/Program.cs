@@ -18,7 +18,6 @@ namespace ContentExtraction
                 {
                     services.AddContentUnderstandingClient(context.Configuration);
                     services.AddSingleton<IContentExtractionService, ContentExtractionService>();
-
                 })
                 .Build();
 

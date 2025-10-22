@@ -21,20 +21,10 @@ namespace FieldExtraction
                 {
                     services.AddContentUnderstandingClient(context.Configuration);
                     services.AddSingleton<IFieldExtractionService, FieldExtractionService>();
-
                 })
                 .Build();
 
             var service = host.Services.GetService<IFieldExtractionService>()!;
-
-            var ExtractionTemplates = new Dictionary<string, (string, string)>
-            {
-                { "invoice", ("./analyzer_templates/invoice.json", "./data/invoice.pdf") },
-                { "call_recording", ("./analyzer_templates/call_recording_analytics.json", "./data/callCenterRecording.mp3") },
-                { "conversation_audio", ("./analyzer_templates/conversational_audio_analytics.json", "./data/callCenterRecording.mp3") },
-                { "marketing_video", ("./analyzer_templates/marketing_video.json", "./data/FlightSimulator.mp4") }
-            };
-
             var extractionContentAnalyzer = new Dictionary<string, (ContentAnalyzer, string)>
             {
                 ["invoice"] = (new ContentAnalyzer
@@ -230,14 +220,14 @@ namespace FieldExtraction
             marketAudioAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Neutral");
             marketAudioAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Negative");
 
-            string field_extraction_analyzerId = $"field-extraction-sample-{Guid.NewGuid()}";
+            string analyzerId = $"field-extraction-sample-{Guid.NewGuid()}";
 
             foreach(var item in extractionContentAnalyzer)
             {
                 Console.WriteLine($"\n\nProcessing {item.Key}...\n");
                 var (contentAnalyzer, fileName) = item.Value;
                 await service.CreateAndUseAnalyzer(
-                    field_extraction_analyzerId,
+                    analyzerId,
                     contentAnalyzer,
                     fileName);
             }

@@ -1,4 +1,6 @@
-﻿using ContentUnderstanding.Common;
+﻿using Azure;
+using Azure.AI.ContentUnderstanding;
+using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Models;
 using ConversationalFieldExtraction.Interfaces;
 using System.Text;
@@ -13,9 +15,9 @@ namespace ConversationalFieldExtraction.Services
     /// </summary>
     public class ConversationalFieldExtractionService : IConversationalFieldExtractionService
     {
-        private readonly AzureContentUnderstandingClient _client;
+        private readonly ContentUnderstandingClient _client;
 
-        public ConversationalFieldExtractionService(AzureContentUnderstandingClient client)
+        public ConversationalFieldExtractionService(ContentUnderstandingClient client)
         {
             _client = client;
         }
@@ -29,23 +31,50 @@ namespace ConversationalFieldExtraction.Services
         /// <param name="analyzerTemplatePath">The file path to the analyzer template. This value must point to a valid template file and must not be null or
         /// empty.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        public async Task<JsonDocument> CreateAnalyzerFromTemplateAsync(string analyzerId, string analyzerTemplatePath)
+        public async Task<ContentAnalyzer> CreateAnalyzerFromTemplateAsync(string analyzerId, ContentAnalyzer analyzer)
         {
             Console.WriteLine($"===== Creating Analyzer from Template: {analyzerId} =====");
 
             try
             {
-                var response = await _client.BeginCreateAnalyzerAsync(
+                // Start the create or replace operation
+                var analyzerOperation = await _client.GetContentAnalyzersClient().CreateOrReplaceAsync(
+                    waitUntil: WaitUntil.Completed,
                     analyzerId: analyzerId,
-                    analyzerTemplatePath: analyzerTemplatePath
-                );
+                    resource: analyzer);
 
-                // Poll for creation result
-                JsonDocument resultJson = await _client.PollResultAsync(response);
-                Console.WriteLine("\nAnalyzer creation result:");
-                Console.WriteLine(JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true }));
+                // Get the result
+                ContentAnalyzer result = analyzerOperation.Value;
+                Console.WriteLine($"✅ Analyzer '{analyzerId}' created successfully!");
+                Console.WriteLine($"   Status: {result.Status}");
+                Console.WriteLine($"   Created At: {result.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"   Base Analyzer: {result.BaseAnalyzerId}");
+                Console.WriteLine($"   Description: {result.Description}");
 
-                return resultJson;
+                // Display field schema information
+                if (result.FieldSchema != null)
+                {
+                    Console.WriteLine($"\n📋 Field Schema: {result.FieldSchema.Name}");
+                    Console.WriteLine($"   {result.FieldSchema.Description}");
+                    Console.WriteLine($"   Fields:");
+                    foreach (var field in result.FieldSchema.Fields)
+                    {
+                        Console.WriteLine($"      - {field.Key}: {field.Value.Type} ({field.Value.Method})");
+                        Console.WriteLine($"        {field.Value.Description}");
+                    }
+                }
+
+                // Display any warnings
+                if (result.Warnings != null && result.Warnings.Count > 0)
+                {
+                    Console.WriteLine($"\n⚠️  Warnings:");
+                    foreach (var warning in result.Warnings)
+                    {
+                        Console.WriteLine($"      - {warning.Code}: {warning.Message}");
+                    }
+                }
+
+                return result;
             }
             catch (Exception ex)
             {
@@ -75,7 +104,7 @@ namespace ConversationalFieldExtraction.Services
         /// 4. Polls for the completion of the analysis operation
         /// 5. Returns the structured field extraction results as JSON
         /// </remarks>
-        public async Task<JsonDocument?> ExtractFieldsWithAnalyzerAsync(string analyzerId, string filePath)
+        public async Task<AnalyzeResult?> ExtractFieldsWithAnalyzerAsync(string analyzerId, string filePath)
         {
             Console.WriteLine("\n===== Extracting Fields with Analyzer =====");
 
@@ -92,16 +121,34 @@ namespace ConversationalFieldExtraction.Services
 
                 Console.WriteLine($"Using pretranscribed file: {webvttFilePath}");
 
-                // Analyze with custom analyzer
-                var response = await _client.BeginAnalyzeAsync(analyzerId, webvttFilePath);
-                Console.WriteLine($"\nAnalysis response: {response.StatusCode}");
+                // Read file from disk
+                if (!File.Exists(webvttFilePath))
+                {
+                    Console.WriteLine($"❌ Error: Sample file not found at {webvttFilePath}");
+                    throw new FileNotFoundException("Sample file not found.", webvttFilePath);
+                }
 
-                var resultJson = await _client.PollResultAsync(response);
+                byte[] bytes = await File.ReadAllBytesAsync(webvttFilePath);
+                Console.WriteLine($"\n📄 Analyzing file '{Path.GetFileName(webvttFilePath)}'...");
 
-                Console.WriteLine("\nExtraction Results:");
-                Console.WriteLine(JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true }));
+                // Start the analyze operation with binary content
+                BinaryData binaryData = BinaryData.FromBytes(bytes);
+                var analyzeOperation = await _client.GetContentAnalyzersClient()
+                    .AnalyzeAsync(
+                        waitUntil: WaitUntil.Completed,
+                        analyzerId: analyzerId,
+                        data: binaryData);
 
-                return resultJson;
+                // Get the result
+                AnalyzeResult analyzeResult = analyzeOperation.Value;
+
+                // Display markdown content
+                Console.WriteLine("\n📄 Markdown Content:");
+                Console.WriteLine("=" + new string('=', 49));
+                Console.WriteLine(analyzeResult.Contents?.FirstOrDefault()?.Markdown);
+                Console.WriteLine("\n✅ Analysis complete!");
+
+                return analyzeResult;
             }
             catch (Exception ex)
             {
@@ -122,7 +169,7 @@ namespace ConversationalFieldExtraction.Services
 
             try
             {
-                await _client.DeleteAnalyzerAsync(analyzerId);
+                await _client.GetContentAnalyzersClient().DeleteAsync(analyzerId);
                 Console.WriteLine($"Analyzer {analyzerId} deleted successfully");
             }
             catch (Exception ex)

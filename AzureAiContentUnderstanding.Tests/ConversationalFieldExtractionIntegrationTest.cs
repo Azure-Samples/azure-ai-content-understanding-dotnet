@@ -1,4 +1,5 @@
-﻿using ContentUnderstanding.Common;
+﻿using Azure.AI.ContentUnderstanding;
+using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
 using ConversationalFieldExtraction.Interfaces;
 using ConversationalFieldExtraction.Services;
@@ -18,22 +19,7 @@ namespace AzureAiContentUnderstanding.Tests
             var host = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) =>
                 {
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint")))
-                    {
-                        throw new ArgumentException("Endpoint must be provided in appsettings.json.");
-                    }
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion")))
-                    {
-                        throw new ArgumentException("API version must be provided in appsettings.json.");
-                    }
-                    services.AddConfigurations(opts =>
-                    {
-                        context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
-                        // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/conversational_field_extraction";
-                    });
-                    services.AddTokenProvider();
-                    services.AddHttpClient<AzureContentUnderstandingClient>();
+                    services.AddHttpClient<ContentUnderstandingClient>();
                     services.AddSingleton<IConversationalFieldExtractionService, ConversationalFieldExtractionService>();
                 })
                 .Build();
@@ -48,24 +34,113 @@ namespace AzureAiContentUnderstanding.Tests
             Exception? serviceException = null;
             try
             {
-                var ExtractionTemplates = new Dictionary<string, (string, string)>
+                ContentAnalyzer contentAnalyzer = new ContentAnalyzer
                 {
-                    { "call_recording_pretranscribe_batch", ("./analyzer_templates/call_recording_analytics_text.json", "./data/batch_pretranscribed.json") },
-                    { "call_recording_pretranscribe_fast", ("./analyzer_templates/call_recording_analytics_text.json", "./data/fast_pretranscribed.json") },
-                    { "call_recording_pretranscribe_cu", ("./analyzer_templates/call_recording_analytics_text.json", "./data/cu_pretranscribed.json") }
+                    BaseAnalyzerId = "prebuilt-audioAnalyzer",
+                    Description = "Sample call recording analytics",
+                    Config = new ContentAnalyzerConfig
+                    {
+                        ReturnDetails = true,
+                    },
+                    FieldSchema = new ContentFieldSchema(fields: new Dictionary<string, ContentFieldDefinition>
+                    {
+                        ["Summary"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.String,
+                            Method = GenerationMethod.Generate,
+                            Description = "A one-paragraph summary"
+                        },
+                        ["Topics"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.String,
+                            Method = GenerationMethod.Generate,
+                            Description = "Top 5 topics mentioned",
+                            Items = new ContentFieldDefinition
+                            {
+                                Type = ContentFieldType.String,
+                            }
+                        },
+                        ["Companies"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.String,
+                            Method = GenerationMethod.Generate,
+                            Description = "List of companies mentioned",
+                            Items = new ContentFieldDefinition
+                            {
+                                Type = ContentFieldType.String,
+                            }
+                        },
+                        ["People"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.Array,
+                            Method = GenerationMethod.Generate,
+                            Description = "List of people mentioned",
+                            Items = new ContentFieldDefinition
+                            {
+                                Type = ContentFieldType.Object,
+                            }
+                        },
+                        ["Sentiment"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.String,
+                            Method = GenerationMethod.Classify,
+                            Description = "Overall sentiment",
+                        },
+                        ["Categories"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.Array,
+                            Method = GenerationMethod.Classify,
+                            Description = "List of relevant categories",
+                            Items = new ContentFieldDefinition
+                            {
+                                Type = ContentFieldType.String,
+                            }
+                        },
+                    })
+                };
+
+                contentAnalyzer.FieldSchema.Fields["People"].Items.Properties.Add("Name", new ContentFieldDefinition
+                {
+                    Type = ContentFieldType.String,
+                    Description = "Person's name",
+                });
+                contentAnalyzer.FieldSchema.Fields["People"].Items.Properties.Add("Role", new ContentFieldDefinition
+                {
+                    Type = ContentFieldType.String,
+                    Description = "Person's title/role",
+                });
+                contentAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Positive");
+                contentAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Neutral");
+                contentAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Negative");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Agriculture");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Business");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Finance");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Health");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Insurance");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Mining");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Pharmaceutical");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Retail");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Technology");
+                contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Transportation");
+
+                var extractionContentAnalyzer = new Dictionary<string, (ContentAnalyzer, string)>
+                {
+                    ["call_recording_pretranscribe_batch"] = (contentAnalyzer, "./data/batch_pretranscribed.json"),
+                    ["call_recording_pretranscribe_fast"] = (contentAnalyzer, "./data/fast_pretranscribed.json"),
+                    ["call_recording_pretranscribe_cu"] = (contentAnalyzer, "./data/cu_pretranscribed.json")
                 };
                 var analyzerId = $"conversational-field-extraction-sample-{Guid.NewGuid()}";
 
-                foreach (var item in ExtractionTemplates)
+                foreach (var item in extractionContentAnalyzer)
                 {
                     // Extract the template path and sample file path from the dictionary
-                    var (analyzerTemplatePath, analyzerSampleFilePath) = ExtractionTemplates[item.Key];
+                    var (analyzer, analyzerTemplatePath) = item.Value;
 
                     // Create the analyzer from the template
-                    await CreateAnalyzerFromTemplateAsync(analyzerId, analyzerTemplatePath);
+                    await CreateAnalyzerFromTemplateAsync(analyzerId, analyzer, analyzerTemplatePath);
 
                     // Extract fields using the created analyzer
-                    await ExtractFieldsWithAnalyzerAsync(analyzerId, analyzerSampleFilePath);
+                    await ExtractFieldsWithAnalyzerAsync(analyzerId, analyzerTemplatePath);
 
                     // Clean up the analyzer after use
                     await service.DeleteAnalyzerAsync(analyzerId);
@@ -80,36 +155,30 @@ namespace AzureAiContentUnderstanding.Tests
             Assert.Null(serviceException);
         }
 
-        private async Task CreateAnalyzerFromTemplateAsync(string analyzerId, string analyzerTemplatePath)
+        private async Task CreateAnalyzerFromTemplateAsync(string analyzerId, ContentAnalyzer analyzer, string analyzerTemplatePath)
         {
             // Implementation for creating an analyzer from a template
-            var resultJson = await service.CreateAnalyzerFromTemplateAsync(analyzerId, analyzerTemplatePath);
-            Assert.NotNull(resultJson);
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
-            Assert.True(result.TryGetProperty("warnings", out var warnings));
-            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
-            Assert.True(result.TryGetProperty("status", out JsonElement status));
-            Assert.Equal("ready", status.ToString());
-            Assert.True(result.TryGetProperty("mode", out JsonElement mode));
-            Assert.Equal("standard", mode.ToString());
-            Assert.True(result.TryGetProperty("fieldSchema", out JsonElement fieldSchema));
-            Assert.True(fieldSchema.TryGetProperty("fields", out JsonElement fields));
-            Assert.True(!string.IsNullOrWhiteSpace(fields.GetRawText()));
+            AnalyzeResult result = await service.CreateAnalyzerFromTemplateAsync(analyzerId, analyzer, analyzerTemplatePath);
+            Assert.NotNull(result);
+            Assert.False(result?.Warnings.Any(), "The warnings array should be empty");
+            Assert.False(result?.Contents.Any(), "The contents array is empty");
+
+            var content = result?.Contents[0];
+            Assert.True(string.IsNullOrWhiteSpace(content?.Markdown), "The markdown content is empty");
+            Assert.False(content?.Fields.Any(), "The output content lacks the 'fields' field");
         }
 
         private async Task ExtractFieldsWithAnalyzerAsync(string analyzerId, string analyzerSampleFilePath)
         {
             // Implementation for extracting fields using the created analyzer
-            var resultJson = await service.ExtractFieldsWithAnalyzerAsync(analyzerId, analyzerSampleFilePath);
-            Assert.NotNull(resultJson);
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
-            Assert.True(result.TryGetProperty("warnings", out var warnings));
-            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
-            Assert.True(result.TryGetProperty("contents", out JsonElement contents));
-            Assert.True(contents[0].TryGetProperty("markdown", out JsonElement markdown));
-            Assert.True(!string.IsNullOrWhiteSpace(markdown.GetRawText()));
-            Assert.True(contents[0].TryGetProperty("fields", out JsonElement fields));
-            Assert.True(!string.IsNullOrWhiteSpace(fields.GetRawText()));
+            var result = await service.ExtractFieldsWithAnalyzerAsync(analyzerId, analyzerSampleFilePath);
+            Assert.NotNull(result);
+            Assert.False(result?.Warnings.Any(), "The warnings array should be empty");
+            Assert.False(result?.Contents.Any(), "The contents array is empty");
+
+            var content = result?.Contents[0];
+            Assert.True(string.IsNullOrWhiteSpace(content?.Markdown), "The markdown content is empty");
+            Assert.False(content?.Fields.Any(), "The output content lacks the 'fields' field");
         }
     }
 }
