@@ -84,7 +84,7 @@ namespace ConversationalFieldExtraction
                         {
                             Type = ContentFieldType.String,
                         }
-                    },
+                    }
                 })
             };
 

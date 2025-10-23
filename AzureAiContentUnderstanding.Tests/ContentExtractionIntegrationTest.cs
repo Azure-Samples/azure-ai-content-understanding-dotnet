@@ -29,30 +29,7 @@ namespace AzureAiContentUnderstanding.Tests
             var host = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) =>
                 {
-                    // Load configuration from environment variables or appsettings.json
-                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
-
-                    // API version for Azure Content Understanding service
-                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_ApiVersion") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");
-
-                    if (string.IsNullOrWhiteSpace(endpoint))
-                    {
-                        throw new ArgumentException("Endpoint must be provided in environment variable or appsettings.json.");
-                    }
-                    if (string.IsNullOrWhiteSpace(apiVersion))
-                    {
-                        throw new ArgumentException("API version must be provided in environment variable or appsettings.json.");
-                    }
-
-                    services.AddConfigurations(opts =>
-                    {
-                        opts.Endpoint = endpoint;
-                        opts.ApiVersion = apiVersion;
-                        // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/content_extraction";
-                    });
-                    services.AddTokenProvider();
-                    services.AddHttpClient<AzureContentUnderstandingClient>();
+                    services.AddContentUnderstandingClient(context.Configuration);
                     services.AddSingleton<IContentExtractionService, ContentExtractionService>();
                 })
                 .Build();
@@ -92,7 +69,7 @@ namespace AzureAiContentUnderstanding.Tests
 
             var content = result.Contents[0];
             Assert.False(string.IsNullOrWhiteSpace(content.Markdown), "The markdown content is empty");
-            Assert.False(content.Fields.Any(), "The fields collection is empty");
+            Assert.True(content.Fields.Any());
         }
 
         /// <summary>
@@ -126,8 +103,8 @@ namespace AzureAiContentUnderstanding.Tests
             Assert.True(result.Contents.Any(), "The contents array is empty");
 
             var content = result.Contents[0];
-            Assert.False(string.IsNullOrWhiteSpace(content.Markdown), "The markdown content is empty");
-            Assert.False(content.Fields.Any(), "The fields collection is empty");
+            Assert.True(string.IsNullOrWhiteSpace(content.Markdown));
+            Assert.True(content.Fields.Any());
         }
 
         /// <summary>

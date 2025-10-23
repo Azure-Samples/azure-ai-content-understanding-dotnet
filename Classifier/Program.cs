@@ -1,35 +1,24 @@
-﻿using Classifier.Interfaces;
+﻿using Azure.AI.ContentUnderstanding;
+using Classifier.Interfaces;
 using Classifier.Services;
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Text;
 
 namespace Classifier {
     public class Program
     {
         public static async Task Main(string[] args)
         {
+            Console.OutputEncoding = Encoding.UTF8;
+
             var host = Host.CreateDefaultBuilder(args)
                 .ConfigureServices((context, services) =>
                 {
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint")))
-                    {
-                        throw new ArgumentException("Endpoint must be provided in appsettings.json.");
-                    }
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion")))
-                    {
-                        throw new ArgumentException("API version must be provided in appsettings.json.");
-                    }
-                    services.AddConfigurations(opts =>
-                    {
-                        context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
-                        // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/classifier";
-                    });
-                    services.AddTokenProvider();
-                    services.AddHttpClient<AzureContentUnderstandingClient>();
+                    services.AddContentUnderstandingClient(context.Configuration);
                     services.AddSingleton<IClassifierService, ClassifierService>();
                 })
                 .Build();
@@ -45,22 +34,106 @@ namespace Classifier {
 
             var service = host.Services.GetService<IClassifierService>()!;
             var analyzerTemplatePath = "./data/mixed_financial_docs.pdf";
-            var (analyzerSchemaPath, enhancedSchemaPath) = ("./analyzer_templates/analyzer_schema.json", "./data/classifier/enhanced_schema.json");
-            
-            var classifierId = $"classifier-sample-{Guid.NewGuid()}";
-            var classifierSchemaPath = "./data/classifier/schema.json";
+            var classifierId = $"analyzer-loan-application-{Guid.NewGuid()}";
+            var contentAnalyzer = new ContentAnalyzer
+            {
+                BaseAnalyzerId = "prebuilt-documentAnalyzer",
+                Description = "Loan application analyzer - extracts key information from loan application",
+                Config = new ContentAnalyzerConfig
+                {
+                    ReturnDetails = true,
+                    EnableLayout = true,
+                    EnableFormula = false,
+                    EstimateFieldSourceAndConfidence = true,
+                    DisableContentFiltering = false
+                },
+                FieldSchema = new ContentFieldSchema(fields: new Dictionary<string, ContentFieldDefinition>
+                {
+                    ["ApplicationDate"] = new ContentFieldDefinition
+                    {
+                        Type = ContentFieldType.Date,
+                        Method = GenerationMethod.Generate,
+                        Description = "The date when the loan application was submitted."
+                    },
+                    ["ApplicantName"] = new ContentFieldDefinition
+                    {
+                        Type = ContentFieldType.String,
+                        Method = GenerationMethod.Generate,
+                        Description = "The full name of the loan applicant or company."
+                    },
+                    ["LoanAmountRequested"] = new ContentFieldDefinition
+                    {
+                        Type = ContentFieldType.Number,
+                        Method = GenerationMethod.Generate,
+                        Description = "The total amount of loan money requested by the applicant."
+                    },
+                    ["LoanPurpose"] = new ContentFieldDefinition
+                    {
+                        Type = ContentFieldType.String,
+                        Method = GenerationMethod.Generate,
+                        Description = "The stated purpose or reason for the loan."
+                    },
+                    ["CreditScore"] = new ContentFieldDefinition
+                    {
+                        Type = ContentFieldType.Number,
+                        Method = GenerationMethod.Generate,
+                        Description = "The credit score of the applicant, if available."
+                    },
+                    ["Summary"] = new ContentFieldDefinition
+                    {
+                        Type = ContentFieldType.String,
+                        Method = GenerationMethod.Generate,
+                        Description = "A brief overview of the loan application details."
+                    }
+                })
+            };
 
-            // Create a basic classifier
-            await service.CreateClassifierAsync(classifierId, classifierSchemaPath);
+            // Create content classifier with categories
+            var classifierSchema = new ContentClassifier(categories: new Dictionary<string, ClassifierCategoryDefinition>
+            {
+                ["Loan application"] = new ClassifierCategoryDefinition
+                {
+                    Description = "Documents submitted by individuals or businesses to request funding, typically including personal or business details, financial history, loan amount, purpose, and supporting documentation."
+                },
+                ["Invoice"] = new ClassifierCategoryDefinition
+                {
+                    Description = "Billing documents issued by sellers or service providers to request payment for goods or services, detailing items, prices, taxes, totals, and payment terms."
+                },
+                ["Bank_Statement"] = new ClassifierCategoryDefinition
+                {
+                    Description = "Official statements issued by banks that summarize account activity over a period, including deposits, withdrawals, fees, and balances."
+                },
+            })
+            {
+                SplitMode = ClassifierSplitMode.Auto
+            };
+
+            // create a enhanced classifier schema that includes the custom analyzer
+            var enhancedClassifierSchema = new ContentClassifier(categories: new Dictionary<string, ClassifierCategoryDefinition>
+            {
+                ["Loan application"] = new ClassifierCategoryDefinition
+                {
+                    AnalyzerId = classifierId,
+                    Description = "Documents submitted by individuals or businesses to request funding, typically including personal or business details, financial history, loan amount, purpose, and supporting documentation."
+                },
+                ["Invoice"] = new ClassifierCategoryDefinition
+                {
+                    Description = "Billing documents issued by sellers or service providers to request payment for goods or services, detailing items, prices, taxes, totals, and payment terms."
+                },
+                ["Bank_Statement"] = new ClassifierCategoryDefinition
+                {
+                    Description = "Official statements issued by banks that summarize account activity over a period, including deposits, withdrawals, fees, and balances."
+                },
+            })
+            {
+                SplitMode = ClassifierSplitMode.Auto,
+            };
 
             // Classify a document using the created classifier
-            await service.ClassifyDocumentAsync(classifierId, analyzerTemplatePath);
+            await service.ClassifyDocumentAsync(classifierId, classifierSchema, analyzerTemplatePath);
 
-            var analyzerId = $"analyzer-loan-application-{Guid.NewGuid()}";
-            var enhancedClassifierId = await service.CreateEnhancedClassifierWithCustomAnalyzerAsync(analyzerId, analyzerSchemaPath, enhancedSchemaPath);
-
-            // Process a document using the enhanced classifier
-            await service.ProcessDocumentWithEnhancedClassifierAsync(enhancedClassifierId, analyzerTemplatePath);
+            // Classify a document using the enhanced classifier
+            await service.ClassifyDocumentAsync(classifierId, enhancedClassifierSchema, analyzerTemplatePath);
 
             Console.WriteLine("## Summary");
             Console.WriteLine("Congratulations! You've successfully:");

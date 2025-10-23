@@ -1,7 +1,9 @@
-﻿using Classifier.Interfaces;
+﻿using Azure.AI.ContentUnderstanding;
+using Classifier.Interfaces;
 using Classifier.Services;
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
+using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,30 +31,7 @@ namespace AzureAiContentUnderstanding.Tests
             var host = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) =>
                 {
-                    // Load configuration from environment variables or appsettings.json
-                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
-
-                    // API version for Azure Content Understanding service
-                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_ApiVersion") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");
-
-                    if (string.IsNullOrWhiteSpace(endpoint))
-                    {
-                        throw new ArgumentException("Endpoint must be provided in environment variable or appsettings.json.");
-                    }
-                    if (string.IsNullOrWhiteSpace(apiVersion))
-                    {
-                        throw new ArgumentException("API version must be provided in environment variable or appsettings.json.");
-                    }
-
-                    services.AddConfigurations(opts =>
-                    {
-                        opts.Endpoint = endpoint;
-                        opts.ApiVersion = apiVersion;
-                        // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/classifier";
-                    });
-                    services.AddTokenProvider();
-                    services.AddHttpClient<AzureContentUnderstandingClient>();
+                    services.AddContentUnderstandingClient(context.Configuration);
                     services.AddSingleton<IClassifierService, ClassifierService>();
                 })
                 .Build();
@@ -75,47 +54,107 @@ namespace AzureAiContentUnderstanding.Tests
 
             try
             {
-                // File paths and IDs for test scenarios
                 var analyzerTemplatePath = "./data/mixed_financial_docs.pdf";
-                var (analyzerSchemaPath, enhancedSchemaPath) = ("./analyzer_templates/analyzer_schema.json", "./data/classifier/enhanced_schema.json");
-                var classifierId = $"classifier-sample-{Guid.NewGuid()}";
-                var classifierSchemaPath = "./data/classifier/schema.json";
+                var classifierId = $"analyzer-loan-application-{Guid.NewGuid()}";
+                var contentAnalyzer = new ContentAnalyzer
+                {
+                    BaseAnalyzerId = "prebuilt-documentAnalyzer",
+                    Description = "Loan application analyzer - extracts key information from loan application",
+                    Config = new ContentAnalyzerConfig
+                    {
+                        ReturnDetails = true,
+                        EnableLayout = true,
+                        EnableFormula = false,
+                        EstimateFieldSourceAndConfidence = true,
+                        DisableContentFiltering = false
+                    },
+                    FieldSchema = new ContentFieldSchema(fields: new Dictionary<string, ContentFieldDefinition>
+                    {
+                        ["ApplicationDate"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.Date,
+                            Method = GenerationMethod.Generate,
+                            Description = "The date when the loan application was submitted."
+                        },
+                        ["ApplicantName"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.String,
+                            Method = GenerationMethod.Generate,
+                            Description = "The full name of the loan applicant or company."
+                        },
+                        ["LoanAmountRequested"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.Number,
+                            Method = GenerationMethod.Generate,
+                            Description = "The total amount of loan money requested by the applicant."
+                        },
+                        ["LoanPurpose"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.String,
+                            Method = GenerationMethod.Generate,
+                            Description = "The stated purpose or reason for the loan."
+                        },
+                        ["CreditScore"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.Number,
+                            Method = GenerationMethod.Generate,
+                            Description = "The credit score of the applicant, if available."
+                        },
+                        ["Summary"] = new ContentFieldDefinition
+                        {
+                            Type = ContentFieldType.String,
+                            Method = GenerationMethod.Generate,
+                            Description = "A brief overview of the loan application details."
+                        }
+                    })
+                };
 
-                // Validate that the required files exist
-                Assert.True(File.Exists(analyzerTemplatePath), "Analyzer template file does not exist.");
-                Assert.True(File.Exists(analyzerSchemaPath), "Analyzer schema file does not exist.");
-                Assert.True(File.Exists(enhancedSchemaPath), "Enhanced schema file does not exist.");
-                Assert.True(File.Exists(classifierSchemaPath), "Classifier schema file does not exist.");
+                // Create content classifier with categories
+                var classifierSchema = new ContentClassifier(categories: new Dictionary<string, ClassifierCategoryDefinition>
+                {
+                    ["Loan application"] = new ClassifierCategoryDefinition
+                    {
+                        Description = "Documents submitted by individuals or businesses to request funding, typically including personal or business details, financial history, loan amount, purpose, and supporting documentation."
+                    },
+                    ["Invoice"] = new ClassifierCategoryDefinition
+                    {
+                        Description = "Billing documents issued by sellers or service providers to request payment for goods or services, detailing items, prices, taxes, totals, and payment terms."
+                    },
+                    ["Bank_Statement"] = new ClassifierCategoryDefinition
+                    {
+                        Description = "Official statements issued by banks that summarize account activity over a period, including deposits, withdrawals, fees, and balances."
+                    },
+                })
+                {
+                    SplitMode = ClassifierSplitMode.Auto
+                };
 
-                // Read the JSON content from the schema files
-                var (analyzerSchema, enhancedSchema) = (await File.ReadAllTextAsync(analyzerSchemaPath), await File.ReadAllTextAsync(enhancedSchemaPath));
-                var classifierSchema = await File.ReadAllTextAsync(classifierSchemaPath);
-                Assert.False(string.IsNullOrWhiteSpace(analyzerSchema), "Analyzer schema JSON should not be empty.");
-                Assert.False(string.IsNullOrWhiteSpace(enhancedSchema), "Enhanced schema JSON should not be empty.");
-                Assert.False(string.IsNullOrWhiteSpace(classifierSchema), "Classifier schema JSON should not be empty.");
+                // create a enhanced classifier schema that includes the custom analyzer
+                var enhancedClassifierSchema = new ContentClassifier(categories: new Dictionary<string, ClassifierCategoryDefinition>
+                {
+                    ["Loan application"] = new ClassifierCategoryDefinition
+                    {
+                        AnalyzerId = classifierId,
+                        Description = "Documents submitted by individuals or businesses to request funding, typically including personal or business details, financial history, loan amount, purpose, and supporting documentation."
+                    },
+                    ["Invoice"] = new ClassifierCategoryDefinition
+                    {
+                        Description = "Billing documents issued by sellers or service providers to request payment for goods or services, detailing items, prices, taxes, totals, and payment terms."
+                    },
+                    ["Bank_Statement"] = new ClassifierCategoryDefinition
+                    {
+                        Description = "Official statements issued by banks that summarize account activity over a period, including deposits, withdrawals, fees, and balances."
+                    },
+                })
+                {
+                    SplitMode = ClassifierSplitMode.Auto,
+                };
 
-                JsonElement analyzerSchemaJson = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(analyzerSchemaPath));
-                Assert.True(analyzerSchemaJson.TryGetProperty("fieldSchema", out var fieldSchema));
-                Assert.True(fieldSchema.TryGetProperty("fields", out var fields));
+                // Classify a document using the created classifier
+                await ClassifyDocumentAsync(classifierId, classifierSchema, analyzerTemplatePath);
 
-                JsonElement enhancedSchemaJson = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(enhancedSchemaPath));
-                Assert.True(enhancedSchemaJson.TryGetProperty("categories", out var enhancedCategories));
-                Assert.True(enhancedSchemaJson.TryGetProperty("splitMode", out var enhancedSplitMode));
-                Assert.Equal("auto", enhancedSplitMode.ToString());
-
-                JsonElement classifierSchemaJson = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(classifierSchemaPath));
-                Assert.True(classifierSchemaJson.TryGetProperty("categories", out var classifierCategories));
-                Assert.True(classifierSchemaJson.TryGetProperty("splitMode", out var classifierSplitMode));
-                Assert.Equal("auto", classifierSplitMode.ToString());
-
-                // Step 1: Create a basic classifier
-                await CreateClassifierAsync(classifierId, classifierSchemaPath);
-
-                // Step 2: Classify a document using the created classifier
-                await ClassifyDocumentAsync(classifierId, analyzerTemplatePath);
-
-                // Step 3: Process a document using the enhanced classifier
-                await ProcessDocumentWithEnhancedClassifierAsync(analyzerSchemaPath, enhancedSchemaPath, analyzerTemplatePath);
+                // Classify a document using the enhanced classifier
+                await ClassifyDocumentAsync(classifierId, enhancedClassifierSchema, analyzerTemplatePath);
             }
             catch (Exception ex)
             {
@@ -126,77 +165,22 @@ namespace AzureAiContentUnderstanding.Tests
         }
 
         /// <summary>
-        /// Creates a basic classifier with the given ID and schema, and verifies its response.
-        /// Checks that the classifier is ready, contains categories, and each category is properly described.
-        /// </summary>
-        /// <param name="classifierId">Unique identifier for the classifier.</param>
-        /// <param name="classifierSchemaPath">File path to the classifier schema (JSON).</param>
-        private async Task CreateClassifierAsync(string classifierId, string classifierSchemaPath)
-        {
-            // Create a basic classifier
-            JsonDocument resultJson = await service.CreateClassifierAsync(classifierId, classifierSchemaPath);
-            Assert.NotNull(resultJson);
-
-            // Validate result structure and status
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
-            Assert.True(result.TryGetProperty("warnings", out var warnings));
-            Assert.False(warnings.EnumerateArray().Any(), "The warnings array should be empty");
-            Assert.True(result.TryGetProperty("status", out JsonElement status));
-            Assert.Equal("ready", status.ToString());
-
-            // Validate categories and descriptions
-            Assert.True(result.TryGetProperty("categories", out JsonElement categories));
-            var list = new List<(string name, string description)>();
-
-            foreach (var category in categories.EnumerateObject())
-            {
-                Assert.NotEmpty(category.Name);
-                Assert.NotEmpty(category.Value.ToString());
-                Assert.True(category.Value.TryGetProperty("description", out JsonElement description));
-                list.Add((category.Name, description.ToString()));
-            }
-
-            Assert.True(list.Any());
-        }
-
-        /// <summary>
         /// Classifies a document using the specified classifier and validates the result.
         /// Asserts that classification results are returned for the document.
         /// </summary>
         /// <param name="classifierId">ID of the classifier.</param>
         /// <param name="fileLocation">Path to the document to be classified.</param>
-        private async Task ClassifyDocumentAsync(string classifierId, string fileLocation)
+        private async Task ClassifyDocumentAsync(string classifierId, ContentClassifier classifier, string fileLocation)
         {
             // Classify a document using the created classifier
-            JsonDocument resultJson = await service.ClassifyDocumentAsync(classifierId, fileLocation);
-            Assert.NotNull(resultJson);
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
-            Assert.True(result.TryGetProperty("contents", out JsonElement contents));
-            Assert.True(contents.EnumerateArray().Any());
-        }
+            ClassifyResult? result = await service.ClassifyDocumentAsync(classifierId, classifier, fileLocation);
+            Assert.NotNull(result);
+            Assert.False(result.Warnings.Any(), "The warnings array should be empty");
+            Assert.True(result.Contents.Any());
 
-        /// <summary>
-        /// Processes a document using an enhanced classifier and a custom analyzer.
-        /// Validates that processed content contains markdown and fields.
-        /// </summary>
-        /// <param name="analyzerSchemaPath">Schema path for the custom analyzer.</param>
-        /// <param name="enhancedSchemaPath">Schema path for the enhanced classifier.</param>
-        /// <param name="analyzerTemplatePath">Path to the document to process.</param>
-        private async Task ProcessDocumentWithEnhancedClassifierAsync(string analyzerSchemaPath, string enhancedSchemaPath, string analyzerTemplatePath)
-        {
-            var analyzerId = $"analyzer-loan-application-{Guid.NewGuid()}";
-            var enhancedClassifierId = await service.CreateEnhancedClassifierWithCustomAnalyzerAsync(analyzerId, analyzerSchemaPath, enhancedSchemaPath);
-            Assert.NotNull(enhancedClassifierId);
-            JsonDocument resultJson = await service.ProcessDocumentWithEnhancedClassifierAsync(enhancedClassifierId, analyzerTemplatePath);
-            Assert.NotNull(resultJson);
-            Assert.True(resultJson.RootElement.TryGetProperty("result", out JsonElement result));
-            Assert.True(result.TryGetProperty("contents", out JsonElement contents));
-            Assert.True(contents.EnumerateArray().Any());
-            var content = contents[0];
-            Assert.True(content.TryGetProperty("markdown", out JsonElement markdown));
-            Assert.True(!string.IsNullOrWhiteSpace(markdown.ToString()));
-            Assert.True(content.TryGetProperty("fields", out JsonElement fields));
-            Assert.True(!string.IsNullOrWhiteSpace(fields.GetRawText()));
+            var content = result.Contents[0];
+            Assert.True(string.IsNullOrWhiteSpace(content.Markdown));
+            Assert.True(content.Fields.Any());
         }
     }
 }

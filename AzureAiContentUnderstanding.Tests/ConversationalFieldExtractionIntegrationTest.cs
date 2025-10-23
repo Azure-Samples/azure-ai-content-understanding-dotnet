@@ -19,7 +19,7 @@ namespace AzureAiContentUnderstanding.Tests
             var host = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) =>
                 {
-                    services.AddHttpClient<ContentUnderstandingClient>();
+                    services.AddContentUnderstandingClient(context.Configuration);
                     services.AddSingleton<IConversationalFieldExtractionService, ConversationalFieldExtractionService>();
                 })
                 .Build();
@@ -136,11 +136,8 @@ namespace AzureAiContentUnderstanding.Tests
                     // Extract the template path and sample file path from the dictionary
                     var (analyzer, analyzerTemplatePath) = item.Value;
 
-                    // Create the analyzer from the template
-                    await CreateAnalyzerFromTemplateAsync(analyzerId, analyzer, analyzerTemplatePath);
-
                     // Extract fields using the created analyzer
-                    await ExtractFieldsWithAnalyzerAsync(analyzerId, analyzerTemplatePath);
+                    await ExtractFieldsWithAnalyzerAsync(analyzerId, analyzer, analyzerTemplatePath);
 
                     // Clean up the analyzer after use
                     await service.DeleteAnalyzerAsync(analyzerId);
@@ -155,30 +152,22 @@ namespace AzureAiContentUnderstanding.Tests
             Assert.Null(serviceException);
         }
 
-        private async Task CreateAnalyzerFromTemplateAsync(string analyzerId, ContentAnalyzer analyzer, string analyzerTemplatePath)
+        private async Task ExtractFieldsWithAnalyzerAsync(string analyzerId, ContentAnalyzer analyzer, string analyzerSampleFilePath)
         {
             // Implementation for creating an analyzer from a template
-            AnalyzeResult result = await service.CreateAnalyzerFromTemplateAsync(analyzerId, analyzer, analyzerTemplatePath);
-            Assert.NotNull(result);
-            Assert.False(result?.Warnings.Any(), "The warnings array should be empty");
-            Assert.False(result?.Contents.Any(), "The contents array is empty");
+            ContentAnalyzer createResult = await service.CreateAnalyzerFromTemplateAsync(analyzerId, analyzer);
+            Assert.NotNull(createResult);
+            Assert.False(createResult?.Warnings.Any(), "The warnings array should be empty");
 
-            var content = result?.Contents[0];
-            Assert.True(string.IsNullOrWhiteSpace(content?.Markdown), "The markdown content is empty");
-            Assert.False(content?.Fields.Any(), "The output content lacks the 'fields' field");
-        }
-
-        private async Task ExtractFieldsWithAnalyzerAsync(string analyzerId, string analyzerSampleFilePath)
-        {
             // Implementation for extracting fields using the created analyzer
             var result = await service.ExtractFieldsWithAnalyzerAsync(analyzerId, analyzerSampleFilePath);
             Assert.NotNull(result);
             Assert.False(result?.Warnings.Any(), "The warnings array should be empty");
-            Assert.False(result?.Contents.Any(), "The contents array is empty");
+            Assert.True(result?.Contents.Any());
 
             var content = result?.Contents[0];
-            Assert.True(string.IsNullOrWhiteSpace(content?.Markdown), "The markdown content is empty");
-            Assert.False(content?.Fields.Any(), "The output content lacks the 'fields' field");
+            Assert.False(string.IsNullOrWhiteSpace(content?.Markdown), "The markdown content is empty");
+            Assert.True(content?.Fields.Any());
         }
     }
 }

@@ -5,6 +5,7 @@ using ContentUnderstanding.Common.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Text;
 
 namespace AnalyzerTraining
 {
@@ -12,6 +13,8 @@ namespace AnalyzerTraining
     {
         public static async Task Main(string[] args)
         {
+            Console.OutputEncoding = Encoding.UTF8;
+
             var host = Host.CreateDefaultBuilder(args)
                 .ConfigureServices((context, services) =>
                 {

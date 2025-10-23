@@ -14,8 +14,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.10" />
 	<PackageReference Include="Azure.AI.ContentUnderstanding">
-		<Version>1.0.0-alpha.20251022.1</Version>
-		<Source>.\artifacts\packages\Azure.AI.ContentUnderstanding\1.0.0-alpha\Azure.AI.ContentUnderstanding.1.0.0-alpha.20251022.1.nupkg</Source>
+		<Version>1.0.0-alpha.20251023.1</Version>
+		<Source>.\artifacts\packages\Azure.AI.ContentUnderstanding\1.0.0-alpha\Azure.AI.ContentUnderstanding.1.0.0-alpha.20251023.1.nupkg</Source>
 	</PackageReference>
   </ItemGroup>
 
