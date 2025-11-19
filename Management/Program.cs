@@ -33,7 +33,7 @@ namespace Management
             string analyzerId = $"notebooks_sample_management_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
             // Create a custom analyzer using dictionary format
-            Console.WriteLine($"🔧 Creating custom analyzer '{analyzerId}'...");
+            Console.WriteLine($"Creating custom analyzer '{analyzerId}'...");
 
             var contentAnalyzer = new Dictionary<string, object>
             {

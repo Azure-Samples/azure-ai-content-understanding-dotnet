@@ -47,6 +47,15 @@ namespace ContentExtraction
             Console.WriteLine();
             Console.WriteLine("=".PadRight(80, '='));
             Console.WriteLine();
+            Console.Write("Have you already configured model deployments? (y/n): ");
+            var answer = Console.ReadLine()?.Trim().ToLower();
+            if (answer != "y" && answer != "yes")
+            {
+                Console.WriteLine();
+                Console.WriteLine("Please run the ModelDeploymentSetup sample first and then try again.");
+                return;
+            }
+            Console.WriteLine();
 
             var service = host.Services.GetRequiredService<IContentExtractionService>();
 

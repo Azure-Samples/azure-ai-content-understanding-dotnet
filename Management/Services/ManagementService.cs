@@ -27,7 +27,7 @@ namespace Management.Services
         /// <returns>A <see cref="string"/> representing the unique identifier of the created analyzer.</returns>
         public async Task<JsonDocument> CreateAnalyzerAsync(string analyzerId, string analyzerTemplatePath)
         {
-            Console.WriteLine($"🔧 Creating custom analyzer '{analyzerId}'...");
+            Console.WriteLine($"Creating custom analyzer '{analyzerId}'...");
 
             // Create analyzer
             var response = await _client.BeginCreateAnalyzerAsync(
@@ -35,9 +35,9 @@ namespace Management.Services
                 analyzerTemplatePath: analyzerTemplatePath);
 
             // Wait for the analyzer to be created
-            Console.WriteLine("⏳ Waiting for analyzer creation to complete...");
+            Console.WriteLine("Waiting for analyzer creation to complete...");
             var result = await _client.PollResultAsync(response);
-            Console.WriteLine($"✅ Analyzer '{analyzerId}' created successfully!");
+            Console.WriteLine($"Analyzer '{analyzerId}' created successfully!");
 
             return result;
         }
@@ -54,7 +54,7 @@ namespace Management.Services
             // Extract the analyzers array from the response
             var analyzers = response ?? Array.Empty<JsonElement>();
 
-            Console.WriteLine($"✅ Found {analyzers.Length} analyzers");
+            Console.WriteLine($"Found {analyzers.Length} analyzers");
             Console.WriteLine();
 
             // Display detailed information about each analyzer
@@ -62,7 +62,7 @@ namespace Management.Services
             {
                 var analyzer = analyzers[i];
 
-                Console.WriteLine($"🔍 Analyzer {i + 1}:");
+                Console.WriteLine($"Analyzer {i + 1}:");
 
                 // Get analyzer ID
                 string? analyzerId = analyzer.TryGetProperty("analyzerId", out var idProp)
@@ -120,7 +120,7 @@ namespace Management.Services
         {
             var retrievedAnalyzer = await _client.GetAnalyzerDetailByIdAsync(analyzerId);
 
-            Console.WriteLine($"✅ Analyzer '{analyzerId}' retrieved successfully!");
+            Console.WriteLine($"Analyzer '{analyzerId}' retrieved successfully!");
 
             // Extract basic information
             string? description = null;
@@ -147,7 +147,7 @@ namespace Management.Services
             Console.WriteLine($"   Created at: {createdAt}");
 
             // Print the full analyzer response
-            Console.WriteLine("\n📄 Full Analyzer Details:");
+            Console.WriteLine("\nFull Analyzer Details:");
             
             string jsonOutput = JsonSerializer.Serialize(
                 retrievedAnalyzer,
@@ -169,11 +169,11 @@ namespace Management.Services
         /// <returns>A task that represents the asynchronous delete operation.</returns>
         public async Task DeleteAnalyzerAsync(string analyzerId)
         {
-            Console.WriteLine($"\n🗑️  Deleting analyzer '{analyzerId}'...");
+            Console.WriteLine($"\nDeleting analyzer '{analyzerId}'...");
             await _client.DeleteAnalyzerAsync(analyzerId);
-            Console.WriteLine($"✅ Analyzer '{analyzerId}' deleted successfully!");
+            Console.WriteLine($"Analyzer '{analyzerId}' deleted successfully!");
 
-            Console.WriteLine("\n💡 Next steps:");
+            Console.WriteLine("\nNext steps:");
             Console.WriteLine("   - To create an analyzer: see CreateOrReplaceAnalyzer sample");
             Console.WriteLine("   - To list all analyzers: see ListAnalyzers sample");
             Console.WriteLine("   - To update an analyzer: see UpdateAnalyzer sample");

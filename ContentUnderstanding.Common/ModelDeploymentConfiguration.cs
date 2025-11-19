@@ -91,7 +91,7 @@ namespace ContentUnderstanding.Common
                 return false;
             }
 
-            Console.WriteLine("📋 Configuring default model deployments...");
+            Console.WriteLine("Configuring default model deployments...");
             Console.WriteLine($"   GPT-4.1 deployment: {gpt41Deployment}");
             Console.WriteLine($"   GPT-4.1-mini deployment: {gpt41MiniDeployment}");
             Console.WriteLine($"   text-embedding-3-large deployment: {textEmbedding3LargeDeployment}");
@@ -106,7 +106,7 @@ namespace ContentUnderstanding.Common
                     ["text-embedding-3-large"] = textEmbedding3LargeDeployment
                 });
 
-                Console.WriteLine("✅ Default model deployments configured successfully");
+                Console.WriteLine("Default model deployments configured successfully");
                 Console.WriteLine("   Model mappings:");
 
                 if (result.ContainsKey("modelDeployments"))

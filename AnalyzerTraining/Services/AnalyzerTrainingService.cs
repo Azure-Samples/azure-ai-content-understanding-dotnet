@@ -175,7 +175,7 @@ namespace AnalyzerTraining.Services
 
             try
             {
-                Console.WriteLine($"🔧 Creating custom analyzer '{analyzerId}'...");
+                Console.WriteLine($"Creating custom analyzer '{analyzerId}'...");
 
                 var operation = await _client.GetContentAnalyzersClient()
                     .CreateOrReplaceAsync(waitUntil: WaitUntil.Completed, analyzerId, contentAnalyzer)
@@ -183,7 +183,7 @@ namespace AnalyzerTraining.Services
 
                 result = operation.Value;
 
-                Console.WriteLine($"✅ Analyzer '{analyzerId}' created successfully!");
+                Console.WriteLine($"Analyzer '{analyzerId}' created successfully!");
                 Console.WriteLine($"   Status: {result.Status}");
                 Console.WriteLine($"   Created At: {result.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC");
                 Console.WriteLine($"   Base Analyzer: {result.BaseAnalyzerId}");
@@ -192,7 +192,7 @@ namespace AnalyzerTraining.Services
                 // Display field schema information
                 if (result.FieldSchema != null)
                 {
-                    Console.WriteLine($"\n📋 Field Schema: {result.FieldSchema.Name}");
+                    Console.WriteLine($"\nField Schema: {result.FieldSchema.Name}");
                     Console.WriteLine($"   {result.FieldSchema.Description}");
                     Console.WriteLine($"   Fields:");
                     foreach (var field in result.FieldSchema.Fields)
@@ -247,7 +247,7 @@ namespace AnalyzerTraining.Services
                     waitUntil: WaitUntil.Completed, analyzerId, contentType: "application/octet-stream", binaryData);
 
                 analyzeResult = analyzeOperation.Value;
-                Console.WriteLine("✅ Document analysis completed successfully!");
+                Console.WriteLine("Document analysis completed successfully!");
 
                 // Display any warnings
                 if (analyzeResult.Warnings != null && analyzeResult.Warnings.Count > 0)
@@ -286,11 +286,11 @@ namespace AnalyzerTraining.Services
             try
             {
                 // Clean up the created analyzer
-                Console.WriteLine($"\n🗑️  Deleting analyzer '{analyzerId}'...");
+                Console.WriteLine($"\nDeleting analyzer '{analyzerId}'...");
                 await _client.GetContentAnalyzersClient().DeleteAsync(analyzerId);
-                Console.WriteLine($"✅ Analyzer '{analyzerId}' deleted successfully!");
+                Console.WriteLine($"Analyzer '{analyzerId}' deleted successfully!");
 
-                Console.WriteLine("\n💡 Next steps:");
+                Console.WriteLine("\nNext steps:");
                 Console.WriteLine("   - To retrieve an analyzer: see GetAnalyzer sample");
                 Console.WriteLine("   - To use the analyzer for analysis: see AnalyzeBinary sample");
                 Console.WriteLine("   - To delete an analyzer: see DeleteAnalyzer sample");

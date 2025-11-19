@@ -37,7 +37,7 @@ namespace Classifier.Services
         {
             try
             {
-                Console.WriteLine($"🔧 Creating classifier analyzer '{classifierId}'...");
+                Console.WriteLine($"Creating classifier analyzer '{classifierId}'...");
 
                 // Start the create or replace operation
                 await _client.GetContentClassifiersClient().CreateOrReplaceAsync(
@@ -45,7 +45,7 @@ namespace Classifier.Services
                     classifierId,
                     classifier);
 
-                Console.WriteLine($"✅ Classifier created successfully!");
+                Console.WriteLine($"Classifier created successfully!");
 
                 Console.WriteLine("Classifying document...");
                 Console.WriteLine($"Input file location: {fileLocation}");
@@ -58,13 +58,13 @@ namespace Classifier.Services
                     return null; 
                 }
 
-                Console.WriteLine($"📄 Using sample file: {fileLocation}");
+                Console.WriteLine($"Using sample file: {fileLocation}");
                 byte[] fileBytes = await File.ReadAllBytesAsync(fileLocation);
                 BinaryData fileData = new BinaryData(fileBytes);
-                Console.WriteLine($"✅ File loaded successfully ({fileBytes.Length} bytes)");
+                Console.WriteLine($"File loaded successfully ({fileBytes.Length} bytes)");
 
                 // Start the classification operation
-                Console.WriteLine($"🚀 Starting content classification...");
+                Console.WriteLine($"Starting content classification...");
 
                 var operation = await _client.GetContentClassifiersClient()
                     .ClassifyBinaryAsync(
@@ -76,7 +76,7 @@ namespace Classifier.Services
 
                 // Get the classification result using SDK wrapper
                 ClassifyResult result = operation.Value;
-                Console.WriteLine($"🔍 Classification Results:");
+                Console.WriteLine($"Classification Results:");
                 Console.WriteLine($"   Classifier ID: {result.ClassifierId}");
 
                 // Display warnings if any
@@ -90,20 +90,20 @@ namespace Classifier.Services
                 }
 
                 // Process and display classification results
-                Console.WriteLine($"\n📊 Classification Results:");
+                Console.WriteLine($"\nClassification Results:");
                 foreach (var content in result.Contents)
                 {
-                    Console.WriteLine($"\n📄 Content Type: {content.GetType().Name}");
+                    Console.WriteLine($"\nContent Type: {content.GetType().Name}");
                     Console.WriteLine($"   Category: {content.Category}");
                 }
 
                 // Clean up: delete the classifier
-                Console.WriteLine($"\n🧹 Cleaning up...");
+                Console.WriteLine($"\nCleaning up...");
                 await _client.GetContentClassifiersClient()
                     .DeleteAsync(classifierId);
-                Console.WriteLine($"✅ Classifier deleted successfully!");
+                Console.WriteLine($"Classifier deleted successfully!");
 
-                Console.WriteLine($"\n💡 Next steps:");
+                Console.WriteLine($"\nNext steps:");
                 Console.WriteLine($"   - To analyze content from URL: see AnalyzeUrl sample");
                 Console.WriteLine($"   - To analyze binary files: see AnalyzeBinary sample");
                 Console.WriteLine($"   - To create a custom classifier: see CreateOrReplaceClassifier sample");

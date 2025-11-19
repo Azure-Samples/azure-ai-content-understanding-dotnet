@@ -74,7 +74,7 @@ namespace ContentExtraction.Services
             if (!File.Exists(resolvedPath))
             {
                 Console.WriteLine($"❌ File '{resolvedPath}' not found.");
-                Console.WriteLine("💡 Sample files should be in: ContentUnderstanding.Common/data/");
+                Console.WriteLine("Sample files should be in: ContentUnderstanding.Common/data/");
                 Console.WriteLine("   Available sample files: invoice.pdf, mixed_financial_docs.pdf");
                 Console.WriteLine("   Please ensure you're running from the correct directory or update the filePath variable.");
 
@@ -85,7 +85,7 @@ namespace ContentExtraction.Services
 
             var analyzerId = "prebuilt-documentSearch";
 
-            Console.WriteLine($"🔍 Analyzing local file: {filePath} with {analyzerId}...");
+            Console.WriteLine($"Analyzing local file: {filePath} with {analyzerId}...");
 
             try
             {
@@ -93,7 +93,7 @@ namespace ContentExtraction.Services
                 var response = await _client.BeginAnalyzeBinaryAsync(analyzerId, filePath);
                 JsonDocument result = await _client.PollResultAsync(response);
 
-                Console.WriteLine("\n📄 Markdown Content:");
+                Console.WriteLine("\nMarkdown Content:");
                 Console.WriteLine(new string('=', 50));
 
                 // Extract markdown from the first content element
@@ -118,7 +118,7 @@ namespace ContentExtraction.Services
                 if (content.HasValue && content.Value.TryGetProperty("kind", out var kind) && kind.GetString() == "document")
                 {
                     var documentContent = content.Value;
-                    Console.WriteLine("\n📚 Document Information:");
+                    Console.WriteLine("\nDocument Information:");
 
                     int startPage = documentContent.GetProperty("startPageNumber").GetInt32();
                     int endPage = documentContent.GetProperty("endPageNumber").GetInt32();
@@ -131,7 +131,7 @@ namespace ContentExtraction.Services
                     if (documentContent.TryGetProperty("pages", out var pages))
                     {
                         int pageCount = pages.GetArrayLength();
-                        Console.WriteLine($"\n📄 Pages ({pageCount}):");
+                        Console.WriteLine($"\nPages ({pageCount}):");
 
                         string unit = documentContent.TryGetProperty("unit", out var unitProp)
                             ? unitProp.GetString() ?? "units"
@@ -151,7 +151,7 @@ namespace ContentExtraction.Services
                     if (documentContent.TryGetProperty("tables", out var tables))
                     {
                         int tableCount = tables.GetArrayLength();
-                        Console.WriteLine($"\n📊 Tables ({tableCount}):");
+                        Console.WriteLine($"\nTables ({tableCount}):");
 
                         int tableCounter = 1;
                         foreach (var table in tables.EnumerateArray())
@@ -166,12 +166,12 @@ namespace ContentExtraction.Services
                 }
                 else
                 {
-                    Console.WriteLine("\n📚 Document Information: Not available for this content type");
+                    Console.WriteLine("\nDocument Information: Not available for this content type");
                 }
 
                 // Save the result
                 string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_analyze_binary");
-                Console.WriteLine($"\n📋 Full analysis result saved. Review the complete JSON at: {savedJsonPath}");
+                Console.WriteLine($"\nFull analysis result saved. Review the complete JSON at: {savedJsonPath}");
 
                 return result;
             }
@@ -205,8 +205,8 @@ namespace ContentExtraction.Services
             // Analyze document from URL
             string analyzerId = "prebuilt-documentSearch";
 
-            Console.WriteLine($"🔍 Analyzing document from URL: {documentUrl}");
-            Console.WriteLine($"📊 Using analyzer: {analyzerId}\n");
+            Console.WriteLine($"Analyzing document from URL: {documentUrl}");
+            Console.WriteLine($"Using analyzer: {analyzerId}\n");
 
             var response = await _client.BeginAnalyzeUrlAsync(
                 analyzerId: analyzerId,
@@ -215,7 +215,7 @@ namespace ContentExtraction.Services
 
             var result = await _client.PollResultAsync(response);
 
-            Console.WriteLine("\n📄 Markdown Content:");
+            Console.WriteLine("\nMarkdown Content:");
             Console.WriteLine(new string('=', 50));
 
             // Extract markdown from the first content element
@@ -240,7 +240,7 @@ namespace ContentExtraction.Services
             if (content.HasValue && content.Value.TryGetProperty("kind", out var kind) && kind.GetString() == "document")
             {
                 var documentContent = content.Value;
-                Console.WriteLine("\n📚 Document Information:");
+                Console.WriteLine("\nDocument Information:");
 
                 int startPage = documentContent.GetProperty("startPageNumber").GetInt32();
                 int endPage = documentContent.GetProperty("endPageNumber").GetInt32();
@@ -253,7 +253,7 @@ namespace ContentExtraction.Services
                 if (documentContent.TryGetProperty("pages", out var pages))
                 {
                     int pageCount = pages.GetArrayLength();
-                    Console.WriteLine($"\n📄 Pages ({pageCount}):");
+                    Console.WriteLine($"\nPages ({pageCount}):");
 
                     string unit = documentContent.TryGetProperty("unit", out var unitProp)
                         ? unitProp.GetString() ?? "units"
@@ -273,7 +273,7 @@ namespace ContentExtraction.Services
                 if (documentContent.TryGetProperty("tables", out var tables))
                 {
                     int tableCount = tables.GetArrayLength();
-                    Console.WriteLine($"\n📊 Tables ({tableCount}):");
+                        Console.WriteLine($"\nTables ({tableCount}):");
 
                     int tableCounter = 1;
                     foreach (var table in tables.EnumerateArray())
@@ -288,12 +288,12 @@ namespace ContentExtraction.Services
             }
             else
             {
-                Console.WriteLine("\n📚 Document Information: Not available for this content type");
+                Console.WriteLine("\nDocument Information: Not available for this content type");
             }
 
             // Save the result
             string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_url_document");
-            Console.WriteLine($"\n📋 Full analysis result saved. Review the complete JSON at: {savedJsonPath}");
+            Console.WriteLine($"\nFull analysis result saved. Review the complete JSON at: {savedJsonPath}");
 
             return result;
         }
@@ -323,21 +323,21 @@ namespace ContentExtraction.Services
             string analyzerId = "prebuilt-audio";
 
             // Analyze audio file with the created analyzer
-            Console.WriteLine($"🔍 Analyzing audio file from path: {filePath} with analyzer '{analyzerId}'...");
+            Console.WriteLine($"Analyzing audio file from path: {filePath} with analyzer '{analyzerId}'...");
 
             // Begin audio analysis operation
-            Console.WriteLine($"🎬 Starting audio analysis with analyzer '{analyzerId}'...");
+            Console.WriteLine($"Starting audio analysis with analyzer '{analyzerId}'...");
             var analysisResponse = await _client.BeginAnalyzeBinaryAsync(
                 analyzerId: analyzerId,
                 fileLocation: filePath
             );
 
             // Wait for analysis completion
-            Console.WriteLine("⏳ Waiting for audio analysis to complete...");
+            Console.WriteLine("Waiting for audio analysis to complete...");
             var result = await _client.PollResultAsync(analysisResponse);
-            Console.WriteLine("✅ Audio analysis completed successfully!");
+            Console.WriteLine("Audio analysis completed successfully!");
 
-            Console.WriteLine("\n📄 Markdown Content:");
+            Console.WriteLine("\nMarkdown Content:");
             Console.WriteLine(new string('=', 50));
 
             // Extract markdown from the first content element
@@ -362,7 +362,7 @@ namespace ContentExtraction.Services
             if (content.HasValue && content.Value.TryGetProperty("kind", out var kind) && kind.GetString() == "audioVisual")
             {
                 var audioVisualContent = content.Value;
-                Console.WriteLine("\n🎙️ Audio-Visual Information:");
+                Console.WriteLine("\nAudio-Visual Information:");
 
                 // Basic Audio-Visual Details
                 try
@@ -383,7 +383,7 @@ namespace ContentExtraction.Services
                 if (audioVisualContent.TryGetProperty("transcriptPhrases", out var transcriptPhrases))
                 {
                     int phrasesCount = transcriptPhrases.GetArrayLength();
-                    Console.WriteLine($"\n📝 Transcript Phrases ({Math.Min(phrasesCount, 10)}):");
+                    Console.WriteLine($"\nTranscript Phrases ({Math.Min(phrasesCount, 10)}):");
 
                     int idx = 0;
                     foreach (var phrase in transcriptPhrases.EnumerateArray().Take(10))
@@ -405,29 +405,29 @@ namespace ContentExtraction.Services
                 }
                 else
                 {
-                    Console.WriteLine("\n📝 No transcript phrases available.");
+                    Console.WriteLine("\nNo transcript phrases available.");
                 }
 
                 // Markdown Preview
                 if (!string.IsNullOrEmpty(markdown))
                 {
-                    Console.WriteLine("\n🎵 Markdown Content Preview:");
+                    Console.WriteLine("\nMarkdown Content Preview:");
                     string preview = markdown.Length > 200 ? markdown.Substring(0, 200) + "..." : markdown;
                     Console.WriteLine(preview);
                 }
                 else
                 {
-                    Console.WriteLine("\n🎵 No Markdown content available.");
+                    Console.WriteLine("\nNo Markdown content available.");
                 }
             }
             else
             {
-                Console.WriteLine("\n🎙️ Audio-Visual Information: Not available for this content type.");
+                Console.WriteLine("\nAudio-Visual Information: Not available for this content type.");
             }
 
             // Save the result
             string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_audio");
-            Console.WriteLine($"\n📋 Full analysis result saved. Review the complete JSON at: {savedJsonPath}");
+            Console.WriteLine($"\nFull analysis result saved. Review the complete JSON at: {savedJsonPath}");
 
             return result;
         }
@@ -457,21 +457,21 @@ namespace ContentExtraction.Services
             string analyzerId = "prebuilt-videoSearch";
 
             // Analyze video file with the created analyzer
-            Console.WriteLine($"🔍 Analyzing video file from path: {filePath} with analyzer '{analyzerId}'...");
+            Console.WriteLine($"Analyzing video file from path: {filePath} with analyzer '{analyzerId}'...");
 
             // Begin video analysis operation
-            Console.WriteLine($"🎬 Starting video analysis with analyzer '{analyzerId}'...");
+            Console.WriteLine($"Starting video analysis with analyzer '{analyzerId}'...");
             var analysisResponse = await _client.BeginAnalyzeBinaryAsync(
                 analyzerId: analyzerId,
                 fileLocation: filePath
             );
 
             // Wait for analysis completion
-            Console.WriteLine("⏳ Waiting for video analysis to complete...");
+            Console.WriteLine("Waiting for video analysis to complete...");
             var result = await _client.PollResultAsync(analysisResponse);
-            Console.WriteLine("✅ Video analysis completed successfully!");
+            Console.WriteLine("Video analysis completed successfully!");
 
-            Console.WriteLine("\n📄 Markdown Content:");
+            Console.WriteLine("\nMarkdown Content:");
             Console.WriteLine(new string('=', 50));
 
             // Extract markdown from the first content element
@@ -496,7 +496,7 @@ namespace ContentExtraction.Services
             if (content.HasValue && content.Value.TryGetProperty("kind", out var kind) && kind.GetString() == "audioVisual")
             {
                 var videoVisualContent = content.Value;
-                Console.WriteLine("\n🎬 Video-Visual Information:");
+                Console.WriteLine("\nVideo-Visual Information:");
 
                 // Basic Video-Visual Details
                 try
@@ -517,7 +517,7 @@ namespace ContentExtraction.Services
                 if (videoVisualContent.TryGetProperty("transcriptPhrases", out var transcriptPhrases))
                 {
                     int phrasesCount = transcriptPhrases.GetArrayLength();
-                    Console.WriteLine($"\n📝 Transcript Phrases ({Math.Min(phrasesCount, 10)}):");
+                    Console.WriteLine($"\nTranscript Phrases ({Math.Min(phrasesCount, 10)}):");
 
                     int idx = 0;
                     foreach (var phrase in transcriptPhrases.EnumerateArray().Take(10))
@@ -539,7 +539,7 @@ namespace ContentExtraction.Services
                 }
                 else
                 {
-                    Console.WriteLine("\n📝 No transcript phrases available.");
+                    Console.WriteLine("\nNo transcript phrases available.");
                 }
 
                 // Key Frames (support both keyFrameTimesMs and KeyFrameTimesMs for forward compatibility)
@@ -550,7 +550,7 @@ namespace ContentExtraction.Services
                 if (hasKeyFrames && keyFrameTimesMs.GetArrayLength() > 0)
                 {
                     int keyFrameCount = keyFrameTimesMs.GetArrayLength();
-                    Console.WriteLine($"\n🖼️ Key Frames ({keyFrameCount}):");
+                    Console.WriteLine($"\nKey Frames ({keyFrameCount}):");
 
                     int idx = 0;
                     foreach (var keyFrameTime in keyFrameTimesMs.EnumerateArray().Take(5))
@@ -566,29 +566,29 @@ namespace ContentExtraction.Services
                 }
                 else
                 {
-                    Console.WriteLine("\n🖼️ No key frame data available.");
+                    Console.WriteLine("\nNo key frame data available.");
                 }
 
                 // Markdown Preview
                 if (!string.IsNullOrEmpty(markdown))
                 {
-                    Console.WriteLine("\n🎵 Markdown Content Preview:");
+                    Console.WriteLine("\nMarkdown Content Preview:");
                     string preview = markdown.Length > 200 ? markdown.Substring(0, 200) + "..." : markdown;
                     Console.WriteLine(preview);
                 }
                 else
                 {
-                    Console.WriteLine("\n🎵 No Markdown content available.");
+                    Console.WriteLine("\nNo Markdown content available.");
                 }
             }
             else
             {
-                Console.WriteLine("\n🎬 Video-Visual Information: Not available for this content type.");
+                Console.WriteLine("\nVideo-Visual Information: Not available for this content type.");
             }
 
             // Save the result
             string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_video");
-            Console.WriteLine($"\n📋 Full analysis result saved. Review the complete JSON at: {savedJsonPath}");
+            Console.WriteLine($"\nFull analysis result saved. Review the complete JSON at: {savedJsonPath}");
 
             // Keyframe Processing
             var keyframeIds = ExtractKeyframeIds(result);
@@ -672,7 +672,7 @@ namespace ContentExtraction.Services
             List<string> keyframeIds,
             string analyzerId)
         {
-            Console.WriteLine($"\n🖼️ Downloading {keyframeIds.Count} keyframe images...");
+            Console.WriteLine($"\nDownloading {keyframeIds.Count} keyframe images...");
 
             var filesToDownload = keyframeIds.Take(Math.Min(3, keyframeIds.Count)).ToList();
             Console.WriteLine($"Files to download (first {filesToDownload.Count}): {string.Join(", ", filesToDownload)}");
@@ -695,7 +695,7 @@ namespace ContentExtraction.Services
                         testName: "content_extraction_video",
                         identifier: analyzerId
                     );
-                    Console.WriteLine($"✅ Saved keyframe image to: {savedFilePath}");
+                    Console.WriteLine($"Saved keyframe image to: {savedFilePath}");
                 }
                 else
                 {

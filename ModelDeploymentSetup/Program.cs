@@ -56,7 +56,7 @@ namespace ModelDeploymentSetup
                 if (configured)
                 {
                     Console.WriteLine("=".PadRight(80, '='));
-                    Console.WriteLine("✅ Model deployment configuration completed successfully!");
+                    Console.WriteLine("Model deployment configuration completed successfully!");
                     Console.WriteLine("=".PadRight(80, '='));
                     Console.WriteLine();
                     Console.WriteLine("You can now run other samples that use prebuilt analyzers.");

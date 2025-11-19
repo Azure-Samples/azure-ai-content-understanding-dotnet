@@ -623,7 +623,27 @@ namespace ContentUnderstanding.Common
                     case "succeeded":
                         return json;
                     case "failed":
-                        throw new ApplicationException($"Request failed: {json.RootElement}");
+                        // Extract error details for better error messages
+                        string errorMessage = "Request failed";
+                        if (json.RootElement.TryGetProperty("error", out var error))
+                        {
+                            if (error.TryGetProperty("message", out var message))
+                            {
+                                errorMessage = message.GetString() ?? errorMessage;
+                            }
+                            if (error.TryGetProperty("innererror", out var innerError))
+                            {
+                                if (innerError.TryGetProperty("message", out var innerMessage))
+                                {
+                                    errorMessage += $": {innerMessage.GetString()}";
+                                }
+                                if (innerError.TryGetProperty("code", out var code))
+                                {
+                                    errorMessage = $"{code.GetString()} - {errorMessage}";
+                                }
+                            }
+                        }
+                        throw new ApplicationException($"Request failed: {errorMessage}\nFull response: {json.RootElement}");
                     default:
                         // wait
                         await Task.Delay(pollingIntervalSeconds * 1000, cts.Token).ConfigureAwait(false);

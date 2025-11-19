@@ -31,7 +31,7 @@ Prebuilt analyzers use standardized model names (e.g., `gpt-4.1`, `gpt-4.1-mini`
 
 ### One-Time Configuration
 
-> **💡 Note:** This configuration step is only required **once per Azure Content Understanding resource**, unless the GPT deployment has been changed. You can skip this step if:
+> **Note:** This configuration step is only required **once per Azure Content Understanding resource**, unless the GPT deployment has been changed. You can skip this step if:
 > - This configuration has already been run once for your resource, or
 > - Your administrator has already configured the model deployments for you
 
@@ -98,7 +98,7 @@ bool configured = await deploymentConfig.ConfigureDefaultModelDeploymentsAsync()
 if (configured)
 {
     // Configuration successful - mappings are now persisted in Azure AI Foundry
-    Console.WriteLine("✅ Model deployment configuration completed successfully!");
+    Console.WriteLine("Model deployment configuration completed successfully!");
 }
 ```
 
@@ -167,13 +167,13 @@ Make sure you have:
 
 Press any key to continue or Ctrl+C to exit...
 
-📋 Configuring default model deployments...
+Configuring default model deployments...
    GPT-4.1 deployment: gpt-4.1
    GPT-4.1-mini deployment: gpt-4.1-mini
    text-embedding-3-large deployment: text-embedding-3-large
 
 ================================================================================
-✅ Model deployment configuration completed successfully!
+Model deployment configuration completed successfully!
 ================================================================================
 
 You can now run other samples that use prebuilt analyzers.

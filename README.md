@@ -8,7 +8,6 @@ Content Understanding is now a Generally Available (GA) service with the release
 - We will provide more samples for new functionalities in the GA API versions soon. For details on the updates in the current GA release, see the [Content Understanding What's New Document page](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/whats-new).
 - As of November 2025, the `2025-11-01` API version is now available in a broader range of [regions](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/language-region-support).
 - To access sample code for version `2025-05-01-preview`, please check out the corresponding Git tag `2025-05-01-preview` or download it directly from the [release page](https://github.com/Azure-Samples/azure-ai-content-understanding-dotnet/releases/tag/2025-05-01-preview).
-- To access sample code for version `2024-12-01-preview`, please check out the corresponding Git tag `2024-12-01-preview` or download it directly from the [release page](https://github.com/Azure-Samples/azure-ai-content-understanding-dotnet/releases/tag/2024-12-01-preview).
 
 👉 If you are looking for **Python samples**, check out [this repo](https://github.com/Azure-Samples/azure-ai-content-understanding-python/).
 
@@ -189,7 +188,7 @@ Choose one of the following options to configure your application:
 
 #### Option A: Use Token Authentication (Recommended)
 
-> **💡 Recommended:** This approach uses Azure Active Directory (AAD) token authentication, which is safer and strongly recommended for production environments. You do **not** need to set `AZURE_AI_API_KEY` in your `appsettings.json` file when using this method.
+> **Recommended:** This approach uses Azure Active Directory (AAD) token authentication, which is safer and strongly recommended for production environments. You do **not** need to set `AZURE_AI_API_KEY` in your `appsettings.json` file when using this method.
 
 1. Copy the sample appsettings file:
 

@@ -165,7 +165,7 @@ namespace ContentUnderstanding.Common.Helpers
 
             File.WriteAllText(path, jsonString, System.Text.Encoding.UTF8);
 
-            Console.WriteLine($"💾 Analysis result saved to: {path}");
+            Console.WriteLine($"Analysis result saved to: {path}");
 
             return path;
         }
@@ -203,7 +203,7 @@ namespace ContentUnderstanding.Common.Helpers
 
             File.WriteAllText(path, jsonString, System.Text.Encoding.UTF8);
 
-            Console.WriteLine($"💾 Analysis result saved to: {path}");
+            Console.WriteLine($"Analysis result saved to: {path}");
 
             return path;
         }
@@ -241,7 +241,7 @@ namespace ContentUnderstanding.Common.Helpers
 
             File.WriteAllText(path, jsonString, System.Text.Encoding.UTF8);
 
-            Console.WriteLine($"💾 Analysis result saved to: {path}");
+            Console.WriteLine($"Analysis result saved to: {path}");
 
             return path;
         }

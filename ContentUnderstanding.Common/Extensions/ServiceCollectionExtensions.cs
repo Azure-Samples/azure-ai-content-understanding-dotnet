@@ -117,7 +117,7 @@ namespace ContentUnderstanding.Common.Extensions
                         : "Azure AD Token";
 
                     // Log successful client creation
-                    Console.WriteLine("✅ Client created successfully");
+                    Console.WriteLine("Client created successfully");
                     Console.WriteLine($"   Endpoint: {options.Value.Endpoint}");
                     Console.WriteLine($"   Credential: {credentialType}");
                     Console.WriteLine($"   API Version: {options.Value.ApiVersion}");
