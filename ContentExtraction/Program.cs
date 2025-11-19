@@ -14,20 +14,41 @@ namespace ContentExtraction
         {
             Console.OutputEncoding = Encoding.UTF8;
 
-            var services = await ContentUnderstandingBootstrapper.BootstrapAsync(
+            // Create host and configure services (without deployment configuration)
+            var host = ContentUnderstandingBootstrapper.CreateHost(
                 configureServices: (context, services) =>
                 {
                     services.AddSingleton<IContentExtractionService, ContentExtractionService>();
                 }
             );
 
-            if (services == null)
+            // Verify client is available
+            var client = host.Services.GetService<AzureContentUnderstandingClient>();
+            if (client == null)
             {
-                Console.WriteLine("Failed to initialize. Exiting...");
+                Console.WriteLine("❌ Failed to resolve AzureContentUnderstandingClient from DI container.");
+                Console.WriteLine("   Please ensure AddContentUnderstandingClient() is called in ConfigureServices.");
                 return;
             }
 
-            var service = services.GetRequiredService<IContentExtractionService>();
+            // Print message about ModelDeploymentSetup
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine("Azure AI Content Understanding - Content Extraction Sample");
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine();
+            Console.WriteLine("⚠️  IMPORTANT: Before using prebuilt analyzers, you must configure model deployments.");
+            Console.WriteLine();
+            Console.WriteLine("   If you haven't already, please run the ModelDeploymentSetup sample first:");
+            Console.WriteLine("   1. cd ../ModelDeploymentSetup");
+            Console.WriteLine("   2. dotnet run");
+            Console.WriteLine();
+            Console.WriteLine("   This is a one-time setup that maps your deployed models to prebuilt analyzers.");
+            Console.WriteLine("   See the main README.md for more details.");
+            Console.WriteLine();
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine();
+
+            var service = host.Services.GetRequiredService<IContentExtractionService>();
 
             while (true)
             {

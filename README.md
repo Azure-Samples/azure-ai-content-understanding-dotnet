@@ -41,7 +41,9 @@ cd bin/Debug/net8.0/
 dotnet {ProjectName}.dll
 ```
 
-6. For an overview of the available projects in {ProjectName}, refer to the [Features](#features) section. We recommend starting with **ContentExtraction** as your first project.
+6. For an overview of the available projects in {ProjectName}, refer to the [Features](#features) section.
+   
+   **⚠️ IMPORTANT:** If you plan to use prebuilt analyzers (like in **ContentExtraction**), you must first run the **ModelDeploymentSetup** sample. See [Step 4: Configure Model Deployments](#step-4-configure-model-deployments-required-for-prebuilt-analyzers) for details.
 
 ---
 
@@ -94,7 +96,9 @@ cd bin/Debug/net8.0/
 dotnet {ProjectName}.dll
 ```
 
-5. For an overview of the available projects in {ProjectName}, refer to the [Features](#features) section. We recommend starting with **ContentExtraction** as your first project.
+5. For an overview of the available projects in {ProjectName}, refer to the [Features](#features) section. 
+   
+   **⚠️ IMPORTANT:** If you plan to use prebuilt analyzers (like in **ContentExtraction**), you must first run the **ModelDeploymentSetup** sample. See [Step 4: Configure Model Deployments](#step-4-configure-model-deployments-required-for-prebuilt-analyzers) for details.
 
 ---
 
@@ -119,7 +123,9 @@ git clone https://github.com/Azure-Samples/azure-ai-content-understanding-dotnet
 
 4. Follow the instructions in [Configure Azure AI service resource](#configure-azure-ai-service-resource).
 
-5. We recommend setting **ContentExtraction** as your Startup Project. For an overview of the available projects, refer to the [Features](#features) section.
+5. For an overview of the available projects, refer to the [Features](#features) section.
+   
+   **⚠️ IMPORTANT:** If you plan to use prebuilt analyzers (like in **ContentExtraction**), you must first run the **ModelDeploymentSetup** sample. See [Step 4: Configure Model Deployments](#step-4-configure-model-deployments-required-for-prebuilt-analyzers) for details.
 
 6. Press **F5** or click **Start** to run the console app.
 
@@ -355,12 +361,36 @@ After copying `appsettings.example.json` to `appsettings.json`, configure the fo
 
 ---
 
+## Step 4: Configure Model Deployments (Required for Prebuilt Analyzers)
+
+> ⚠️ **IMPORTANT:** Before running any samples that use prebuilt analyzers (like `ContentExtraction`), you must configure the model deployments. This is a **one-time setup** that maps your deployed models to the prebuilt analyzers.
+
+1. **Run the ModelDeploymentSetup sample:**
+
+   ```bash
+   cd ModelDeploymentSetup
+   dotnet build
+   dotnet run
+   ```
+
+2. This sample will:
+   - Read your deployment names from `appsettings.json`
+   - Configure the default model mappings in your Azure AI Foundry resource
+   - Verify that all required deployments are configured correctly
+
+3. **After successful configuration**, you can run other samples that use prebuilt analyzers.
+
+> **Note:** The configuration is persisted in your Azure AI Foundry resource, so you only need to run this once (or whenever you change your deployment names).
+
+---
+
 ## Features
 
 Azure AI Content Understanding is a new Generative AI-based [Azure AI service](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/overview) designed to process and ingest content of any type—documents, images, audio, and video—into a user-defined output format. Content Understanding provides a streamlined way to analyze large volumes of unstructured data, accelerating time-to-value by generating output that can be integrated into automation and analytical workflows.
 
 | Project                     | Key Source File                   | Description |
 |-----------------------------|----------------------------------|-------------|
+| **[ModelDeploymentSetup](ModelDeploymentSetup/)** ⚠️ **Run First** | [Program.cs](ModelDeploymentSetup/Program.cs) | **REQUIRED:** This sample configures the default model deployments required for prebuilt analyzers. You must run this once before running any other samples that use prebuilt analyzers (like ContentExtraction). |
 | [ContentExtraction](ContentExtraction/) | [ContentExtractionService.cs](ContentExtraction/Services/ContentExtractionService.cs) | In this sample we will show content understanding API can help you get semantic information from your file. For example OCR with table in document, audio transcription, and face analysis in video. |
 | [FieldExtraction](FieldExtraction/)   | [FieldExtractionService.cs](FieldExtraction/Services/FieldExtractionService.cs) | In this sample we will show how to create an analyzer to extract fields in your file. For example invoice amount in the document, how many people in an image, names mentioned in an audio, or summary of a video. You can customize the fields by creating your own analyzer template. |
 | [FieldExtractionProMode](FieldExtractionProMode/)  |  [FieldExtractionProModeSerivce.cs](FieldExtractionProMode/Services/FieldExtractionProModeService.cs)  | In this sample we will demonstrate how to use **Pro mode** in Azure AI Content Understanding to enhance your analyzer with multiple inputs and optional reference data. Pro mode is designed for advanced use cases, particularly those requiring multi-step reasoning, and complex decision-making (for instance, identifying inconsistencies, drawing inferences, and making sophisticated decisions). |

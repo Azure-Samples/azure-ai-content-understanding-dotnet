@@ -12,9 +12,16 @@ The Content Extraction sample showcases three main capabilities:
 
 ## Prerequisites
 
-1. Ensure your Azure AI service is configured by following the [configuration steps](../README.md#configure-azure-ai-service-resource) in the main README.
-2. Ensure you have deployed the required models (GPT-4.1, GPT-4.1-mini, and text-embedding-3-large) in Azure AI Foundry.
-3. Configure your `appsettings.json` file with your endpoint and deployment names.
+1. **⚠️ IMPORTANT: Run ModelDeploymentSetup First**
+   - Before running this sample, you **must** run the [ModelDeploymentSetup](../ModelDeploymentSetup/) sample to configure model deployments.
+   - This is a one-time setup that maps your deployed models to the prebuilt analyzers.
+   - See the main [README.md](../README.md#step-4-configure-model-deployments-required-for-prebuilt-analyzers) for detailed instructions.
+
+2. Ensure your Azure AI service is configured by following the [configuration steps](../README.md#configure-azure-ai-service-resource) in the main README.
+
+3. Ensure you have deployed the required models (GPT-4.1, GPT-4.1-mini, and text-embedding-3-large) in Azure AI Foundry.
+
+4. Configure your `appsettings.json` file with your endpoint and deployment names.
 
 ## Key Concepts
 
@@ -254,18 +261,24 @@ public async Task<JsonDocument> AnalyzeVideoAsync(string filePath)
 
 ## Running the Sample
 
-1. **Build the project:**
+1. **⚠️ IMPORTANT: Configure Model Deployments First**
+   - Before running this sample, you **must** run the [ModelDeploymentSetup](../ModelDeploymentSetup/) sample to configure model deployments.
+   - See the [Prerequisites](#prerequisites) section above for details.
+
+2. **Build the project:**
    ```bash
    cd ContentExtraction
    dotnet build
    ```
 
-2. **Run the sample:**
+3. **Run the sample:**
    ```bash
    dotnet run
    ```
+   
+   The sample will display a reminder message about running ModelDeploymentSetup if you haven't already configured deployments.
 
-3. **Select an option from the menu:**
+4. **Select an option from the menu:**
    - `1` - Extract Document Content (from local file)
    - `2` - Extract Document Content from URL
    - `3` - Extract Audio Content
