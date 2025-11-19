@@ -1,10 +1,10 @@
-﻿using Azure.AI.ContentUnderstanding;
-using ContentUnderstanding.Common.Extensions;
+﻿using ContentUnderstanding.Common.Extensions;
 using Management.Interfaces;
 using Management.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Text;
+using System.Text.Json;
 
 namespace Management
 {
@@ -14,110 +14,135 @@ namespace Management
         {
             Console.OutputEncoding = Encoding.UTF8;
 
-            var host = Host.CreateDefaultBuilder(args)
-                .ConfigureServices((context, services) =>
+            var services = await ContentUnderstandingBootstrapper.BootstrapAsync(
+                configureServices: (context, services) =>
                 {
-                    services.AddContentUnderstandingClient(context.Configuration);
                     services.AddSingleton<IManagementService, ManagementService>();
-                })
-                .Build();
+                }
+            );
 
-            var service = host.Services.GetService<IManagementService>()!;
-
-            var analyzerId = $"analyzer-management-sample-{Guid.NewGuid()}";
-            var contentAnalyzer = new ContentAnalyzer
+            if (services == null)
             {
-                BaseAnalyzerId = "prebuilt-callCenter",
-                Description = "Sample call recording analytics",
-                Config = new ContentAnalyzerConfig
+                Console.WriteLine("Failed to initialize. Exiting...");
+                return;
+            }
+
+            var service = services.GetRequiredService<IManagementService>();
+
+            // Generate analyzer ID with timestamp
+            string analyzerId = $"notebooks_sample_management_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+
+            // Create a custom analyzer using dictionary format
+            Console.WriteLine($"🔧 Creating custom analyzer '{analyzerId}'...");
+
+            var contentAnalyzer = new Dictionary<string, object>
+            {
+                ["baseAnalyzerId"] = "prebuilt-callCenter",
+                ["description"] = "Sample call recording analytics",
+                ["config"] = new Dictionary<string, object>
                 {
-                    ReturnDetails = true,
+                    ["returnDetails"] = true,
+                    ["locales"] = new[] { "en-US" }
                 },
-                FieldSchema = new ContentFieldSchema(
-                        fields: new Dictionary<string, ContentFieldDefinition>
+                ["fieldSchema"] = new Dictionary<string, object>
+                {
+                    ["fields"] = new Dictionary<string, object>
+                    {
+                        ["Summary"] = new Dictionary<string, object>
                         {
-                            ["Summary"] = new ContentFieldDefinition
+                            ["type"] = "string",
+                            ["method"] = "generate",
+                            ["description"] = "A one-paragraph summary"
+                        },
+                        ["Topics"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "array",
+                            ["method"] = "generate",
+                            ["description"] = "Top 5 topics mentioned",
+                            ["items"] = new Dictionary<string, object>
                             {
-                                Type = ContentFieldType.String,
-                                Method = GenerationMethod.Generate,
-                                Description = "A one-paragraph summary"
-                            },
-                            ["Topics"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.Array,
-                                Method = GenerationMethod.Generate,
-                                Items = new ContentFieldDefinition
-                                {
-                                    Type = ContentFieldType.String,
-                                },
-                                Description = "Top 5 topics mentioned"
-                            },
-                            ["Companies"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.Array,
-                                Method = GenerationMethod.Generate,
-                                Items = new ContentFieldDefinition
-                                {
-                                    Type = ContentFieldType.String,
-                                },
-                                Description = "List of companies mentioned"
-                            },
-                            ["People"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.Array,
-                                Method = GenerationMethod.Generate,
-                                Items = new ContentFieldDefinition
-                                {
-                                    Type = ContentFieldType.Object,
-                                },
-                                Description = "List of people mentioned"
-                            },
-                            ["Sentiment"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.String,
-                                Method = GenerationMethod.Classify,
-                                Description = "Overall sentiment",
-                            },
-                            ["Categories"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.Array,
-                                Method = GenerationMethod.Classify,
-                                Items = new ContentFieldDefinition
-                                {
-                                    Type = ContentFieldType.String,
-                                },
-                                Description = "List of relevant categories",
+                                ["type"] = "string"
                             }
-                        })
+                        },
+                        ["Companies"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "array",
+                            ["method"] = "generate",
+                            ["description"] = "List of companies mentioned",
+                            ["items"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "string"
+                            }
+                        },
+                        ["People"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "array",
+                            ["method"] = "generate",
+                            ["description"] = "List of people mentioned",
+                            ["items"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "object",
+                                ["properties"] = new Dictionary<string, object>
+                                {
+                                    ["Name"] = new Dictionary<string, object>
+                                    {
+                                        ["type"] = "string",
+                                        ["description"] = "Person's name"
+                                    },
+                                    ["Role"] = new Dictionary<string, object>
+                                    {
+                                        ["type"] = "string",
+                                        ["description"] = "Person's title/role"
+                                    }
+                                }
+                            }
+                        },
+                        ["Sentiment"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "string",
+                            ["method"] = "classify",
+                            ["description"] = "Overall sentiment",
+                            ["enum"] = new[] { "Positive", "Neutral", "Negative" }
+                        },
+                        ["Categories"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "array",
+                            ["method"] = "classify",
+                            ["description"] = "List of relevant categories",
+                            ["items"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "string",
+                                ["enum"] = new[]
+                                {
+                                    "Agriculture",
+                                    "Business",
+                                    "Finance",
+                                    "Health",
+                                    "Insurance",
+                                    "Mining",
+                                    "Pharmaceutical",
+                                    "Retail",
+                                    "Technology",
+                                    "Transportation"
+                                }
+                            }
+                        }
+                    }
+                },
+                ["models"] = new Dictionary<string, object>
+                {
+                    ["completion"] = "gpt-4.1"
+                }
             };
-            // call_recording
-            contentAnalyzer.Config.Locales.Add("en-US");
-            contentAnalyzer.FieldSchema.Fields["People"].Items.Properties.Add("Name", new ContentFieldDefinition
+
+            // Convert to JSON string
+            string analyzerTemplatePath = JsonSerializer.Serialize(contentAnalyzer, new JsonSerializerOptions
             {
-                Type = ContentFieldType.String,
-                Description = "Person's name"
+                WriteIndented = true
             });
-            contentAnalyzer.FieldSchema.Fields["People"].Items.Properties.Add("Role", new ContentFieldDefinition
-            {
-                Type = ContentFieldType.String,
-                Description = "Person's title/role"
-            });
-            contentAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Positive");
-            contentAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Neutral");
-            contentAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Negative");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Agriculture");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Business");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Finance");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Health");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Insurance");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Mining");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Pharmaceutical");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Retail");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Technology");
-            contentAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Transportation");
 
             // 1. Create a simple analyzer
-            await service!.CreateAnalyzerAsync(analyzerId, analyzer: contentAnalyzer);
+            await service!.CreateAnalyzerAsync(analyzerId, analyzerTemplatePath);
 
             // 2. List all analyzers
             await service.ListAnalyzersAsync();
@@ -125,10 +150,7 @@ namespace Management
             // 3. Get analyzer details
             await service.GetAnalyzerDetailsAsync(analyzerId);
 
-            // 4. Update analyzer
-            await service.UpdateAnalyzerAsync(analyzerId);
-
-            // 5. Delete analyzer
+            // 4. Delete analyzer
             await service.DeleteAnalyzerAsync(analyzerId);
         }
     }
