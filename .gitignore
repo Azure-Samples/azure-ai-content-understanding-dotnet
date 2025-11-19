@@ -21,3 +21,7 @@ BenchmarkDotNet.Artifacts/
 .idea/
 .DS_Store
 **/.cache/
+appsettings.*.json
+!appsettings.example.json
+/ContentUnderstanding.Common/appsettings.json
+/ContentUnderstanding.Common/appsettings.json
