@@ -1,5 +1,4 @@
-﻿using Azure.AI.ContentUnderstanding;
-using Classifier.Interfaces;
+﻿using Classifier.Interfaces;
 using Classifier.Services;
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
@@ -7,139 +6,200 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Text;
+using System.Text.Json;
 
-namespace Classifier {
+namespace Classifier
+{
     public class Program
     {
         public static async Task Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
 
-            var host = Host.CreateDefaultBuilder(args)
-                .ConfigureServices((context, services) =>
+            // Validate endpoint configuration BEFORE creating the host
+            // This prevents the "Client created successfully" message from appearing with invalid endpoint
+            // Use the same approach as ContentUnderstandingBootstrapper to find appsettings.json
+            var contentRoot = Directory.GetCurrentDirectory();
+            var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            if (!string.IsNullOrEmpty(assemblyLocation))
+            {
+                var assemblyDir = Path.GetDirectoryName(assemblyLocation);
+                if (!string.IsNullOrEmpty(assemblyDir) && File.Exists(Path.Combine(assemblyDir, "appsettings.json")))
                 {
-                    services.AddContentUnderstandingClient(context.Configuration);
-                    services.AddSingleton<IClassifierService, ClassifierService>();
-                })
-                .Build();
+                    contentRoot = assemblyDir;
+                }
+            }
 
-            Console.WriteLine("# Classifier and Analyzer sample");
-            Console.WriteLine("This sample demonstrates how to use Azure AI Content Understanding service to:\n");
-            Console.WriteLine("1. Create a classifier to categorize documents\n");
-            Console.WriteLine("2. Create a custom analyzer to extract specific fields\n");
-            Console.WriteLine("3. Combine classifier and analyzers to classify, optionally split, and analyze documents in a flexible processing pipeline\n");
-            Console.WriteLine("If you'd like to learn more before getting started, see the official documentation:\r\n[Understanding Classifiers in Azure AI Services](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/concepts/classifier)");
-            Console.WriteLine("## Prerequisites\n");
-            Console.WriteLine("Ensure Azure AI service is configured following [steps](../README.md#configure-azure-ai-service-resource)\n");
+            var configBuilder = new ConfigurationBuilder()
+                .SetBasePath(contentRoot)
+                .AddJsonFile("appsettings.json", optional: true);
+            var tempConfig = configBuilder.Build();
+            
+            var endpoint = Environment.GetEnvironmentVariable("AZURE_AI_ENDPOINT")
+                ?? tempConfig.GetValue<string>("AZURE_AI_ENDPOINT");
+
+            if (string.IsNullOrEmpty(endpoint) || 
+                endpoint.Contains("YOUR_AI_FOUNDRY_RESOURCE", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("❌ Error: AZURE_AI_ENDPOINT is not configured or still contains placeholder value.");
+                Console.WriteLine();
+                Console.WriteLine("Please configure your endpoint:");
+                Console.WriteLine("1. Edit ContentUnderstanding.Common/appsettings.json and set AZURE_AI_ENDPOINT to your actual endpoint");
+                Console.WriteLine("   Example: https://your-resource-name.services.ai.azure.com");
+                Console.WriteLine();
+                Console.WriteLine("2. Or set the environment variable:");
+                Console.WriteLine("   export AZURE_AI_ENDPOINT=\"https://your-resource-name.services.ai.azure.com\"");
+                Console.WriteLine();
+                Console.WriteLine("See the main README.md for configuration instructions.");
+                return;
+            }
+
+            // Create host and configure services (without deployment configuration)
+            var host = ContentUnderstandingBootstrapper.CreateHost(
+                configureServices: (context, services) =>
+                {
+                    services.AddSingleton<IClassifierService, ClassifierService>();
+                }
+            );
+
+            // Verify client is available
+            var client = host.Services.GetService<AzureContentUnderstandingClient>();
+            if (client == null)
+            {
+                Console.WriteLine("❌ Failed to resolve AzureContentUnderstandingClient from DI container.");
+                Console.WriteLine("   Please ensure AddContentUnderstandingClient() is called in ConfigureServices.");
+                return;
+            }
+
+            // Print message about ModelDeploymentSetup
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine("Azure AI Content Understanding - Classifier Sample");
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine();
+            Console.WriteLine("⚠️  IMPORTANT: Before using prebuilt analyzers, you must configure model deployments.");
+            Console.WriteLine();
+            Console.WriteLine("   If you haven't already, please run the ModelDeploymentSetup sample first:");
+            Console.WriteLine("   1. cd ../ModelDeploymentSetup");
+            Console.WriteLine("   2. dotnet run");
+            Console.WriteLine();
+            Console.WriteLine("   This is a one-time setup that maps your deployed models to prebuilt analyzers.");
+            Console.WriteLine("   See the main README.md for more details.");
+            Console.WriteLine();
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine();
+            Console.Write("Have you already configured model deployments? (y/n): ");
+            var answer = Console.ReadLine()?.Trim().ToLower();
+            if (answer != "y" && answer != "yes")
+            {
+                Console.WriteLine();
+                Console.WriteLine("Please run the ModelDeploymentSetup sample first and then try again.");
+                return;
+            }
+            Console.WriteLine();
 
             var service = host.Services.GetService<IClassifierService>()!;
-            var analyzerTemplatePath = "./data/mixed_financial_docs.pdf";
-            var classifierId = $"analyzer-loan-application-{Guid.NewGuid()}";
-            var contentAnalyzer = new ContentAnalyzer
+            var filePath = "mixed_financial_docs.pdf";
+
+            // Generate unique IDs
+            var classifierId = $"classifier_sample_{Guid.NewGuid():N}";
+            var loanAnalyzerId = $"loan_analyzer_{Guid.NewGuid():N}";
+            var enhancedClassifierId = $"enhanced_classifier_{Guid.NewGuid():N}";
+
+            Console.WriteLine("Creating basic classifier...");
+
+            // Create basic classifier as an analyzer with contentCategories (matching Python implementation)
+            var basicClassifierAnalyzer = new Dictionary<string, object>
             {
-                BaseAnalyzerId = "prebuilt-documentAnalyzer",
-                Description = "Loan application analyzer - extracts key information from loan application",
-                Config = new ContentAnalyzerConfig
+                ["baseAnalyzerId"] = "prebuilt-document",
+                ["description"] = $"Custom classifier for classification demo: {classifierId}",
+                ["config"] = new Dictionary<string, object>
                 {
-                    ReturnDetails = true,
-                    EnableLayout = true,
-                    EnableFormula = false,
-                    EstimateFieldSourceAndConfidence = true,
-                    DisableContentFiltering = false
-                },
-                FieldSchema = new ContentFieldSchema(fields: new Dictionary<string, ContentFieldDefinition>
-                {
-                    ["ApplicationDate"] = new ContentFieldDefinition
+                    ["returnDetails"] = true,
+                    ["enableSegment"] = true,
+                    ["contentCategories"] = new Dictionary<string, object>
                     {
-                        Type = ContentFieldType.Date,
-                        Method = GenerationMethod.Generate,
-                        Description = "The date when the loan application was submitted."
-                    },
-                    ["ApplicantName"] = new ContentFieldDefinition
-                    {
-                        Type = ContentFieldType.String,
-                        Method = GenerationMethod.Generate,
-                        Description = "The full name of the loan applicant or company."
-                    },
-                    ["LoanAmountRequested"] = new ContentFieldDefinition
-                    {
-                        Type = ContentFieldType.Number,
-                        Method = GenerationMethod.Generate,
-                        Description = "The total amount of loan money requested by the applicant."
-                    },
-                    ["LoanPurpose"] = new ContentFieldDefinition
-                    {
-                        Type = ContentFieldType.String,
-                        Method = GenerationMethod.Generate,
-                        Description = "The stated purpose or reason for the loan."
-                    },
-                    ["CreditScore"] = new ContentFieldDefinition
-                    {
-                        Type = ContentFieldType.Number,
-                        Method = GenerationMethod.Generate,
-                        Description = "The credit score of the applicant, if available."
-                    },
-                    ["Summary"] = new ContentFieldDefinition
-                    {
-                        Type = ContentFieldType.String,
-                        Method = GenerationMethod.Generate,
-                        Description = "A brief overview of the loan application details."
+                        ["Loan application"] = new Dictionary<string, object>
+                        {
+                            ["description"] = "Documents submitted by individuals or businesses to request funding, typically including personal or business details, financial history, loan amount, purpose, and supporting documentation."
+                        },
+                        ["Invoice"] = new Dictionary<string, object>
+                        {
+                            ["description"] = "Billing documents issued by sellers or service providers to request payment for goods or services, detailing items, prices, taxes, totals, and payment terms."
+                        },
+                        ["Bank_Statement"] = new Dictionary<string, object>
+                        {
+                            ["description"] = "Official statements issued by banks that summarize account activity over a period, including deposits, withdrawals, fees, and balances."
+                        }
                     }
-                })
+                },
+                ["models"] = new Dictionary<string, string>
+                {
+                    ["completion"] = "gpt-4.1"
+                },
+                ["tags"] = new Dictionary<string, string>
+                {
+                    ["demo_type"] = "classification"
+                }
             };
 
-            // Create content classifier with categories
-            var classifierSchema = new ContentClassifier(categories: new Dictionary<string, ClassifierCategoryDefinition>
-            {
-                ["Loan application"] = new ClassifierCategoryDefinition
-                {
-                    Description = "Documents submitted by individuals or businesses to request funding, typically including personal or business details, financial history, loan amount, purpose, and supporting documentation."
-                },
-                ["Invoice"] = new ClassifierCategoryDefinition
-                {
-                    Description = "Billing documents issued by sellers or service providers to request payment for goods or services, detailing items, prices, taxes, totals, and payment terms."
-                },
-                ["Bank_Statement"] = new ClassifierCategoryDefinition
-                {
-                    Description = "Official statements issued by banks that summarize account activity over a period, including deposits, withdrawals, fees, and balances."
-                },
-            })
-            {
-                SplitMode = ClassifierSplitMode.Auto
-            };
+            // Classify a document using the basic classifier
+            await service.ClassifyDocumentAsync(classifierId, basicClassifierAnalyzer, filePath);
 
-            // create a enhanced classifier schema that includes the custom analyzer
-            var enhancedClassifierSchema = new ContentClassifier(categories: new Dictionary<string, ClassifierCategoryDefinition>
-            {
-                ["Loan application"] = new ClassifierCategoryDefinition
-                {
-                    AnalyzerId = classifierId,
-                    Description = "Documents submitted by individuals or businesses to request funding, typically including personal or business details, financial history, loan amount, purpose, and supporting documentation."
-                },
-                ["Invoice"] = new ClassifierCategoryDefinition
-                {
-                    Description = "Billing documents issued by sellers or service providers to request payment for goods or services, detailing items, prices, taxes, totals, and payment terms."
-                },
-                ["Bank_Statement"] = new ClassifierCategoryDefinition
-                {
-                    Description = "Official statements issued by banks that summarize account activity over a period, including deposits, withdrawals, fees, and balances."
-                },
-            })
-            {
-                SplitMode = ClassifierSplitMode.Auto,
-            };
+            Console.WriteLine();
+            Console.WriteLine("Creating custom loan analyzer...");
 
-            // Classify a document using the created classifier
-            await service.ClassifyDocumentAsync(classifierId, classifierSchema, analyzerTemplatePath);
+            // Create custom loan analyzer
+            await service.CreateLoanAnalyzerAsync(loanAnalyzerId);
+
+            Console.WriteLine();
+            Console.WriteLine("Creating enhanced classifier with custom analyzer...");
+
+            // Create enhanced classifier as an analyzer with contentCategories and custom analyzer (matching Python implementation)
+            var enhancedClassifierAnalyzer = new Dictionary<string, object>
+            {
+                ["baseAnalyzerId"] = "prebuilt-document",
+                ["description"] = $"Enhanced classifier with custom loan analyzer: {enhancedClassifierId}",
+                ["config"] = new Dictionary<string, object>
+                {
+                    ["returnDetails"] = true,
+                    ["enableSegment"] = true,
+                    ["contentCategories"] = new Dictionary<string, object>
+                    {
+                        ["Loan application"] = new Dictionary<string, object>
+                        {
+                            ["description"] = "Documents submitted by individuals or businesses to request funding, typically including personal or business details, financial history, loan amount, purpose, and supporting documentation.",
+                            ["analyzerId"] = loanAnalyzerId
+                        },
+                        ["Invoice"] = new Dictionary<string, object>
+                        {
+                            ["description"] = "Billing documents issued by sellers or service providers to request payment for goods or services, detailing items, prices, taxes, totals, and payment terms."
+                        },
+                        ["Bank_Statement"] = new Dictionary<string, object>
+                        {
+                            ["description"] = "Official statements issued by banks that summarize account activity over a period, including deposits, withdrawals, fees, and balances."
+                        }
+                    }
+                },
+                ["models"] = new Dictionary<string, string>
+                {
+                    ["completion"] = "gpt-4.1"
+                },
+                ["tags"] = new Dictionary<string, string>
+                {
+                    ["demo_type"] = "enhanced_classification"
+                }
+            };
 
             // Classify a document using the enhanced classifier
-            await service.ClassifyDocumentAsync(classifierId, enhancedClassifierSchema, analyzerTemplatePath);
+            await service.ClassifyDocumentAsync(enhancedClassifierId, enhancedClassifierAnalyzer, filePath);
 
-            Console.WriteLine("## Summary");
-            Console.WriteLine("Congratulations! You've successfully:");
-            Console.WriteLine("1. Created a basic classifier to categorize documents.");
-            Console.WriteLine("2. Created a custom analyzer to extract specific fields.");
-            Console.WriteLine("3. Combined them into an enhanced classifier for intelligent document processing.\n");
+            // Clean up the custom analyzer
+            Console.WriteLine();
+            Console.WriteLine("Cleaning up...");
+            await service.DeleteAnalyzerAsync(loanAnalyzerId);
+
+            Console.WriteLine();
+            Console.WriteLine("Sample completed successfully!");
         }
     }
 }
