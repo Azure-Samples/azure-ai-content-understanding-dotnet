@@ -3,6 +3,7 @@
 Welcome! Content Understanding is a solution that analyzes and comprehends various media content, such as **documents, images, audio, and video**, transforming it into structured, organized, and searchable data.
 
 > - **Content Understanding is now a Generally Available (GA) service with the release of the 2025-11-01 API version.** This sample will be updated for GA soon. Please check back soon.
+> - To find out what's new for GA, see [What's new in Azure Content Understanding](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/whats-new).
 > - In the meantime, the **Python notebook sample** has been updated for GA service, and you can start from there first: [Azure AI Content Understanding sample for Python](https://github.com/Azure-Samples/azure-ai-content-understanding-python).
 
 - The samples in this repository use the latest preview API version by default: **2025-05-01-preview**.
