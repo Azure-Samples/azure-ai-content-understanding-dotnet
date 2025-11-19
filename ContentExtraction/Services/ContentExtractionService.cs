@@ -9,7 +9,7 @@ namespace ContentExtraction.Services
     public class ContentExtractionService : IContentExtractionService
     {
         private readonly AzureContentUnderstandingClient _client;
-        private const string OutputPath = "./outputs/content_extraction/";
+        private const string OutputPath = "./sample_output/";
 
         public ContentExtractionService(AzureContentUnderstandingClient client)
         {
@@ -22,6 +22,44 @@ namespace ContentExtraction.Services
         }
 
         /// <summary>
+        /// Resolves the path to a data file, checking multiple locations.
+        /// </summary>
+        private static string ResolveDataFilePath(string fileName)
+        {
+            // Try current directory first
+            var currentDirPath = Path.Combine("./data", fileName);
+            if (File.Exists(currentDirPath))
+            {
+                return currentDirPath;
+            }
+
+            // Try assembly directory (where ContentUnderstanding.Common.dll is located)
+            var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            if (!string.IsNullOrEmpty(assemblyLocation))
+            {
+                var assemblyDir = Path.GetDirectoryName(assemblyLocation);
+                if (!string.IsNullOrEmpty(assemblyDir))
+                {
+                    var assemblyDataPath = Path.Combine(assemblyDir, "data", fileName);
+                    if (File.Exists(assemblyDataPath))
+                    {
+                        return assemblyDataPath;
+                    }
+                }
+            }
+
+            // Try ContentUnderstanding.Common/data relative to current directory
+            var commonDataPath = Path.Combine("..", "ContentUnderstanding.Common", "data", fileName);
+            if (File.Exists(commonDataPath))
+            {
+                return commonDataPath;
+            }
+
+            // Return the original path if not found (will throw error later)
+            return currentDirPath;
+        }
+
+        /// <summary>
         /// Analyzes the document at the specified file path.
         /// </summary>
         /// <param name="filePath">The path to the document file to be analyzed.</param>
@@ -29,16 +67,21 @@ namespace ContentExtraction.Services
         /// <exception cref="FileNotFoundException"></exception>
         public async Task<JsonDocument> AnalyzeDocumentAsync(string filePath)
         {
+            // Resolve the file path to handle different execution contexts
+            var resolvedPath = ResolveDataFilePath(Path.GetFileName(filePath));
+            
             // Check if file exists
-            if (!File.Exists(filePath))
+            if (!File.Exists(resolvedPath))
             {
-                Console.WriteLine($"❌ File '{filePath}' not found.");
+                Console.WriteLine($"❌ File '{resolvedPath}' not found.");
                 Console.WriteLine("💡 Sample files should be in: ContentUnderstanding.Common/data/");
-                Console.WriteLine("   Available sample files: sample_invoice.pdf, mixed_financial_docs.pdf");
+                Console.WriteLine("   Available sample files: invoice.pdf, mixed_financial_docs.pdf");
                 Console.WriteLine("   Please ensure you're running from the correct directory or update the filePath variable.");
 
-                throw new FileNotFoundException($"File '{filePath}' not found.");
+                throw new FileNotFoundException($"File '{resolvedPath}' not found.");
             }
+
+            filePath = resolvedPath;
 
             var analyzerId = "prebuilt-documentSearch";
 
@@ -127,7 +170,7 @@ namespace ContentExtraction.Services
                 }
 
                 // Save the result
-                string savedJsonPath = SampleHelper.SaveJsonToFile(result, "content_analyzers_analyze_binary");
+                string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_analyze_binary");
                 Console.WriteLine($"\n📋 Full analysis result saved. Review the complete JSON at: {savedJsonPath}");
 
                 return result;
@@ -249,7 +292,7 @@ namespace ContentExtraction.Services
             }
 
             // Save the result
-            string savedJsonPath = SampleHelper.SaveJsonToFile(result, filenamePrefix: "content_analyzers_url_document");
+            string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_url_document");
             Console.WriteLine($"\n📋 Full analysis result saved. Review the complete JSON at: {savedJsonPath}");
 
             return result;
@@ -268,6 +311,15 @@ namespace ContentExtraction.Services
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         public async Task<JsonDocument> AnalyzeAudioAsync(string filePath)
         {
+            // Resolve the file path to handle different execution contexts
+            var resolvedPath = ResolveDataFilePath(Path.GetFileName(filePath));
+            
+            if (!File.Exists(resolvedPath))
+            {
+                throw new FileNotFoundException($"Audio file '{resolvedPath}' not found.");
+            }
+
+            filePath = resolvedPath;
             string analyzerId = "prebuilt-audio";
 
             // Analyze audio file with the created analyzer
@@ -374,7 +426,7 @@ namespace ContentExtraction.Services
             }
 
             // Save the result
-            string savedJsonPath = SampleHelper.SaveJsonToFile(result, filenamePrefix: "content_analyzers_audio");
+            string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_audio");
             Console.WriteLine($"\n📋 Full analysis result saved. Review the complete JSON at: {savedJsonPath}");
 
             return result;
@@ -393,6 +445,15 @@ namespace ContentExtraction.Services
         /// <returns></returns>
         public async Task<JsonDocument> AnalyzeVideoAsync(string filePath)
         {
+            // Resolve the file path to handle different execution contexts
+            var resolvedPath = ResolveDataFilePath(Path.GetFileName(filePath));
+            
+            if (!File.Exists(resolvedPath))
+            {
+                throw new FileNotFoundException($"Video file '{resolvedPath}' not found.");
+            }
+
+            filePath = resolvedPath;
             string analyzerId = "prebuilt-videoSearch";
 
             // Analyze video file with the created analyzer
@@ -526,7 +587,7 @@ namespace ContentExtraction.Services
             }
 
             // Save the result
-            string savedJsonPath = SampleHelper.SaveJsonToFile(result, filenamePrefix: "content_analyzers_video");
+            string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_video");
             Console.WriteLine($"\n📋 Full analysis result saved. Review the complete JSON at: {savedJsonPath}");
 
             // Keyframe Processing

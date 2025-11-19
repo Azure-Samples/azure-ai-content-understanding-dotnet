@@ -11,4 +11,17 @@
     <ProjectReference Include="..\ContentUnderstanding.Common\ContentUnderstanding.Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Copy appsettings.json from ContentUnderstanding.Common to output directory -->
+    <None Include="..\ContentUnderstanding.Common\appsettings.json">
+      <Link>appsettings.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- Also copy appsettings.example.json for reference -->
+    <None Include="..\ContentUnderstanding.Common\appsettings.example.json">
+      <Link>appsettings.example.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

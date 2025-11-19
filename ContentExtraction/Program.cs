@@ -42,7 +42,7 @@ namespace ContentExtraction
                 switch (input)
                 {
                     case "1":
-                        var docFilePath = "./data/invoice.pdf";
+                        var docFilePath = "invoice.pdf";
                         await service.AnalyzeDocumentAsync(docFilePath);
                         break;
                     case "2":
@@ -50,11 +50,11 @@ namespace ContentExtraction
                         await service.AnalyzeDocumentFromUrlAsync(documentUrl);
                         break;
                     case "3":
-                        var audioFilePath = "./data/audio.wav";
+                        var audioFilePath = "audio.wav";
                         await service.AnalyzeAudioAsync(audioFilePath);
                         break;
                     case "4":
-                        var videoFilePath = "./data/FlightSimulator.mp4";
+                        var videoFilePath = "FlightSimulator.mp4";
                         await service.AnalyzeVideoAsync(videoFilePath);
                         break;
                     default:

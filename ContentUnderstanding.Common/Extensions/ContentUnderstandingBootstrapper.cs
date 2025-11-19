@@ -1,5 +1,8 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.IO;
+using System.Reflection;
 
 namespace ContentUnderstanding.Common.Extensions
 {
@@ -43,8 +46,11 @@ namespace ContentUnderstanding.Common.Extensions
                 return true;
             }
 
+            // Get configuration from host
+            var configuration = host.Services.GetService<IConfiguration>();
+            
             // Configure model deployments
-            var deploymentConfig = new ModelDeploymentConfiguration(client);
+            var deploymentConfig = new ModelDeploymentConfiguration(client, configuration);
             bool configured = await deploymentConfig.ConfigureDefaultModelDeploymentsAsync();
             Console.WriteLine();
 
@@ -78,21 +84,22 @@ namespace ContentUnderstanding.Common.Extensions
         /// Validate deployment configuration without configuring the client.
         /// </summary>
         /// <param name="showDetails">Show detailed information about missing deployments. Default is true.</param>
+        /// <param name="configuration">Optional configuration to read from appsettings.json</param>
         /// <returns>True if all required deployments are configured, false otherwise.</returns>
-        public static bool ValidateConfiguration(bool showDetails = true)
+        public static bool ValidateConfiguration(bool showDetails = true, IConfiguration? configuration = null)
         {
-            bool isValid = ModelDeploymentConfiguration.ValidateDeploymentConfiguration();
+            bool isValid = ModelDeploymentConfiguration.ValidateDeploymentConfiguration(configuration);
 
             if (!isValid && showDetails)
             {
-                var missingDeployments = ModelDeploymentConfiguration.GetMissingDeployments();
+                var missingDeployments = ModelDeploymentConfiguration.GetMissingDeployments(configuration);
                 Console.WriteLine("⚠️  Warning: Missing required model deployment configuration(s):");
                 foreach (var deployment in missingDeployments)
                 {
                     Console.WriteLine($"   - {deployment}");
                 }
                 Console.WriteLine();
-                Console.WriteLine("   Please set the following environment variables:");
+                Console.WriteLine("   Please set the following environment variables or add to appsettings.json:");
                 Console.WriteLine("   - GPT_4_1_DEPLOYMENT");
                 Console.WriteLine("   - GPT_4_1_MINI_DEPLOYMENT");
                 Console.WriteLine("   - TEXT_EMBEDDING_3_LARGE_DEPLOYMENT");
@@ -110,7 +117,24 @@ namespace ContentUnderstanding.Common.Extensions
         /// <returns>Configured host instance.</returns>
         public static IHost CreateHost(Action<HostBuilderContext, IServiceCollection>? configureServices = null)
         {
+            // Determine the content root - where appsettings.json is located (output directory)
+            // When running via dotnet run, the working directory is the project directory,
+            // but appsettings.json is copied to the output directory (bin/Debug/net8.0/)
+            var contentRoot = Directory.GetCurrentDirectory();
+            
+            // Try to find appsettings.json in the assembly directory (output directory)
+            var assemblyLocation = Assembly.GetExecutingAssembly().Location;
+            if (!string.IsNullOrEmpty(assemblyLocation))
+            {
+                var assemblyDir = Path.GetDirectoryName(assemblyLocation);
+                if (!string.IsNullOrEmpty(assemblyDir) && File.Exists(Path.Combine(assemblyDir, "appsettings.json")))
+                {
+                    contentRoot = assemblyDir;
+                }
+            }
+
             var builder = Host.CreateDefaultBuilder()
+                .UseContentRoot(contentRoot)
                 .ConfigureServices((context, services) =>
                 {
                     // Add Content Understanding Client

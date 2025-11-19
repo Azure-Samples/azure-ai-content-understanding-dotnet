@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace ContentUnderstanding.Common
 {
@@ -13,10 +14,32 @@ namespace ContentUnderstanding.Common
     public class ModelDeploymentConfiguration
     {
         private readonly AzureContentUnderstandingClient _client;
+        private readonly IConfiguration? _configuration;
 
-        public ModelDeploymentConfiguration(AzureContentUnderstandingClient client)
+        public ModelDeploymentConfiguration(AzureContentUnderstandingClient client, IConfiguration? configuration = null)
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
+            _configuration = configuration;
+        }
+
+        /// <summary>
+        /// Gets a configuration value, checking appsettings.json first, then falling back to environment variables.
+        /// This matches the behavior of Python's dotenv where file-based config takes priority.
+        /// </summary>
+        private static string? GetConfigValue(IConfiguration? configuration, string key)
+        {
+            // Check appsettings.json first (like Python dotenv)
+            if (configuration != null)
+            {
+                var value = configuration.GetValue<string>(key);
+                if (!string.IsNullOrEmpty(value))
+                {
+                    return value;
+                }
+            }
+            
+            // Fallback to environment variable
+            return Environment.GetEnvironmentVariable(key);
         }
 
         /// <summary>
@@ -25,10 +48,10 @@ namespace ContentUnderstanding.Common
         /// <returns>True if configuration was successful or skipped, false if configuration failed.</returns>
         public async Task<bool> ConfigureDefaultModelDeploymentsAsync()
         {
-            // Get model deployment names from environment variables
-            string? gpt41Deployment = Environment.GetEnvironmentVariable("GPT_4_1_DEPLOYMENT");
-            string? gpt41MiniDeployment = Environment.GetEnvironmentVariable("GPT_4_1_MINI_DEPLOYMENT");
-            string? textEmbedding3LargeDeployment = Environment.GetEnvironmentVariable("TEXT_EMBEDDING_3_LARGE_DEPLOYMENT");
+            // Get model deployment names from appsettings.json first, then environment variables
+            string? gpt41Deployment = GetConfigValue(_configuration, "GPT_4_1_DEPLOYMENT");
+            string? gpt41MiniDeployment = GetConfigValue(_configuration, "GPT_4_1_MINI_DEPLOYMENT");
+            string? textEmbedding3LargeDeployment = GetConfigValue(_configuration, "TEXT_EMBEDDING_3_LARGE_DEPLOYMENT");
 
             // Check if required deployments are configured
             var missingDeployments = new List<string>();
@@ -59,7 +82,7 @@ namespace ContentUnderstanding.Common
                 Console.WriteLine("   Prebuilt analyzers require GPT-4.1, GPT-4.1-mini, and text-embedding-3-large deployments.");
                 Console.WriteLine("   Please:");
                 Console.WriteLine("   1. Deploy all three models in Azure AI Foundry");
-                Console.WriteLine("   2. Set environment variables:");
+                Console.WriteLine("   2. Set environment variables or add to appsettings.json:");
                 Console.WriteLine("      GPT_4_1_DEPLOYMENT=<your-gpt-4.1-deployment-name>");
                 Console.WriteLine("      GPT_4_1_MINI_DEPLOYMENT=<your-gpt-4.1-mini-deployment-name>");
                 Console.WriteLine("      TEXT_EMBEDDING_3_LARGE_DEPLOYMENT=<your-text-embedding-3-large-deployment-name>");
@@ -115,14 +138,15 @@ namespace ContentUnderstanding.Common
         }
 
         /// <summary>
-        /// Validate that required model deployments are configured in environment variables.
+        /// Validate that required model deployments are configured in environment variables or configuration.
         /// </summary>
+        /// <param name="configuration">Optional configuration to read from appsettings.json</param>
         /// <returns>True if all required deployments are configured, false otherwise.</returns>
-        public static bool ValidateDeploymentConfiguration()
+        public static bool ValidateDeploymentConfiguration(IConfiguration? configuration = null)
         {
-            string? gpt41Deployment = Environment.GetEnvironmentVariable("GPT_4_1_DEPLOYMENT");
-            string? gpt41MiniDeployment = Environment.GetEnvironmentVariable("GPT_4_1_MINI_DEPLOYMENT");
-            string? textEmbedding3LargeDeployment = Environment.GetEnvironmentVariable("TEXT_EMBEDDING_3_LARGE_DEPLOYMENT");
+            string? gpt41Deployment = GetConfigValue(configuration, "GPT_4_1_DEPLOYMENT");
+            string? gpt41MiniDeployment = GetConfigValue(configuration, "GPT_4_1_MINI_DEPLOYMENT");
+            string? textEmbedding3LargeDeployment = GetConfigValue(configuration, "TEXT_EMBEDDING_3_LARGE_DEPLOYMENT");
 
             return !string.IsNullOrEmpty(gpt41Deployment)
                 && !string.IsNullOrEmpty(gpt41MiniDeployment)
@@ -132,22 +156,23 @@ namespace ContentUnderstanding.Common
         /// <summary>
         /// Get the list of missing deployment configurations.
         /// </summary>
+        /// <param name="configuration">Optional configuration to read from appsettings.json</param>
         /// <returns>List of missing deployment environment variable names.</returns>
-        public static List<string> GetMissingDeployments()
+        public static List<string> GetMissingDeployments(IConfiguration? configuration = null)
         {
             var missingDeployments = new List<string>();
 
-            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GPT_4_1_DEPLOYMENT")))
+            if (string.IsNullOrEmpty(GetConfigValue(configuration, "GPT_4_1_DEPLOYMENT")))
             {
                 missingDeployments.Add("GPT_4_1_DEPLOYMENT");
             }
 
-            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GPT_4_1_MINI_DEPLOYMENT")))
+            if (string.IsNullOrEmpty(GetConfigValue(configuration, "GPT_4_1_MINI_DEPLOYMENT")))
             {
                 missingDeployments.Add("GPT_4_1_MINI_DEPLOYMENT");
             }
 
-            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEXT_EMBEDDING_3_LARGE_DEPLOYMENT")))
+            if (string.IsNullOrEmpty(GetConfigValue(configuration, "TEXT_EMBEDDING_3_LARGE_DEPLOYMENT")))
             {
                 missingDeployments.Add("TEXT_EMBEDDING_3_LARGE_DEPLOYMENT");
             }
