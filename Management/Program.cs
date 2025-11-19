@@ -1,6 +1,7 @@
 ﻿using ContentUnderstanding.Common.Extensions;
 using Management.Interfaces;
 using Management.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Text;
@@ -27,14 +28,56 @@ namespace Management
                 return;
             }
 
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine("Azure AI Content Understanding - Management Sample");
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine();
+
             var service = services.GetRequiredService<IManagementService>();
+            var configuration = services.GetRequiredService<IConfiguration>();
+
+            // Get model deployment names from configuration
+            string? GetConfigValue(string key) => configuration.GetValue<string>(key) ?? Environment.GetEnvironmentVariable(key);
+
+            string? gpt41Deployment = GetConfigValue("GPT_4_1_DEPLOYMENT");
+            string? gpt41MiniDeployment = GetConfigValue("GPT_4_1_MINI_DEPLOYMENT");
+            string? textEmbedding3LargeDeployment = GetConfigValue("TEXT_EMBEDDING_3_LARGE_DEPLOYMENT");
+
+            // 1. Update defaults (set model deployment mappings)
+            Console.WriteLine("=== Update Defaults ===");
+            if (!string.IsNullOrEmpty(gpt41Deployment) && !string.IsNullOrEmpty(gpt41MiniDeployment) && !string.IsNullOrEmpty(textEmbedding3LargeDeployment))
+            {
+                Console.WriteLine("Configuring default model deployments...");
+                Console.WriteLine($"   GPT-4.1 deployment: {gpt41Deployment}");
+                Console.WriteLine($"   GPT-4.1-mini deployment: {gpt41MiniDeployment}");
+                Console.WriteLine($"   text-embedding-3-large deployment: {textEmbedding3LargeDeployment}");
+                Console.WriteLine();
+
+                var modelDeployments = new Dictionary<string, string?>
+                {
+                    ["gpt-4.1"] = gpt41Deployment,
+                    ["gpt-4.1-mini"] = gpt41MiniDeployment,
+                    ["text-embedding-3-large"] = textEmbedding3LargeDeployment
+                };
+
+                await service.UpdateDefaultsAsync(modelDeployments);
+            }
+            else
+            {
+                Console.WriteLine("⚠️  Warning: Model deployment configuration not found in appsettings.json or environment variables.");
+                Console.WriteLine("   Skipping defaults update. Model deployments may not be configured.");
+            }
+            Console.WriteLine();
+
+            // 2. Get defaults (retrieve model deployment mappings)
+            Console.WriteLine("=== Get Defaults ===");
+            await service.GetDefaultsAsync();
+            Console.WriteLine();
 
             // Generate analyzer ID with timestamp
-            string analyzerId = $"notebooks_sample_management_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+            string analyzerId = $"management_sample_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
             // Create a custom analyzer using dictionary format
-            Console.WriteLine($"Creating custom analyzer '{analyzerId}'...");
-
             var contentAnalyzer = new Dictionary<string, object>
             {
                 ["baseAnalyzerId"] = "prebuilt-callCenter",
@@ -135,22 +178,22 @@ namespace Management
                 }
             };
 
-            // Convert to JSON string
-            string analyzerTemplatePath = JsonSerializer.Serialize(contentAnalyzer, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-
             // 1. Create a simple analyzer
-            await service!.CreateAnalyzerAsync(analyzerId, analyzerTemplatePath);
+            Console.WriteLine("=== Create Analyzer ===");
+            await service!.CreateAnalyzerAsync(analyzerId, contentAnalyzer);
+            Console.WriteLine();
 
             // 2. List all analyzers
+            Console.WriteLine("=== List All Analyzers ===");
             await service.ListAnalyzersAsync();
 
             // 3. Get analyzer details
+            Console.WriteLine("=== Get Analyzer Details ===");
             await service.GetAnalyzerDetailsAsync(analyzerId);
+            Console.WriteLine();
 
             // 4. Delete analyzer
+            Console.WriteLine("=== Delete Analyzer ===");
             await service.DeleteAnalyzerAsync(analyzerId);
         }
     }

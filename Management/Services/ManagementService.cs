@@ -25,21 +25,37 @@ namespace Management.Services
         /// </summary>
         /// <remarks>We first create an analyzer from a template to extract invoice fields.</remarks>
         /// <returns>A <see cref="string"/> representing the unique identifier of the created analyzer.</returns>
-        public async Task<JsonDocument> CreateAnalyzerAsync(string analyzerId, string analyzerTemplatePath)
+        public async Task<JsonDocument> CreateAnalyzerAsync(string analyzerId, Dictionary<string, object> analyzerDefinition)
         {
             Console.WriteLine($"Creating custom analyzer '{analyzerId}'...");
 
-            // Create analyzer
-            var response = await _client.BeginCreateAnalyzerAsync(
-                analyzerId: analyzerId,
-                analyzerTemplatePath: analyzerTemplatePath);
+            // Convert analyzer definition to JSON and save to temp file
+            string tempTemplatePath = Path.Combine(Path.GetTempPath(), $"analyzer_{Guid.NewGuid()}.json");
+            try
+            {
+                var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+                await File.WriteAllTextAsync(tempTemplatePath, JsonSerializer.Serialize(analyzerDefinition, jsonOptions));
 
-            // Wait for the analyzer to be created
-            Console.WriteLine("Waiting for analyzer creation to complete...");
-            var result = await _client.PollResultAsync(response);
-            Console.WriteLine($"Analyzer '{analyzerId}' created successfully!");
+                // Create analyzer
+                var response = await _client.BeginCreateAnalyzerAsync(
+                    analyzerId: analyzerId,
+                    analyzerTemplatePath: tempTemplatePath);
 
-            return result;
+                // Wait for the analyzer to be created
+                Console.WriteLine("Waiting for analyzer creation to complete...");
+                var result = await _client.PollResultAsync(response);
+                Console.WriteLine($"Analyzer '{analyzerId}' created successfully!");
+
+                return result;
+            }
+            finally
+            {
+                // Clean up temp file
+                if (File.Exists(tempTemplatePath))
+                {
+                    File.Delete(tempTemplatePath);
+                }
+            }
         }
 
         /// <summary>
@@ -172,11 +188,75 @@ namespace Management.Services
             Console.WriteLine($"\nDeleting analyzer '{analyzerId}'...");
             await _client.DeleteAnalyzerAsync(analyzerId);
             Console.WriteLine($"Analyzer '{analyzerId}' deleted successfully!");
+        }
 
-            Console.WriteLine("\nNext steps:");
-            Console.WriteLine("   - To create an analyzer: see CreateOrReplaceAnalyzer sample");
-            Console.WriteLine("   - To list all analyzers: see ListAnalyzers sample");
-            Console.WriteLine("   - To update an analyzer: see UpdateAnalyzer sample");
+        /// <summary>
+        /// Update default model deployment mappings.
+        /// </summary>
+        /// <param name="modelDeployments">A dictionary mapping model names to deployment names.</param>
+        /// <returns>A dictionary containing the updated default settings.</returns>
+        public async Task<Dictionary<string, object>> UpdateDefaultsAsync(Dictionary<string, string?> modelDeployments)
+        {
+            var result = await _client.UpdateDefaultsAsync(modelDeployments);
+            
+            Console.WriteLine("✅ Default model deployments configured successfully");
+            Console.WriteLine("   Model mappings:");
+            
+            if (result.TryGetValue("modelDeployments", out var modelDeploymentsValue))
+            {
+                var modelDeploymentsJson = modelDeploymentsValue.ToString();
+                if (modelDeploymentsJson != null)
+                {
+                    var deployments = JsonSerializer.Deserialize<Dictionary<string, string>>(modelDeploymentsJson);
+                    if (deployments != null)
+                    {
+                        foreach (var (model, deployment) in deployments)
+                        {
+                            Console.WriteLine($"     {model} → {deployment}");
+                        }
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        /// <summary>
+        /// Get default settings including model deployment mappings.
+        /// </summary>
+        /// <returns>A dictionary containing the default settings.</returns>
+        public async Task<Dictionary<string, object>> GetDefaultsAsync()
+        {
+            var defaults = await _client.GetDefaultsAsync();
+            
+            Console.WriteLine("✅ Retrieved default settings");
+            
+            if (defaults.TryGetValue("modelDeployments", out var modelDeploymentsValue))
+            {
+                var modelDeploymentsJson = modelDeploymentsValue.ToString();
+                if (modelDeploymentsJson != null)
+                {
+                    var modelDeployments = JsonSerializer.Deserialize<Dictionary<string, string>>(modelDeploymentsJson);
+                    if (modelDeployments != null && modelDeployments.Count > 0)
+                    {
+                        Console.WriteLine("\n📋 Model Deployments:");
+                        foreach (var (modelName, deploymentName) in modelDeployments)
+                        {
+                            Console.WriteLine($"   {modelName}: {deploymentName}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("\n   No model deployments configured");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("\n   No model deployments configured");
+            }
+            
+            return defaults;
         }
     }
 }
