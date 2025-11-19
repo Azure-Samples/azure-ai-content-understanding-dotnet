@@ -1,19 +1,18 @@
 ﻿using AnalyzerTraining.Interfaces;
-using Azure;
-using Azure.AI.ContentUnderstanding;
 using Azure.Storage.Blobs;
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
+using ContentUnderstanding.Common.Helpers;
 using System.Text.Json;
 
 namespace AnalyzerTraining.Services
 {
     public class AnalyzerTrainingService : IAnalyzerTrainingService
     {
-        private readonly ContentUnderstandingClient _client;
-        private readonly string OutputPath = "./outputs/analyzer_training/";
+        private readonly AzureContentUnderstandingClient _client;
+        private readonly string OutputPath = "./sample_output/analyzer_training/";
 
-        public AnalyzerTrainingService(ContentUnderstandingClient client) 
+        public AnalyzerTrainingService(AzureContentUnderstandingClient client) 
         {
             _client = client;
 
@@ -74,7 +73,7 @@ namespace AnalyzerTraining.Services
                         await containerClient.UploadFileAsync(labelPath, labelBlobPath);
                         await containerClient.UploadFileAsync(ocrResultPath, ocrResultBlobPath);
 
-                        Console.WriteLine($"Uploaded training data for {fileName}");
+                        Console.WriteLine($"✅ Uploaded training data for {fileName}");
                     }
                     else
                     {
@@ -88,144 +87,142 @@ namespace AnalyzerTraining.Services
         }
 
         /// <summary>
-        /// Create analyzer with defined schema.
+        /// Create analyzer with defined schema and labeled training data.
         /// <remarks>Before creating the custom fields analyzer, you should fill the constant ANALYZER_ID with a business-related name. Here we randomly generate a name for demo purpose.
         /// We use **TRAINING_DATA_SAS_URL** and **TRAINING_DATA_PATH** that's set in the prerequisite step.</remarks>
         /// </summary>
-        /// configuration.</param>
-        /// <param name="trainingStorageContainerSasUrl">An optional SAS URL for the storage container containing the training data. If not provided, the method will use
-        /// a default value.</param>
-        /// <param name="trainingStorageContainerPathPrefix">An optional path prefix within the storage container to locate the training data. If not provided, the method
-        /// will use a default value.</param>
-        /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation. The result contains the unique identifier
-        /// of the created analyzer.</returns>
-        public async Task<ContentAnalyzer> CreateAnalyzerAsync(string analyzerTemplatePath, string trainingStorageContainerSasUrl, string trainingStorageContainerPathPrefix)
+        /// <param name="analyzerId">The unique identifier for the analyzer.</param>
+        /// <param name="analyzerDefinition">The analyzer definition as a dictionary.</param>
+        /// <param name="trainingStorageContainerSasUrl">The SAS URL for the storage container containing the training data.</param>
+        /// <param name="trainingStorageContainerPathPrefix">The path prefix within the storage container to locate the training data.</param>
+        /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation. The result contains the analyzer details as JsonDocument.</returns>
+        public async Task<JsonDocument> CreateAnalyzerAsync(
+            string analyzerId,
+            Dictionary<string, object> analyzerDefinition,
+            string trainingStorageContainerSasUrl,
+            string trainingStorageContainerPathPrefix)
         {
-            // Generate a unique analyzer ID using current timestamp
-            string analyzerId = $"analyzer-training-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-
-            // Create analyzer
-            var contentAnalyzer = new ContentAnalyzer
+            // Add knowledge sources with labeled data for training
+            if (!string.IsNullOrEmpty(trainingStorageContainerSasUrl) && !string.IsNullOrEmpty(trainingStorageContainerPathPrefix))
             {
-                BaseAnalyzerId = "prebuilt-documentAnalyzer",
-                Description = "Custom analyzer created with labeled data",
-                Config = new ContentAnalyzerConfig
+                if (!trainingStorageContainerPathPrefix.EndsWith("/"))
                 {
-                    EnableFormula = true,
-                    EnableLayout = true,
-                    EnableOcr = true,
-                    EstimateFieldSourceAndConfidence = true,
-                    ReturnDetails = true
-                },
-                FieldSchema = new ContentFieldSchema(fields: new Dictionary<string, ContentFieldDefinition>
-                {
-                    ["MerchantName"] = new ContentFieldDefinition
-                    {
-                        Type = ContentFieldType.String,
-                        Method = GenerationMethod.Extract,
-                        Description = "",
-                    },
-                    ["Items"] = new ContentFieldDefinition
-                    {
-                        Type = ContentFieldType.Array,
-                        Method = GenerationMethod.Generate,
-                        Description = "",
-                        Items = new ContentFieldDefinition
-                        {
-                            Type = ContentFieldType.Object,
-                            Method = GenerationMethod.Extract
-                        }
-                    },
-                    ["TotalPrice"] = new ContentFieldDefinition
-                    {
-                        Type = ContentFieldType.String,
-                        Method = GenerationMethod.Extract,
-                        Description = "",
-                    },
-                }),
-                Mode = AnalysisMode.Standard,
-                ProcessingLocation = ProcessingLocation.Geography,
-                TrainingData = new BlobDataSource(new Uri(trainingStorageContainerSasUrl))
-                {
-                    Prefix = trainingStorageContainerPathPrefix,
+                    trainingStorageContainerPathPrefix += "/";
                 }
-            };
 
-            contentAnalyzer.FieldSchema.Fields["Items"].Items.Properties.Add("Quantity", new ContentFieldDefinition
-            {
-                Type = ContentFieldType.String,
-                Method = GenerationMethod.Extract,
-                Description = "",
-            });
-            contentAnalyzer.FieldSchema.Fields["Items"].Items.Properties.Add("Name", new ContentFieldDefinition
-            {
-                Type = ContentFieldType.String,
-                Method = GenerationMethod.Extract,
-                Description = "",
-            });
-            contentAnalyzer.FieldSchema.Fields["Items"].Items.Properties.Add("Price", new ContentFieldDefinition
-            {
-                Type = ContentFieldType.String,
-                Method = GenerationMethod.Extract,
-                Description = "",
-            });
-            contentAnalyzer.Tags.Add("demo_type", "get_result");
+                // Create knowledge source configuration for labeled data (used for analyzer training)
+                var knowledgeSourceConfig = new Dictionary<string, object>
+                {
+                    ["kind"] = "labeledData",
+                    ["containerUrl"] = trainingStorageContainerSasUrl,
+                    ["prefix"] = trainingStorageContainerPathPrefix
+                };
 
-            ContentAnalyzer result = new ContentAnalyzer();
+                // Optionally add file list path if specified in environment
+                var fileListPath = Environment.GetEnvironmentVariable("CONTENT_UNDERSTANDING_FILE_LIST_PATH");
+                if (!string.IsNullOrEmpty(fileListPath))
+                {
+                    knowledgeSourceConfig["fileListPath"] = fileListPath;
+                }
 
+                analyzerDefinition["knowledgeSources"] = new List<Dictionary<string, object>> { knowledgeSourceConfig };
+            }
+
+            // Convert analyzer definition to JSON and save to temp file
+            string tempTemplatePath = Path.Combine(Path.GetTempPath(), $"analyzer_{Guid.NewGuid()}.json");
             try
             {
-                Console.WriteLine($"Creating custom analyzer '{analyzerId}'...");
+                var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+                await File.WriteAllTextAsync(tempTemplatePath, JsonSerializer.Serialize(analyzerDefinition, jsonOptions));
 
-                var operation = await _client.GetContentAnalyzersClient()
-                    .CreateOrReplaceAsync(waitUntil: WaitUntil.Completed, analyzerId, contentAnalyzer)
-                    .ConfigureAwait(false);
+                Console.WriteLine($"🔧 Creating custom analyzer '{analyzerId}'...");
+                if (!string.IsNullOrEmpty(trainingStorageContainerSasUrl))
+                {
+                    Console.WriteLine($"   With knowledge sources: Yes (labeledData)");
+                }
 
-                result = operation.Value;
+                // Create analyzer using thin client
+                var createResponse = await _client.BeginCreateAnalyzerAsync(
+                    analyzerId: analyzerId,
+                    analyzerTemplatePath: tempTemplatePath);
 
-                Console.WriteLine($"Analyzer '{analyzerId}' created successfully!");
-                Console.WriteLine($"   Status: {result.Status}");
-                Console.WriteLine($"   Created At: {result.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC");
-                Console.WriteLine($"   Base Analyzer: {result.BaseAnalyzerId}");
-                Console.WriteLine($"   Description: {result.Description}");
+                // Poll for analyzer creation completion
+                Console.WriteLine("⏳ Waiting for analyzer creation to complete...");
+                var analyzerResult = await _client.PollResultAsync(createResponse);
+                Console.WriteLine($"✅ Analyzer '{analyzerId}' created successfully!");
+
+                // Display analyzer information
+                if (analyzerResult.RootElement.TryGetProperty("status", out var status))
+                {
+                    Console.WriteLine($"   Status: {status.GetString()}");
+                }
+                if (analyzerResult.RootElement.TryGetProperty("createdAt", out var createdAt))
+                {
+                    Console.WriteLine($"   Created At: {createdAt.GetString()}");
+                }
+                if (analyzerResult.RootElement.TryGetProperty("baseAnalyzerId", out var baseAnalyzerId))
+                {
+                    Console.WriteLine($"   Base Analyzer: {baseAnalyzerId.GetString()}");
+                }
+                if (analyzerResult.RootElement.TryGetProperty("description", out var description))
+                {
+                    Console.WriteLine($"   Description: {description.GetString()}");
+                }
 
                 // Display field schema information
-                if (result.FieldSchema != null)
+                if (analyzerResult.RootElement.TryGetProperty("fieldSchema", out var fieldSchema))
                 {
-                    Console.WriteLine($"\nField Schema: {result.FieldSchema.Name}");
-                    Console.WriteLine($"   {result.FieldSchema.Description}");
-                    Console.WriteLine($"   Fields:");
-                    foreach (var field in result.FieldSchema.Fields)
+                    if (fieldSchema.TryGetProperty("name", out var schemaName))
                     {
-                        Console.WriteLine($"      - {field.Key}: {field.Value.Type} ({field.Value.Method})");
-                        Console.WriteLine($"        {field.Value.Description}");
+                        Console.WriteLine($"\n   Field Schema: {schemaName.GetString()}");
+                    }
+                    if (fieldSchema.TryGetProperty("description", out var schemaDescription))
+                    {
+                        Console.WriteLine($"   {schemaDescription.GetString()}");
+                    }
+                    if (fieldSchema.TryGetProperty("fields", out var fields))
+                    {
+                        Console.WriteLine($"   Fields:");
+                        foreach (var field in fields.EnumerateObject())
+                        {
+                            if (field.Value.TryGetProperty("type", out var fieldType))
+                            {
+                                var method = field.Value.TryGetProperty("method", out var methodProp) ? methodProp.GetString() : "N/A";
+                                Console.WriteLine($"      - {field.Name}: {fieldType.GetString()} ({method})");
+                                if (field.Value.TryGetProperty("description", out var fieldDescription))
+                                {
+                                    Console.WriteLine($"        {fieldDescription.GetString()}");
+                                }
+                            }
+                        }
                     }
                 }
 
                 // Display any warnings
-                if (result.Warnings != null && result.Warnings.Count > 0)
+                if (analyzerResult.RootElement.TryGetProperty("warnings", out var warnings) && warnings.ValueKind == JsonValueKind.Array)
                 {
-                    Console.WriteLine($"\n⚠️  Warnings:");
-                    foreach (var warning in result.Warnings)
+                    if (warnings.GetArrayLength() > 0)
                     {
-                        Console.WriteLine($"      - {warning.Code}: {warning.Message}");
+                        Console.WriteLine($"\n⚠️  Warnings:");
+                        foreach (var warning in warnings.EnumerateArray())
+                        {
+                            var code = warning.TryGetProperty("code", out var codeProp) ? codeProp.GetString() : "";
+                            var message = warning.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "";
+                            Console.WriteLine($"      - {code}: {message}");
+                        }
                     }
                 }
-            }
-            catch (RequestFailedException ex)
-            {
-                Console.WriteLine($"❌ Azure service request failed:");
-                Console.WriteLine($"   Status: {ex.Status}");
-                Console.WriteLine($"   Error Code: {ex.ErrorCode}");
-                Console.WriteLine($"   Message: {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ An error occurred: {ex.Message}");
-                Console.WriteLine($"   {ex.GetType().Name}");
-            }
 
-            return result;
+                return analyzerResult;
+            }
+            finally
+            {
+                // Clean up temp file
+                if (File.Exists(tempTemplatePath))
+                {
+                    File.Delete(tempTemplatePath);
+                }
+            }
         }
 
         /// <summary>
@@ -234,45 +231,45 @@ namespace AnalyzerTraining.Services
         /// <remarks>After the analyzer is successfully created, we can use it to analyze our input files.</remarks>
         /// <param name="analyzerId">The unique identifier of the custom analyzer to use for document analysis. This value must not be null or empty.</param>
         /// <param name="filePath">The file path of the document to analyze. The file must exist and be accessible.</param>
-        /// <returns>A <see cref="JsonDocument"/> containing the analysis results of the document.</returns>
-        public async Task<AnalyzeResult?> AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath)
+        /// <returns>A task that represents the asynchronous operation. The task completes when the document analysis is finished and returns the result as JsonDocument.</returns>
+        public async Task<JsonDocument> AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath)
         {
             Console.WriteLine("\n===== Using Custom Analyzer for Document Analysis =====");
-            AnalyzeResult? analyzeResult = null;
+            
+            // Resolve file path
+            string resolvedFilePath = ResolveDataFilePath(filePath);
+            if (!File.Exists(resolvedFilePath))
+            {
+                Console.WriteLine($"❌ Error: Sample file not found at {resolvedFilePath}");
+                throw new FileNotFoundException("Sample file not found.", resolvedFilePath);
+            }
+
+            Console.WriteLine($"📄 Reading document file: {resolvedFilePath}");
+
             try
             {
-                byte[] bytes = await File.ReadAllBytesAsync(filePath);
-                BinaryData binaryData = new BinaryData(bytes);
-                Operation<AnalyzeResult> analyzeOperation = await _client.GetContentAnalyzersClient().AnalyzeBinaryAsync(
-                    waitUntil: WaitUntil.Completed, analyzerId, contentType: "application/octet-stream", binaryData);
+                // Begin document analysis operation
+                Console.WriteLine($"🔍 Starting document analysis with analyzer '{analyzerId}'...");
+                var analyzeResponse = await _client.BeginAnalyzeBinaryAsync(analyzerId, resolvedFilePath);
 
-                analyzeResult = analyzeOperation.Value;
-                Console.WriteLine("Document analysis completed successfully!");
+                // Wait for analysis completion
+                Console.WriteLine("⏳ Waiting for document analysis to complete...");
+                var analysisResult = await _client.PollResultAsync(analyzeResponse);
+                Console.WriteLine("✅ Document analysis completed successfully!");
 
-                // Display any warnings
-                if (analyzeResult.Warnings != null && analyzeResult.Warnings.Count > 0)
-                {
-                    Console.WriteLine($"\n⚠️  Warnings:");
-                    foreach (var warning in analyzeResult.Warnings)
-                    {
-                        Console.WriteLine($"      - {warning.Code}: {warning.Message}");
-                    }
-                }
-            }
-            catch (RequestFailedException ex)
-            {
-                Console.WriteLine($"❌ Azure service request failed:");
-                Console.WriteLine($"   Status: {ex.Status}");
-                Console.WriteLine($"   Error Code: {ex.ErrorCode}");
-                Console.WriteLine($"   Message: {ex.Message}");
+                // Display results
+                DisplayAnalysisResults(analysisResult);
+
+                // Save result
+                SampleHelper.SaveJsonToFile(analysisResult, OutputPath, $"analyzer_training_result_{analyzerId}");
+
+                return analysisResult;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ An error occurred: {ex.Message}");
-                Console.WriteLine($"   {ex.GetType().Name}");
+                Console.WriteLine($"❌ Analysis failed: {ex.Message}");
+                throw;
             }
-
-            return analyzeResult;
         }
 
         /// <summary>
@@ -286,27 +283,232 @@ namespace AnalyzerTraining.Services
             try
             {
                 // Clean up the created analyzer
-                Console.WriteLine($"\nDeleting analyzer '{analyzerId}'...");
-                await _client.GetContentAnalyzersClient().DeleteAsync(analyzerId);
-                Console.WriteLine($"Analyzer '{analyzerId}' deleted successfully!");
-
-                Console.WriteLine("\nNext steps:");
-                Console.WriteLine("   - To retrieve an analyzer: see GetAnalyzer sample");
-                Console.WriteLine("   - To use the analyzer for analysis: see AnalyzeBinary sample");
-                Console.WriteLine("   - To delete an analyzer: see DeleteAnalyzer sample");
-            }
-            catch (RequestFailedException ex)
-            {
-                Console.WriteLine($"❌ Azure service request failed:");
-                Console.WriteLine($"   Status: {ex.Status}");
-                Console.WriteLine($"   Error Code: {ex.ErrorCode}");
-                Console.WriteLine($"   Message: {ex.Message}");
+                Console.WriteLine($"\n🗑️  Deleting analyzer '{analyzerId}'...");
+                await _client.DeleteAnalyzerAsync(analyzerId);
+                Console.WriteLine($"✅ Analyzer '{analyzerId}' deleted successfully!");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ An error occurred: {ex.Message}");
-                Console.WriteLine($"   {ex.GetType().Name}");
+                Console.WriteLine($"❌ Failed to delete analyzer: {ex.Message}");
+                throw;
             }
+        }
+
+        /// <summary>
+        /// Displays the analysis results in a readable format.
+        /// </summary>
+        private void DisplayAnalysisResults(JsonDocument analysisResult)
+        {
+            if (analysisResult.RootElement.TryGetProperty("result", out var result))
+            {
+                if (result.TryGetProperty("contents", out var contents) && contents.ValueKind == JsonValueKind.Array)
+                {
+                    var contentsArray = contents.EnumerateArray().ToList();
+                    if (contentsArray.Count > 0)
+                    {
+                        var firstContent = contentsArray[0];
+
+                        // Display markdown content
+                        if (firstContent.TryGetProperty("markdown", out var markdown))
+                        {
+                            Console.WriteLine("\n📄 Markdown Content:");
+                            Console.WriteLine("=".PadRight(50, '='));
+                            var markdownText = markdown.GetString() ?? "";
+                            Console.WriteLine(markdownText.Length > 500 ? markdownText.Substring(0, 500) + "..." : markdownText);
+                            Console.WriteLine("=".PadRight(50, '='));
+                        }
+
+                        // Display extracted fields
+                        Console.WriteLine("\n📊 Analyzer Training Results:");
+                        if (firstContent.TryGetProperty("fields", out var fields))
+                        {
+                            DisplayFields(fields);
+                        }
+                        else
+                        {
+                            Console.WriteLine("No fields extracted");
+                        }
+
+                        // Display content metadata
+                        Console.WriteLine("\n📋 Content Metadata:");
+                        if (firstContent.TryGetProperty("category", out var category))
+                        {
+                            Console.WriteLine($"   Category: {category.GetString()}");
+                        }
+                        if (firstContent.TryGetProperty("startPageNumber", out var startPage))
+                        {
+                            Console.WriteLine($"   Start Page Number: {startPage.GetInt32()}");
+                        }
+                        if (firstContent.TryGetProperty("endPageNumber", out var endPage))
+                        {
+                            Console.WriteLine($"   End Page Number: {endPage.GetInt32()}");
+                        }
+
+                        // Check if this is document content
+                        if (firstContent.TryGetProperty("kind", out var kind) && kind.GetString() == "document")
+                        {
+                            Console.WriteLine("\n📚 Document Information:");
+                            var startPageNum = firstContent.TryGetProperty("startPageNumber", out var sp) ? sp.GetInt32() : 0;
+                            var endPageNum = firstContent.TryGetProperty("endPageNumber", out var ep) ? ep.GetInt32() : 0;
+                            Console.WriteLine($"Start page: {startPageNum}");
+                            Console.WriteLine($"End page: {endPageNum}");
+                            Console.WriteLine($"Total pages: {endPageNum - startPageNum + 1}");
+
+                            if (firstContent.TryGetProperty("pages", out var pages) && pages.ValueKind == JsonValueKind.Array)
+                            {
+                                var pagesArray = pages.EnumerateArray().ToList();
+                                Console.WriteLine($"\n📄 Pages ({pagesArray.Count}):");
+                                foreach (var page in pagesArray)
+                                {
+                                    var pageNum = page.TryGetProperty("pageNumber", out var pn) ? pn.GetInt32() : 0;
+                                    var width = page.TryGetProperty("width", out var w) ? w.GetDouble() : 0;
+                                    var height = page.TryGetProperty("height", out var h) ? h.GetDouble() : 0;
+                                    var unit = firstContent.TryGetProperty("unit", out var u) ? u.GetString() : "units";
+                                    Console.WriteLine($"  Page {pageNum}: {width} x {height} {unit}");
+                                }
+                            }
+
+                            if (firstContent.TryGetProperty("tables", out var tables) && tables.ValueKind == JsonValueKind.Array)
+                            {
+                                var tablesArray = tables.EnumerateArray().ToList();
+                                Console.WriteLine($"\n📊 Tables ({tablesArray.Count}):");
+                                int idx = 1;
+                                foreach (var table in tablesArray)
+                                {
+                                    var rowCount = table.TryGetProperty("rowCount", out var rc) ? rc.GetInt32() : 0;
+                                    var colCount = table.TryGetProperty("columnCount", out var cc) ? cc.GetInt32() : 0;
+                                    Console.WriteLine($"  Table {idx}: {rowCount} rows x {colCount} columns");
+                                    idx++;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Display any warnings
+                if (result.TryGetProperty("warnings", out var warnings) && warnings.ValueKind == JsonValueKind.Array)
+                {
+                    var warningsArray = warnings.EnumerateArray().ToList();
+                    if (warningsArray.Count > 0)
+                    {
+                        Console.WriteLine($"\n⚠️  Warnings:");
+                        foreach (var warning in warningsArray)
+                        {
+                            var code = warning.TryGetProperty("code", out var codeProp) ? codeProp.GetString() : "";
+                            var message = warning.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "";
+                            Console.WriteLine($"      - {code}: {message}");
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Displays extracted fields in a readable format.
+        /// </summary>
+        private void DisplayFields(JsonElement fields)
+        {
+            foreach (var field in fields.EnumerateObject())
+            {
+                var fieldName = field.Name;
+                var fieldValue = field.Value;
+
+                Console.WriteLine($"\n{fieldName}:");
+
+                if (fieldValue.TryGetProperty("type", out var fieldType))
+                {
+                    var type = fieldType.GetString();
+                    if (type == "string" && fieldValue.TryGetProperty("valueString", out var valueString))
+                    {
+                        Console.WriteLine($"  Value: {valueString.GetString()}");
+                    }
+                    else if (type == "number" && fieldValue.TryGetProperty("valueNumber", out var valueNumber))
+                    {
+                        Console.WriteLine($"  Value: {valueNumber.GetDouble()}");
+                    }
+                    else if (type == "array" && fieldValue.TryGetProperty("valueArray", out var valueArray))
+                    {
+                        var arrayItems = valueArray.EnumerateArray().ToList();
+                        Console.WriteLine($"  Array with {arrayItems.Count} items:");
+                        int idx = 1;
+                        foreach (var item in arrayItems)
+                        {
+                            if (item.TryGetProperty("type", out var itemType) && itemType.GetString() == "object")
+                            {
+                                if (item.TryGetProperty("valueObject", out var valueObject))
+                                {
+                                    Console.WriteLine($"    Item {idx}:");
+                                    foreach (var objField in valueObject.EnumerateObject())
+                                    {
+                                        if (objField.Value.TryGetProperty("type", out var objFieldType))
+                                        {
+                                            var objType = objFieldType.GetString();
+                                            if (objType == "string" && objField.Value.TryGetProperty("valueString", out var objValueString))
+                                            {
+                                                Console.WriteLine($"      {objField.Name}: {objValueString.GetString()}");
+                                            }
+                                            else if (objType == "number" && objField.Value.TryGetProperty("valueNumber", out var objValueNumber))
+                                            {
+                                                Console.WriteLine($"      {objField.Name}: {objValueNumber.GetDouble()}");
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"    Item {idx}: {item}");
+                            }
+                            idx++;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Resolves the data file path by checking multiple locations.
+        /// </summary>
+        private static string ResolveDataFilePath(string fileName)
+        {
+            // Try current directory
+            string currentDirPath = Path.Combine(Directory.GetCurrentDirectory(), "data", fileName);
+            if (File.Exists(currentDirPath))
+            {
+                return currentDirPath;
+            }
+
+            // Try assembly directory (output directory)
+            var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            if (!string.IsNullOrEmpty(assemblyLocation))
+            {
+                var assemblyDir = Path.GetDirectoryName(assemblyLocation);
+                if (!string.IsNullOrEmpty(assemblyDir))
+                {
+                    string assemblyPath = Path.Combine(assemblyDir, "data", fileName);
+                    if (File.Exists(assemblyPath))
+                    {
+                        return assemblyPath;
+                    }
+                }
+            }
+
+            // Try ContentUnderstanding.Common/data/
+            var commonDataPath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "..", "..", "..", "..", "ContentUnderstanding.Common", "data", fileName);
+            if (File.Exists(commonDataPath))
+            {
+                return commonDataPath;
+            }
+
+            // Try relative to current directory
+            if (File.Exists(fileName))
+            {
+                return fileName;
+            }
+
+            return fileName;
         }
     }
 }
