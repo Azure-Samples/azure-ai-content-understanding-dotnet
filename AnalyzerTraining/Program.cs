@@ -1,7 +1,11 @@
 ﻿using AnalyzerTraining.Interfaces;
 using AnalyzerTraining.Services;
+using Azure.Identity;
+using Azure.Storage.Blobs;
+using Azure.Storage.Sas;
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Text;
@@ -37,24 +41,6 @@ namespace AnalyzerTraining
             Console.WriteLine("Azure AI Content Understanding - Analyzer Training Sample");
             Console.WriteLine("=".PadRight(80, '='));
             Console.WriteLine();
-            Console.WriteLine("# Enhance Your Analyzer with Labeled Data");
-            Console.WriteLine();
-            Console.WriteLine("> #################################################################################");
-            Console.WriteLine(">");
-            Console.WriteLine("> Note: Currently, this feature is only available when the analyzer scenario is set to `document`.");
-            Console.WriteLine(">");
-            Console.WriteLine("> #################################################################################");
-            Console.WriteLine();
-            Console.WriteLine("Labeled data consists of samples that have been tagged with one or more labels to add context or meaning.");
-            Console.WriteLine("This additional information is used to improve the analyzer's performance.");
-            Console.WriteLine();
-            Console.WriteLine("In your own projects, you can use [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/use-ai-foundry)");
-            Console.WriteLine("to annotate your data with the labeling tool.");
-            Console.WriteLine();
-            Console.WriteLine("This sample demonstrates how to create an analyzer using your labeled data and how to analyze your files afterward.");
-            Console.WriteLine();
-            Console.WriteLine("=".PadRight(80, '='));
-            Console.WriteLine();
 
             // Print message about ModelDeploymentSetup
             Console.WriteLine("⚠️  IMPORTANT: Before using prebuilt analyzers, you must configure model deployments.");
@@ -63,7 +49,7 @@ namespace AnalyzerTraining
             Console.WriteLine("   1. cd ../ModelDeploymentSetup");
             Console.WriteLine("   2. dotnet run");
             Console.WriteLine();
-            Console.WriteLine("   This is a one-time setup that maps your deployed models to prebuilt analyzers.");
+            Console.WriteLine("   This is a one-time setup that maps your deployed GPT models to those required by prebuilt analyzers.");
             Console.WriteLine("   See the main README.md for more details.");
             Console.WriteLine();
             Console.WriteLine("=".PadRight(80, '='));
@@ -79,71 +65,112 @@ namespace AnalyzerTraining
             Console.WriteLine();
 
             var service = host.Services.GetRequiredService<IAnalyzerTrainingService>();
+            var configuration = host.Services.GetRequiredService<IConfiguration>();
 
-            // Prerequisites section
-            Console.WriteLine("## Prerequisites");
-            Console.WriteLine();
-            Console.WriteLine("1. Ensure your Azure AI service is configured by following the [configuration steps](../README.md#configure-azure-ai-service-resource) in the main README.");
-            Console.WriteLine("2. Set environment variables related to training data by following the steps in [Set env for training data](../docs/set_env_for_training_data_and_reference_doc.md).");
-            Console.WriteLine("   - You can either set `TRAINING_DATA_SAS_URL` directly with the SAS URL for your Azure Blob container,");
-            Console.WriteLine("   - Or set both `TRAINING_DATA_STORAGE_ACCOUNT_NAME` and `TRAINING_DATA_CONTAINER_NAME` to generate the SAS URL automatically.");
-            Console.WriteLine("   - Also set `TRAINING_DATA_PATH` to specify the folder path within the container where the training data will be uploaded.");
-            Console.WriteLine();
+            // Helper to get config value (from appsettings.json first, then environment variable)
+            string? GetConfigValue(string key) => configuration.GetValue<string>(key) ?? Environment.GetEnvironmentVariable(key);
 
-            // Get training data configuration
-            Console.WriteLine("## Prepare Labeled Data");
-            Console.WriteLine();
-            Console.WriteLine("In this step, we will:");
-            Console.WriteLine("- Use the environment variables `TRAINING_DATA_PATH` and SAS URL related variables set in the Prerequisites step.");
-            Console.WriteLine("- Attempt to get the SAS URL from the environment variable `TRAINING_DATA_SAS_URL`.");
-            Console.WriteLine("- If `TRAINING_DATA_SAS_URL` is not set, try generating it automatically using `TRAINING_DATA_STORAGE_ACCOUNT_NAME` and `TRAINING_DATA_CONTAINER_NAME` environment variables.");
-            Console.WriteLine("- Verify that each document file in the local folder has corresponding `.labels.json` and `.result.json` files.");
-            Console.WriteLine("- Upload these files to the Azure Blob storage container specified by the environment variables.");
-            Console.WriteLine();
 
-            // Get training data SAS URL
-            string? trainingDataSasUrl = Environment.GetEnvironmentVariable("TRAINING_DATA_SAS_URL");
-            string? trainingDataStorageAccountName = Environment.GetEnvironmentVariable("TRAINING_DATA_STORAGE_ACCOUNT_NAME");
-            string? trainingDataContainerName = Environment.GetEnvironmentVariable("TRAINING_DATA_CONTAINER_NAME");
-            string? trainingDataPath = Environment.GetEnvironmentVariable("TRAINING_DATA_PATH");
+            // Get training data configuration (from appsettings.json first, then environment variables)
+            string? trainingDataSasUrl = GetConfigValue("TRAINING_DATA_SAS_URL");
+            string? trainingDataStorageAccountName = GetConfigValue("TRAINING_DATA_STORAGE_ACCOUNT_NAME");
+            string? trainingDataContainerName = GetConfigValue("TRAINING_DATA_CONTAINER_NAME");
+            string? trainingDataPath = GetConfigValue("TRAINING_DATA_PATH");
 
-            if (string.IsNullOrEmpty(trainingDataSasUrl))
+            // Print current configuration values (only print if set)
+            bool hasAnyConfig = false;
+            
+            if (!string.IsNullOrEmpty(trainingDataSasUrl))
             {
-                if (!string.IsNullOrEmpty(trainingDataStorageAccountName) && !string.IsNullOrEmpty(trainingDataContainerName))
-                {
-                    Console.WriteLine("⚠️  Note: SAS URL generation from storage account credentials is not yet implemented in the C# thin client.");
-                    Console.WriteLine("   Please provide the SAS URL directly via TRAINING_DATA_SAS_URL environment variable or enter it below.");
-                    Console.WriteLine();
-                }
+                Console.WriteLine($"TRAINING_DATA_SAS_URL: <set>");
+                hasAnyConfig = true;
+            }
+            
+            if (!string.IsNullOrEmpty(trainingDataStorageAccountName))
+            {
+                Console.WriteLine($"TRAINING_DATA_STORAGE_ACCOUNT_NAME: {trainingDataStorageAccountName}");
+                hasAnyConfig = true;
+            }
+            
+            if (!string.IsNullOrEmpty(trainingDataContainerName))
+            {
+                Console.WriteLine($"TRAINING_DATA_CONTAINER_NAME: {trainingDataContainerName}");
+                hasAnyConfig = true;
+            }
+            
+            if (!string.IsNullOrEmpty(trainingDataPath))
+            {
+                Console.WriteLine($"TRAINING_DATA_PATH: {trainingDataPath}");
+                hasAnyConfig = true;
+            }
+            
+            if (!hasAnyConfig)
+            {
+                Console.WriteLine("No training data configuration found in appsettings.json or environment variables.");
+            }
+            Console.WriteLine();
 
-                Console.Write("TrainingDataSasUrl: Please paste the SAS URL that you have created and hit the [Enter] key: ");
+            // Validate configuration: need either SAS URL OR (storage account + container name)
+            bool hasSasUrl = !string.IsNullOrEmpty(trainingDataSasUrl);
+            bool hasStorageAccount = !string.IsNullOrEmpty(trainingDataStorageAccountName);
+            bool hasContainerName = !string.IsNullOrEmpty(trainingDataContainerName);
+            bool hasStorageAccountAndContainer = hasStorageAccount && hasContainerName;
+
+            // Only ask for SAS URL if it's not in appsettings.json AND storage/container names are not there
+            if (!hasSasUrl && !hasStorageAccountAndContainer)
+            {
+                Console.Write("TRAINING_DATA_SAS_URL: Please paste the SAS URL for your Azure Blob container: ");
                 trainingDataSasUrl = Console.ReadLine()?.Trim();
+                
+                if (string.IsNullOrEmpty(trainingDataSasUrl))
+                {
+                    // Try to get storage account and container name
+                    if (string.IsNullOrEmpty(trainingDataStorageAccountName))
+                    {
+                        Console.Write("TRAINING_DATA_STORAGE_ACCOUNT_NAME: Please enter the storage account name: ");
+                        trainingDataStorageAccountName = Console.ReadLine()?.Trim();
+                    }
+                    
+                    if (string.IsNullOrEmpty(trainingDataContainerName))
+                    {
+                        Console.Write("TRAINING_DATA_CONTAINER_NAME: Please enter the container name: ");
+                        trainingDataContainerName = Console.ReadLine()?.Trim();
+                    }
+                }
             }
 
-            if (string.IsNullOrEmpty(trainingDataPath))
-            {
-                Console.Write("TrainingDataPath: Please write the folder name (e.g., training_data or labeling-data): ");
-                trainingDataPath = Console.ReadLine()?.Trim();
-            }
+            // Final validation
+            hasSasUrl = !string.IsNullOrEmpty(trainingDataSasUrl);
+            hasStorageAccountAndContainer = !string.IsNullOrEmpty(trainingDataStorageAccountName) && !string.IsNullOrEmpty(trainingDataContainerName);
 
-            if (string.IsNullOrEmpty(trainingDataSasUrl) || string.IsNullOrEmpty(trainingDataPath))
+            if (!hasSasUrl && !hasStorageAccountAndContainer)
             {
                 Console.WriteLine();
-                Console.WriteLine("❌ Error: Both TRAINING_DATA_SAS_URL and TRAINING_DATA_PATH are required.");
-                Console.WriteLine("   Please set these environment variables or provide them when prompted.");
+                Console.WriteLine("❌ Error: You must provide either:");
+                Console.WriteLine("   - TRAINING_DATA_SAS_URL (full SAS URL), OR");
+                Console.WriteLine("   - Both TRAINING_DATA_STORAGE_ACCOUNT_NAME and TRAINING_DATA_CONTAINER_NAME");
+                Console.WriteLine("   Please configure these in appsettings.json or provide them when prompted.");
                 return;
             }
 
-            Console.WriteLine();
-            Console.WriteLine($"📋 Configuration:");
-            Console.WriteLine($"   Training Data Path: {trainingDataPath}");
-            Console.WriteLine($"   Training Data SAS URL: {(string.IsNullOrEmpty(trainingDataSasUrl) ? "<not set>" : "<set>")}");
-            Console.WriteLine();
+            // Get training data path (only ask if not set in appsettings.json or environment variables)
+            if (string.IsNullOrEmpty(trainingDataPath))
+            {
+                Console.Write("TRAINING_DATA_PATH (press Enter for container root): ");
+                trainingDataPath = Console.ReadLine()?.Trim();
+            }
 
-            if (!trainingDataPath.EndsWith("/"))
+            // Normalize path: ensure it ends with / if not empty (empty means container root)
+            if (!string.IsNullOrEmpty(trainingDataPath) && !trainingDataPath.EndsWith("/"))
             {
                 trainingDataPath += "/";
             }
+            // Ensure empty path is explicitly set to empty string (container root)
+            if (string.IsNullOrEmpty(trainingDataPath))
+            {
+                trainingDataPath = "";
+            }
+
 
             // Prepare training data
             var trainingDocsFolder = ResolveDataFilePath("document_training");
@@ -154,11 +181,40 @@ namespace AnalyzerTraining
                 return;
             }
 
-            Console.WriteLine($"📤 Uploading training data from '{trainingDocsFolder}'...");
+            // Generate SAS URL from storage account+container if needed
+            if (!hasSasUrl && hasStorageAccountAndContainer)
+            {
+                Console.WriteLine("Generating SAS URL from storage account and container name...");
+                try
+                {
+                    trainingDataSasUrl = await GenerateSasUrlFromStorageAccountAsync(
+                        trainingDataStorageAccountName!,
+                        trainingDataContainerName!);
+                    Console.WriteLine("SAS URL generated successfully.");
+                    hasSasUrl = true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Failed to generate SAS URL: {ex.Message}");
+                    Console.WriteLine("   Please ensure you have proper Azure credentials configured (DefaultAzureCredential).");
+                    Console.WriteLine("   Alternatively, provide TRAINING_DATA_SAS_URL directly in appsettings.json.");
+                    return;
+                }
+            }
+
+            // Final check: ensure we have SAS URL for upload
+            if (string.IsNullOrEmpty(trainingDataSasUrl))
+            {
+                Console.WriteLine();
+                Console.WriteLine("❌ Error: TRAINING_DATA_SAS_URL is required for upload operations.");
+                return;
+            }
+
+            Console.WriteLine($"Uploading training data from '{trainingDocsFolder}'...");
             try
             {
                 await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
-                Console.WriteLine($"✅ Training data upload completed!");
+                Console.WriteLine("Training data upload completed.");
             }
             catch (Exception ex)
             {
@@ -168,13 +224,7 @@ namespace AnalyzerTraining
             Console.WriteLine();
 
             // Create analyzer with defined schema
-            Console.WriteLine("## Create Analyzer with Defined Schema");
-            Console.WriteLine();
-            Console.WriteLine("Before creating the analyzer, we generate a unique analyzer ID. In this example, we generate a unique suffix");
-            Console.WriteLine("so that this sample can be run multiple times to create different analyzers.");
-            Console.WriteLine();
-            Console.WriteLine("We use **TRAINING_DATA_SAS_URL** and **TRAINING_DATA_PATH** as set in the environment variables and used in the previous step.");
-            Console.WriteLine();
+            Console.WriteLine("Creating analyzer with defined schema...");
 
             // Generate unique analyzer ID (cannot contain hyphens)
             string analyzerId = $"analyzer_training_sample_{Guid.NewGuid().ToString().Replace("-", "_")}";
@@ -272,10 +322,7 @@ namespace AnalyzerTraining
             Console.WriteLine();
 
             // Use created analyzer to extract document content
-            Console.WriteLine("## Use Created Analyzer to Extract Document Content");
-            Console.WriteLine();
-            Console.WriteLine("After the analyzer is successfully created, you can use it to analyze your input files.");
-            Console.WriteLine();
+            Console.WriteLine("Analyzing document with custom analyzer...");
 
             var customAnalyzerSampleFilePath = ResolveDataFilePath("receipt.png");
             if (!File.Exists(customAnalyzerSampleFilePath))
@@ -297,11 +344,7 @@ namespace AnalyzerTraining
             Console.WriteLine();
 
             // Delete analyzer
-            Console.WriteLine("## Delete Existing Analyzer in Content Understanding Service");
-            Console.WriteLine();
-            Console.WriteLine("This snippet is optional and is included to prevent test analyzers from remaining in your service.");
-            Console.WriteLine("Without deletion, the analyzer will stay in your service and may be reused in subsequent operations.");
-            Console.WriteLine();
+            Console.WriteLine("Deleting analyzer...");
 
             try
             {
@@ -313,7 +356,7 @@ namespace AnalyzerTraining
             }
 
             Console.WriteLine();
-            Console.WriteLine("=== Analyzer Training Sample Complete! ===");
+            Console.WriteLine("Analyzer Training Sample Complete!");
         }
 
         /// <summary>
@@ -359,6 +402,42 @@ namespace AnalyzerTraining
             }
 
             return fileNameOrFolder;
+        }
+
+        /// <summary>
+        /// Generate a SAS URL for an Azure Blob container using Azure AD authentication.
+        /// </summary>
+        /// <param name="accountName">The storage account name.</param>
+        /// <param name="containerName">The container name.</param>
+        /// <returns>The SAS URL for the container.</returns>
+        private static async Task<string> GenerateSasUrlFromStorageAccountAsync(string accountName, string containerName)
+        {
+            var accountUrl = $"https://{accountName}.blob.core.windows.net";
+            var credential = new DefaultAzureCredential();
+            
+            // Create BlobServiceClient with Azure AD authentication
+            var blobServiceClient = new BlobServiceClient(new Uri(accountUrl), credential);
+            
+            // Get user delegation key (valid for 1 hour)
+            var startsOn = DateTimeOffset.UtcNow;
+            var expiresOn = startsOn.AddHours(1);
+            var userDelegationKey = await blobServiceClient.GetUserDelegationKeyAsync(startsOn, expiresOn);
+            
+            // Generate SAS token with read, write, and list permissions
+            var sasBuilder = new BlobSasBuilder
+            {
+                BlobContainerName = containerName,
+                Resource = "c", // Container
+                StartsOn = startsOn,
+                ExpiresOn = expiresOn
+            };
+            sasBuilder.SetPermissions(BlobContainerSasPermissions.Read | BlobContainerSasPermissions.Write | BlobContainerSasPermissions.List);
+            
+            // Generate SAS token using user delegation key
+            var sasToken = sasBuilder.ToSasQueryParameters(userDelegationKey, accountName).ToString();
+            
+            // Construct full SAS URL
+            return $"{accountUrl}/{containerName}?{sasToken}";
         }
     }
 }

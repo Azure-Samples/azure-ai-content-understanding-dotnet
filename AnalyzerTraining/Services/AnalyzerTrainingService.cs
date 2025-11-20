@@ -73,7 +73,7 @@ namespace AnalyzerTraining.Services
                         await containerClient.UploadFileAsync(labelPath, labelBlobPath);
                         await containerClient.UploadFileAsync(ocrResultPath, ocrResultBlobPath);
 
-                        Console.WriteLine($"✅ Uploaded training data for {fileName}");
+                        Console.WriteLine($"Uploaded training data for {fileName}");
                     }
                     else
                     {
@@ -135,10 +135,13 @@ namespace AnalyzerTraining.Services
                 var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
                 await File.WriteAllTextAsync(tempTemplatePath, JsonSerializer.Serialize(analyzerDefinition, jsonOptions));
 
-                Console.WriteLine($"🔧 Creating custom analyzer '{analyzerId}'...");
+                Console.WriteLine($"Creating custom analyzer '{analyzerId}'...");
                 if (!string.IsNullOrEmpty(trainingStorageContainerSasUrl))
                 {
-                    Console.WriteLine($"   With knowledge sources: Yes (labeledData)");
+                    // Extract container URL from SAS URL (remove SAS token)
+                    var containerUrl = ExtractContainerUrlFromSasUrl(trainingStorageContainerSasUrl);
+                    Console.WriteLine($"   Knowledge source: Training data uploaded to {containerUrl}");
+                    Console.WriteLine($"   Data path: {trainingStorageContainerPathPrefix}");
                 }
 
                 // Create analyzer using thin client
@@ -147,9 +150,9 @@ namespace AnalyzerTraining.Services
                     analyzerTemplatePath: tempTemplatePath);
 
                 // Poll for analyzer creation completion
-                Console.WriteLine("⏳ Waiting for analyzer creation to complete...");
+                Console.WriteLine("Waiting for analyzer creation to complete...");
                 var analyzerResult = await _client.PollResultAsync(createResponse);
-                Console.WriteLine($"✅ Analyzer '{analyzerId}' created successfully!");
+                Console.WriteLine($"Analyzer '{analyzerId}' created successfully.");
 
                 // Display analyzer information
                 if (analyzerResult.RootElement.TryGetProperty("status", out var status))
@@ -234,8 +237,6 @@ namespace AnalyzerTraining.Services
         /// <returns>A task that represents the asynchronous operation. The task completes when the document analysis is finished and returns the result as JsonDocument.</returns>
         public async Task<JsonDocument> AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath)
         {
-            Console.WriteLine("\n===== Using Custom Analyzer for Document Analysis =====");
-            
             // Resolve file path
             string resolvedFilePath = ResolveDataFilePath(filePath);
             if (!File.Exists(resolvedFilePath))
@@ -244,18 +245,16 @@ namespace AnalyzerTraining.Services
                 throw new FileNotFoundException("Sample file not found.", resolvedFilePath);
             }
 
-            Console.WriteLine($"📄 Reading document file: {resolvedFilePath}");
-
             try
             {
                 // Begin document analysis operation
-                Console.WriteLine($"🔍 Starting document analysis with analyzer '{analyzerId}'...");
+                Console.WriteLine($"Analyzing document with analyzer '{analyzerId}'...");
                 var analyzeResponse = await _client.BeginAnalyzeBinaryAsync(analyzerId, resolvedFilePath);
 
                 // Wait for analysis completion
-                Console.WriteLine("⏳ Waiting for document analysis to complete...");
+                Console.WriteLine("Waiting for analysis to complete...");
                 var analysisResult = await _client.PollResultAsync(analyzeResponse);
-                Console.WriteLine("✅ Document analysis completed successfully!");
+                Console.WriteLine("Analysis completed.");
 
                 // Display results
                 DisplayAnalysisResults(analysisResult);
@@ -283,9 +282,8 @@ namespace AnalyzerTraining.Services
             try
             {
                 // Clean up the created analyzer
-                Console.WriteLine($"\n🗑️  Deleting analyzer '{analyzerId}'...");
                 await _client.DeleteAnalyzerAsync(analyzerId);
-                Console.WriteLine($"✅ Analyzer '{analyzerId}' deleted successfully!");
+                Console.WriteLine($"Analyzer '{analyzerId}' deleted successfully.");
             }
             catch (Exception ex)
             {
@@ -308,18 +306,8 @@ namespace AnalyzerTraining.Services
                     {
                         var firstContent = contentsArray[0];
 
-                        // Display markdown content
-                        if (firstContent.TryGetProperty("markdown", out var markdown))
-                        {
-                            Console.WriteLine("\n📄 Markdown Content:");
-                            Console.WriteLine("=".PadRight(50, '='));
-                            var markdownText = markdown.GetString() ?? "";
-                            Console.WriteLine(markdownText.Length > 500 ? markdownText.Substring(0, 500) + "..." : markdownText);
-                            Console.WriteLine("=".PadRight(50, '='));
-                        }
-
                         // Display extracted fields
-                        Console.WriteLine("\n📊 Analyzer Training Results:");
+                        Console.WriteLine("\nAnalyzer Training Results:");
                         if (firstContent.TryGetProperty("fields", out var fields))
                         {
                             DisplayFields(fields);
@@ -327,60 +315,6 @@ namespace AnalyzerTraining.Services
                         else
                         {
                             Console.WriteLine("No fields extracted");
-                        }
-
-                        // Display content metadata
-                        Console.WriteLine("\n📋 Content Metadata:");
-                        if (firstContent.TryGetProperty("category", out var category))
-                        {
-                            Console.WriteLine($"   Category: {category.GetString()}");
-                        }
-                        if (firstContent.TryGetProperty("startPageNumber", out var startPage))
-                        {
-                            Console.WriteLine($"   Start Page Number: {startPage.GetInt32()}");
-                        }
-                        if (firstContent.TryGetProperty("endPageNumber", out var endPage))
-                        {
-                            Console.WriteLine($"   End Page Number: {endPage.GetInt32()}");
-                        }
-
-                        // Check if this is document content
-                        if (firstContent.TryGetProperty("kind", out var kind) && kind.GetString() == "document")
-                        {
-                            Console.WriteLine("\n📚 Document Information:");
-                            var startPageNum = firstContent.TryGetProperty("startPageNumber", out var sp) ? sp.GetInt32() : 0;
-                            var endPageNum = firstContent.TryGetProperty("endPageNumber", out var ep) ? ep.GetInt32() : 0;
-                            Console.WriteLine($"Start page: {startPageNum}");
-                            Console.WriteLine($"End page: {endPageNum}");
-                            Console.WriteLine($"Total pages: {endPageNum - startPageNum + 1}");
-
-                            if (firstContent.TryGetProperty("pages", out var pages) && pages.ValueKind == JsonValueKind.Array)
-                            {
-                                var pagesArray = pages.EnumerateArray().ToList();
-                                Console.WriteLine($"\n📄 Pages ({pagesArray.Count}):");
-                                foreach (var page in pagesArray)
-                                {
-                                    var pageNum = page.TryGetProperty("pageNumber", out var pn) ? pn.GetInt32() : 0;
-                                    var width = page.TryGetProperty("width", out var w) ? w.GetDouble() : 0;
-                                    var height = page.TryGetProperty("height", out var h) ? h.GetDouble() : 0;
-                                    var unit = firstContent.TryGetProperty("unit", out var u) ? u.GetString() : "units";
-                                    Console.WriteLine($"  Page {pageNum}: {width} x {height} {unit}");
-                                }
-                            }
-
-                            if (firstContent.TryGetProperty("tables", out var tables) && tables.ValueKind == JsonValueKind.Array)
-                            {
-                                var tablesArray = tables.EnumerateArray().ToList();
-                                Console.WriteLine($"\n📊 Tables ({tablesArray.Count}):");
-                                int idx = 1;
-                                foreach (var table in tablesArray)
-                                {
-                                    var rowCount = table.TryGetProperty("rowCount", out var rc) ? rc.GetInt32() : 0;
-                                    var colCount = table.TryGetProperty("columnCount", out var cc) ? cc.GetInt32() : 0;
-                                    Console.WriteLine($"  Table {idx}: {rowCount} rows x {colCount} columns");
-                                    idx++;
-                                }
-                            }
                         }
                     }
                 }
@@ -509,6 +443,28 @@ namespace AnalyzerTraining.Services
             }
 
             return fileName;
+        }
+
+        /// <summary>
+        /// Extracts the container URL from a SAS URL by removing the SAS token query parameters.
+        /// </summary>
+        /// <param name="sasUrl">The full SAS URL including the token.</param>
+        /// <returns>The container URL without the SAS token.</returns>
+        private static string ExtractContainerUrlFromSasUrl(string sasUrl)
+        {
+            if (string.IsNullOrEmpty(sasUrl))
+            {
+                return sasUrl;
+            }
+
+            // Remove SAS token query parameters (everything after '?')
+            var questionMarkIndex = sasUrl.IndexOf('?');
+            if (questionMarkIndex >= 0)
+            {
+                return sasUrl.Substring(0, questionMarkIndex);
+            }
+
+            return sasUrl;
         }
     }
 }
