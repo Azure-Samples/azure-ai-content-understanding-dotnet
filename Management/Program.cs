@@ -3,9 +3,7 @@ using Management.Interfaces;
 using Management.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using System.Text;
-using System.Text.Json;
 
 namespace Management
 {

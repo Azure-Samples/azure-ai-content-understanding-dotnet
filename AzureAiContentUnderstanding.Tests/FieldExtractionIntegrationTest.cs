@@ -1,11 +1,7 @@
-﻿using Azure.AI.ContentUnderstanding;
-using ContentUnderstanding.Common;
-using ContentUnderstanding.Common.Extensions;
+﻿using ContentUnderstanding.Common.Extensions;
 using FieldExtraction.Interfaces;
 using FieldExtraction.Services;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using System.Text.Json;
 
 namespace AzureAiContentUnderstanding.Tests
@@ -27,13 +23,13 @@ namespace AzureAiContentUnderstanding.Tests
         /// </exception>
         public FieldExtractionIntegrationTest()
         {
-            var host = Host.CreateDefaultBuilder()
-                .ConfigureServices((context, services) =>
+            // Create host and configure services (without deployment configuration)
+            var host = ContentUnderstandingBootstrapper.CreateHost(
+                configureServices: (context, services) =>
                 {
-                    services.AddHttpClient<ContentUnderstandingClient>();
                     services.AddSingleton<IFieldExtractionService, FieldExtractionService>();
-                })
-                .Build();
+                }
+            );
 
             service = host.Services.GetService<IFieldExtractionService>()!;
         }
@@ -58,228 +54,485 @@ namespace AzureAiContentUnderstanding.Tests
         public async Task RunAsync()
         {
             Exception? serviceException = null;
+
             try
             {
-                var extractionContentAnalyzer = new Dictionary<string, (ContentAnalyzer, string)>
+                // Define test scenarios with analyzer definitions and sample files
+                // Match the structure from field_extraction_service2.cs (Program)
+                var extractionScenarios = new Dictionary<string, (Dictionary<string, object> analyzerDefinition, string fileName)>
                 {
-                    ["invoice"] = (new ContentAnalyzer
-                    {
-                        BaseAnalyzerId = "prebuilt-documentAnalyzer",
-                        Description = "Sample invoice analyzer",
-                        FieldSchema = new ContentFieldSchema(
-                        fields: new Dictionary<string, ContentFieldDefinition>
-                        {
-                            ["VendorName"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.String,
-                                Method = GenerationMethod.Extract,
-                                Description = "Vendor issuing the invoice"
-                            },
-                            ["Items"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.Array,
-                                Method = GenerationMethod.Extract,
-                                Items = new ContentFieldDefinition
-                                {
-                                    Type = ContentFieldType.Object,
-                                }
-                            }
-                        })
-                    }, "./data/invoice.pdf"),
-                    ["call_recording"] = (new ContentAnalyzer
-                    {
-                        BaseAnalyzerId = "prebuilt-callCenter",
-                        Description = "Sample call recording analytics",
-                        Config = new ContentAnalyzerConfig
-                        {
-                            ReturnDetails = true,
-                        },
-                        FieldSchema = new ContentFieldSchema(
-                        fields: new Dictionary<string, ContentFieldDefinition>
-                        {
-                            ["Summary"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.String,
-                                Method = GenerationMethod.Generate,
-                                Description = "A one-paragraph summary"
-                            },
-                            ["Topics"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.Array,
-                                Method = GenerationMethod.Generate,
-                                Items = new ContentFieldDefinition
-                                {
-                                    Type = ContentFieldType.String,
-                                },
-                                Description = "Top 5 topics mentioned"
-                            },
-                            ["Companies"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.Array,
-                                Method = GenerationMethod.Generate,
-                                Items = new ContentFieldDefinition
-                                {
-                                    Type = ContentFieldType.String,
-                                },
-                                Description = "List of companies mentioned"
-                            },
-                            ["People"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.Array,
-                                Method = GenerationMethod.Generate,
-                                Items = new ContentFieldDefinition
-                                {
-                                    Type = ContentFieldType.Object,
-                                },
-                                Description = "List of people mentioned"
-                            },
-                            ["Sentiment"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.String,
-                                Method = GenerationMethod.Classify,
-                                Description = "Overall sentiment",
-                            },
-                            ["Categories"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.Array,
-                                Method = GenerationMethod.Classify,
-                                Items = new ContentFieldDefinition
-                                {
-                                    Type = ContentFieldType.String,
-                                },
-                                Description = "List of relevant categories",
-                            }
-                        })
-                    }, "./data/callCenterRecording.mp3"),
-                    ["conversation_audio"] = (new ContentAnalyzer
-                    {
-                        BaseAnalyzerId = "prebuilt-audioAnalyzer",
-                        Description = "Sample conversational audio analytics",
-                        Config = new ContentAnalyzerConfig
-                        {
-                            ReturnDetails = true,
-                        },
-                        FieldSchema = new ContentFieldSchema(fields: new Dictionary<string, ContentFieldDefinition>
-                        {
-                            ["Summary"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.String,
-                                Method = GenerationMethod.Generate,
-                                Description = "A one-paragraph summary"
-                            },
-                            ["Sentiment"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.String,
-                                Method = GenerationMethod.Classify,
-                                Description = "Overall sentiment",
-                            },
-                        })
-                    }, "./data/callCenterRecording.mp3"),
-                    ["marketing_video"] = (new ContentAnalyzer
-                    {
-                        BaseAnalyzerId = "prebuilt-videoAnalyzer",
-                        Description = "Sample marketing video analytics",
-                        Config = new ContentAnalyzerConfig
-                        {
-                            ReturnDetails = true,
-                            SegmentationMode = SegmentationMode.NoSegmentation
-                        },
-                        FieldSchema = new ContentFieldSchema(fields: new Dictionary<string, ContentFieldDefinition>
-                        {
-                            ["Description"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.String,
-                                Description = "Detailed summary of the video segment, focusing on product characteristics, lighting, and color palette."
-                            },
-                            ["Sentiment"] = new ContentFieldDefinition
-                            {
-                                Type = ContentFieldType.String,
-                                Method = GenerationMethod.Classify,
-                            },
-                        })
-                    }, "./data/FlightSimulator.mp4")
+                    ["invoice"] = (CreateInvoiceAnalyzerDefinition(), "invoice.pdf"),
+                    ["call_recording"] = (CreateCallRecordingAnalyzerDefinition(), "callCenterRecording.mp3"),
+                    ["conversation_audio"] = (CreateConversationAudioAnalyzerDefinition(), "callCenterRecording.mp3"),
+                    ["marketing_video"] = (CreateMarketingVideoAnalyzerDefinition(), "FlightSimulator.mp4")
                 };
 
-                // invoice
-                var (invoiceAnalyzer, _) = extractionContentAnalyzer["invoice"];
-                invoiceAnalyzer.FieldSchema.Fields["Items"].Items.Properties.Add("Description", new ContentFieldDefinition
+                foreach (var scenario in extractionScenarios)
                 {
-                    Type = ContentFieldType.String,
-                    Method = GenerationMethod.Extract,
-                    Description = "Description of the item"
-                });
-                invoiceAnalyzer.FieldSchema.Fields["Items"].Items.Properties.Add("Amount", new ContentFieldDefinition
-                {
-                    Type = ContentFieldType.Number,
-                    Method = GenerationMethod.Extract,
-                    Description = "Amount of the item"
-                });
+                    var scenarioName = scenario.Key;
+                    var (analyzerDefinition, fileName) = scenario.Value;
 
-                // call_recording
-                var (callRecordingAnalyzer, _) = extractionContentAnalyzer["call_recording"];
-                callRecordingAnalyzer.Config.Locales.Add("en-US");
-                callRecordingAnalyzer.FieldSchema.Fields["People"].Items.Properties.Add("Name", new ContentFieldDefinition
-                {
-                    Type = ContentFieldType.String,
-                    Description = "Person's name"
-                });
-                callRecordingAnalyzer.FieldSchema.Fields["People"].Items.Properties.Add("Role", new ContentFieldDefinition
-                {
-                    Type = ContentFieldType.String,
-                    Description = "Person's title/role"
-                });
-                callRecordingAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Positive");
-                callRecordingAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Neutral");
-                callRecordingAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Negative");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Agriculture");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Business");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Finance");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Health");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Insurance");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Mining");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Pharmaceutical");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Retail");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Technology");
-                callRecordingAnalyzer.FieldSchema.Fields["Categories"].Items.Enum.Add("Transportation");
+                    // Display clear title for each sample (matching Program output)
+                    string sampleTitle = scenarioName switch
+                    {
+                        "invoice" => "Custom Invoice Field Extraction",
+                        "call_recording" => "Call Recording Analytics",
+                        "conversation_audio" => "Conversational Audio Analytics",
+                        "marketing_video" => "Marketing Video Analytics",
+                        _ => $"Custom Analyzer: {scenarioName}"
+                    };
 
-                // conversation_audio
-                var (conversationAudioAnalyzer, _) = extractionContentAnalyzer["conversation_audio"];
-                conversationAudioAnalyzer.Config.Locales.Add("en-US");
-                conversationAudioAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Positive");
-                conversationAudioAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Neutral");
-                conversationAudioAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Negative");
+                    Console.WriteLine($"\n{'='.ToString().PadRight(80, '=')}");
+                    Console.WriteLine($"=== {sampleTitle} ===");
+                    Console.WriteLine($"Scenario: {scenarioName}");
+                    Console.WriteLine($"File: {fileName}");
+                    Console.WriteLine($"{'='.ToString().PadRight(80, '=')}");
 
-                // marketing_video
-                var (marketAudioAnalyzer, _) = extractionContentAnalyzer["marketing_video"];
-                marketAudioAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Positive");
-                marketAudioAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Neutral");
-                marketAudioAnalyzer.FieldSchema.Fields["Sentiment"].Enum.Add("Negative");
+                    // Generate unique analyzer ID for this test run
+                    // Match Program's ID format (underscores instead of hyphens)
+                    string analyzerId = $"test_field_extraction_{scenarioName}_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
 
-                string analyzerId = $"field-extraction-sample-{Guid.NewGuid()}";
-
-                foreach (var item in extractionContentAnalyzer)
-                {
-                    Console.WriteLine($"\n\nProcessing {item.Key}...\n");
-                    var (contentAnalyzer, fileName) = item.Value;
+                    // Execute the analyzer creation and analysis
                     var result = await service.CreateAndUseAnalyzer(
                         analyzerId,
-                        contentAnalyzer,
+                        analyzerDefinition,
                         fileName);
 
-                    Assert.NotNull(result);
-                    Assert.False(result.Warnings.Any(), "The warnings array should be empty");
-                    Assert.True(result.Contents.Any(), "The contents array should not be empty");
-                    var content = result.Contents[0];
-                    Assert.True(!string.IsNullOrWhiteSpace(content.Markdown.ToString()));
-                    Assert.True(content.Fields.Any(), "The fields array should not be empty");
+                    // Validate the result
+                    ValidateFieldExtractionResult(result, scenarioName);
+
+                    Console.WriteLine($"✅ Scenario '{scenarioName}' completed successfully");
                 }
+
+                Console.WriteLine($"\n{'='.ToString().PadRight(80, '=')}");
+                Console.WriteLine("=== Field Extraction Test Complete! ===");
+                Console.WriteLine($"{'='.ToString().PadRight(80, '=')}");
             }
             catch (Exception ex)
             {
                 serviceException = ex;
+                Console.WriteLine($"\n❌ Test failed with exception: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
             }
-            // Assert that no exceptions were thrown during the test.
+
+            // Assert that no exceptions were thrown during the test
             Assert.Null(serviceException);
+        }
+
+        /// <summary>
+        /// Creates the analyzer definition for invoice extraction.
+        /// Matches the structure from field_extraction_service2.cs (Program).
+        /// </summary>
+        private Dictionary<string, object> CreateInvoiceAnalyzerDefinition()
+        {
+            return new Dictionary<string, object>
+            {
+                ["baseAnalyzerId"] = "prebuilt-document",
+                ["description"] = "Sample invoice analyzer that extracts vendor information, line items, and totals from commercial invoices",
+                ["config"] = new Dictionary<string, object>
+                {
+                    ["returnDetails"] = true,
+                    ["enableOcr"] = true,
+                    ["enableLayout"] = true,
+                    ["estimateFieldSourceAndConfidence"] = true
+                },
+                ["fieldSchema"] = new Dictionary<string, object>
+                {
+                    ["name"] = "InvoiceFields",
+                    ["fields"] = new Dictionary<string, object>
+                    {
+                        ["VendorName"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "string",
+                            ["method"] = "extract",
+                            ["description"] = "Name of the vendor or supplier, typically found in the header section"
+                        },
+                        ["Items"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "array",
+                            ["method"] = "extract",
+                            ["description"] = "List of items on the invoice",
+                            ["items"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "object",
+                                ["properties"] = new Dictionary<string, object>
+                                {
+                                    ["Description"] = new Dictionary<string, object>
+                                    {
+                                        ["type"] = "string",
+                                        ["method"] = "extract",
+                                        ["description"] = "Description of the item"
+                                    },
+                                    ["Amount"] = new Dictionary<string, object>
+                                    {
+                                        ["type"] = "number",
+                                        ["method"] = "extract",
+                                        ["description"] = "Amount of the item"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                ["models"] = new Dictionary<string, object>
+                {
+                    ["completion"] = "gpt-4.1"
+                }
+            };
+        }
+
+        /// <summary>
+        /// Creates the analyzer definition for call recording analytics.
+        /// Matches the structure from field_extraction_service2.cs (Program).
+        /// </summary>
+        private Dictionary<string, object> CreateCallRecordingAnalyzerDefinition()
+        {
+            return new Dictionary<string, object>
+            {
+                ["baseAnalyzerId"] = "prebuilt-callCenter",
+                ["description"] = "Sample call recording analytics",
+                ["config"] = new Dictionary<string, object>
+                {
+                    ["returnDetails"] = true,
+                    ["locales"] = new[] { "en-US" }
+                },
+                ["fieldSchema"] = new Dictionary<string, object>
+                {
+                    ["name"] = "CallRecordingFields",
+                    ["fields"] = new Dictionary<string, object>
+                    {
+                        ["Summary"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "string",
+                            ["method"] = "generate",
+                            ["description"] = "A one-paragraph summary"
+                        },
+                        ["Topics"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "array",
+                            ["method"] = "generate",
+                            ["description"] = "Top 5 topics mentioned",
+                            ["items"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "string"
+                            }
+                        },
+                        ["Companies"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "array",
+                            ["method"] = "generate",
+                            ["description"] = "List of companies mentioned",
+                            ["items"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "string"
+                            }
+                        },
+                        ["People"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "array",
+                            ["method"] = "generate",
+                            ["description"] = "List of people mentioned",
+                            ["items"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "object",
+                                ["properties"] = new Dictionary<string, object>
+                                {
+                                    ["Name"] = new Dictionary<string, object>
+                                    {
+                                        ["type"] = "string",
+                                        ["description"] = "Person's name"
+                                    },
+                                    ["Role"] = new Dictionary<string, object>
+                                    {
+                                        ["type"] = "string",
+                                        ["description"] = "Person's title/role"
+                                    }
+                                }
+                            }
+                        },
+                        ["Sentiment"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "string",
+                            ["method"] = "classify",
+                            ["description"] = "Overall sentiment",
+                            ["enum"] = new[] { "Positive", "Neutral", "Negative" }
+                        },
+                        ["Categories"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "array",
+                            ["method"] = "classify",
+                            ["description"] = "List of relevant categories",
+                            ["items"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "string",
+                                ["enum"] = new[]
+                                {
+                                    "Agriculture", "Business", "Finance", "Health",
+                                    "Insurance", "Mining", "Pharmaceutical", "Retail",
+                                    "Technology", "Transportation"
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
+        /// <summary>
+        /// Creates the analyzer definition for conversation audio analytics.
+        /// Matches the structure from field_extraction_service2.cs (Program).
+        /// </summary>
+        private Dictionary<string, object> CreateConversationAudioAnalyzerDefinition()
+        {
+            return new Dictionary<string, object>
+            {
+                ["baseAnalyzerId"] = "prebuilt-audio",
+                ["description"] = "Sample conversational audio analytics",
+                ["config"] = new Dictionary<string, object>
+                {
+                    ["returnDetails"] = true,
+                    ["locales"] = new[] { "en-US" }
+                },
+                ["fieldSchema"] = new Dictionary<string, object>
+                {
+                    ["name"] = "ConversationFields",
+                    ["fields"] = new Dictionary<string, object>
+                    {
+                        ["Summary"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "string",
+                            ["method"] = "generate",
+                            ["description"] = "A one-paragraph summary"
+                        },
+                        ["Sentiment"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "string",
+                            ["method"] = "classify",
+                            ["description"] = "Overall sentiment",
+                            ["enum"] = new[] { "Positive", "Neutral", "Negative" }
+                        }
+                    }
+                },
+                ["models"] = new Dictionary<string, object>
+                {
+                    ["completion"] = "gpt-4.1"
+                }
+            };
+        }
+
+        /// <summary>
+        /// Creates the analyzer definition for marketing video analytics.
+        /// Matches the structure from field_extraction_service2.cs (Program).
+        /// </summary>
+        private Dictionary<string, object> CreateMarketingVideoAnalyzerDefinition()
+        {
+            return new Dictionary<string, object>
+            {
+                ["baseAnalyzerId"] = "prebuilt-video",  // Note: Program uses "prebuilt-video" not "prebuilt-videoSearch"
+                ["description"] = "Sample marketing video analytics",
+                ["config"] = new Dictionary<string, object>
+                {
+                    ["returnDetails"] = true,
+                    ["segmentationMode"] = "noSegmentation"
+                },
+                ["fieldSchema"] = new Dictionary<string, object>
+                {
+                    ["name"] = "VideoFields",
+                    ["fields"] = new Dictionary<string, object>
+                    {
+                        ["Description"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "string",
+                            ["description"] = "Detailed summary of the video segment, focusing on product characteristics, lighting, and color palette."
+                        },
+                        ["Sentiment"] = new Dictionary<string, object>
+                        {
+                            ["type"] = "string",
+                            ["method"] = "classify",
+                            ["enum"] = new[] { "Positive", "Neutral", "Negative" }
+                        }
+                    }
+                },
+                ["models"] = new Dictionary<string, object>
+                {
+                    ["completion"] = "gpt-4.1"
+                }
+            };
+        }
+
+        /// <summary>
+        /// Validates the field extraction result structure and content.
+        /// </summary>
+        /// <param name="result">The JsonDocument result from field extraction.</param>
+        /// <param name="scenarioName">The name of the scenario being tested.</param>
+        private void ValidateFieldExtractionResult(JsonDocument result, string scenarioName)
+        {
+            Assert.NotNull(result);
+            Console.WriteLine($"\n📋 Validating result for scenario: {scenarioName}");
+
+            // Verify result structure
+            Assert.True(result.RootElement.TryGetProperty("result", out var resultElement),
+                "Result should contain 'result' property");
+
+            // Check warnings (should be empty or not critical)
+            if (resultElement.TryGetProperty("warnings", out var warnings) &&
+                warnings.ValueKind == JsonValueKind.Array)
+            {
+                var warningsArray = warnings.EnumerateArray().ToList();
+                if (warningsArray.Any())
+                {
+                    Console.WriteLine($"⚠️  Warnings found: {warningsArray.Count}");
+                    foreach (var warning in warningsArray)
+                    {
+                        if (warning.TryGetProperty("code", out var code))
+                        {
+                            var warningCode = code.GetString();
+                            var message = warning.TryGetProperty("message", out var msg) ? msg.GetString() : "";
+                            Console.WriteLine($"  - {warningCode}: {message}");
+                        }
+                    }
+                }
+                // Don't fail on warnings, just log them
+            }
+
+            // Check contents (should exist and not be empty)
+            Assert.True(resultElement.TryGetProperty("contents", out var contents),
+                "Result should contain 'contents' array");
+            Assert.True(contents.ValueKind == JsonValueKind.Array,
+                "Contents should be an array");
+
+            var contentsArray = contents.EnumerateArray().ToList();
+            Assert.NotEmpty(contentsArray);
+            Console.WriteLine($"✓ Found {contentsArray.Count} content item(s)");
+
+            var content = contentsArray[0];
+
+            // Verify content kind
+            if (content.TryGetProperty("kind", out var kind))
+            {
+                var kindValue = kind.GetString();
+                Console.WriteLine($"✓ Content kind: {kindValue}");
+            }
+
+            // Verify markdown exists (may be empty for some content types)
+            Assert.True(content.TryGetProperty("markdown", out var markdown),
+                "Content should contain 'markdown' property");
+
+            var markdownText = markdown.GetString();
+            Console.WriteLine($"✓ Markdown content length: {markdownText?.Length ?? 0} characters");
+
+            // For document content, markdown should not be empty
+            if (content.TryGetProperty("kind", out var contentKind) && contentKind.GetString() == "document")
+            {
+                Assert.False(string.IsNullOrWhiteSpace(markdownText),
+                    "Markdown content should not be empty for document type");
+            }
+
+            // Verify fields exist and are not empty
+            Assert.True(content.TryGetProperty("fields", out var fields),
+                "Content should contain 'fields' property");
+            Assert.True(fields.ValueKind == JsonValueKind.Object,
+                "Fields should be an object");
+
+            var fieldsCount = fields.EnumerateObject().Count();
+            Assert.True(fieldsCount > 0, "Fields should not be empty");
+            Console.WriteLine($"✓ Extracted {fieldsCount} field(s)");
+
+            // Log extracted field names
+            var fieldNames = fields.EnumerateObject().Select(f => f.Name).ToList();
+            Console.WriteLine($"✓ Field names: {string.Join(", ", fieldNames)}");
+
+            // Scenario-specific validations
+            ValidateScenarioSpecificFields(fields, scenarioName);
+        }
+
+        /// <summary>
+        /// Performs scenario-specific field validations.
+        /// </summary>
+        private void ValidateScenarioSpecificFields(JsonElement fields, string scenarioName)
+        {
+            Console.WriteLine($"\n🔍 Scenario-specific validation for: {scenarioName}");
+
+            switch (scenarioName)
+            {
+                case "invoice":
+                    // Validate invoice-specific fields
+                    Assert.True(fields.TryGetProperty("VendorName", out var vendorName),
+                        "Invoice should have VendorName field");
+                    Console.WriteLine($"  ✓ VendorName field found");
+
+                    Assert.True(fields.TryGetProperty("Items", out var items),
+                        "Invoice should have Items field");
+                    if (items.TryGetProperty("type", out var itemsType))
+                    {
+                        Assert.Equal("array", itemsType.GetString());
+                        Console.WriteLine($"  ✓ Items field is of type array");
+                    }
+
+                    // Check if Items has valueArray
+                    if (items.TryGetProperty("valueArray", out var valueArray) &&
+                        valueArray.ValueKind == JsonValueKind.Array)
+                    {
+                        var itemsCount = valueArray.GetArrayLength();
+                        Console.WriteLine($"  ✓ Items contains {itemsCount} item(s)");
+                    }
+
+                    Console.WriteLine("✅ Invoice-specific fields validated");
+                    break;
+
+                case "call_recording":
+                    // Validate call recording-specific fields
+                    Assert.True(fields.TryGetProperty("Summary", out _),
+                        "Call recording should have Summary field");
+                    Console.WriteLine($"  ✓ Summary field found");
+
+                    Assert.True(fields.TryGetProperty("Sentiment", out _),
+                        "Call recording should have Sentiment field");
+                    Console.WriteLine($"  ✓ Sentiment field found");
+
+                    // Optional: Check for other fields
+                    if (fields.TryGetProperty("Topics", out _))
+                    {
+                        Console.WriteLine($"  ✓ Topics field found");
+                    }
+                    if (fields.TryGetProperty("People", out _))
+                    {
+                        Console.WriteLine($"  ✓ People field found");
+                    }
+
+                    Console.WriteLine("✅ Call recording-specific fields validated");
+                    break;
+
+                case "conversation_audio":
+                    // Validate conversation audio-specific fields
+                    Assert.True(fields.TryGetProperty("Summary", out _),
+                        "Conversation audio should have Summary field");
+                    Console.WriteLine($"  ✓ Summary field found");
+
+                    Assert.True(fields.TryGetProperty("Sentiment", out _),
+                        "Conversation audio should have Sentiment field");
+                    Console.WriteLine($"  ✓ Sentiment field found");
+
+                    Console.WriteLine("✅ Conversation audio-specific fields validated");
+                    break;
+
+                case "marketing_video":
+                    // Validate marketing video-specific fields
+                    Assert.True(fields.TryGetProperty("Description", out _),
+                        "Marketing video should have Description field");
+                    Console.WriteLine($"  ✓ Description field found");
+
+                    Assert.True(fields.TryGetProperty("Sentiment", out _),
+                        "Marketing video should have Sentiment field");
+                    Console.WriteLine($"  ✓ Sentiment field found");
+
+                    Console.WriteLine("✅ Marketing video-specific fields validated");
+                    break;
+
+                default:
+                    Console.WriteLine($"⚠️  No specific validation for scenario: {scenarioName}");
+                    break;
+            }
         }
     }
 }

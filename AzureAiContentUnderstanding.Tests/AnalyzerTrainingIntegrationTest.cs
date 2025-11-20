@@ -1,13 +1,9 @@
 ﻿using AnalyzerTraining.Interfaces;
 using AnalyzerTraining.Services;
-using Azure.AI.ContentUnderstanding;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using System.Text.Json;
 
 namespace AzureAiContentUnderstanding.Tests
@@ -17,7 +13,7 @@ namespace AzureAiContentUnderstanding.Tests
         private readonly IAnalyzerTrainingService service;
         // SAS URL for uploading training data to Azure Blob Storage
         // Replace with your SAS URL for actual usage
-        private string trainingDataSasUrl = "https://<your_storage_account_name>.blob.core.windows.net/<your_container_name>?<your_sas_token>";
+        private string trainingDataSasUrl = "https://mmisamplevendorsstorage.blob.core.windows.net/mmi-sample-vendors-container?sv=2025-07-05&spr=https&st=2025-11-20T02%3A07%3A52Z&se=2025-11-21T02%3A07%3A52Z&skoid=9fd079de-7a31-4919-82e5-2ff3a6a022b1&sktid=72f988bf-86f1-41af-91ab-2d7cd011db47&skt=2025-11-20T02%3A07%3A52Z&ske=2025-11-21T02%3A07%3A52Z&sks=b&skv=2025-07-05&sr=c&sp=rcwdl&sig=9Fo%2Fy2gMhoE9qW4FyGif%2BAPPBa%2FSr2wF2CsdLLNcioo%3D";
         // Local directory for generated training data (dynamically named for each test run)
         private string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/";
         // Local folder containing source documents for training
@@ -28,13 +24,13 @@ namespace AzureAiContentUnderstanding.Tests
         /// </summary>
         public AnalyzerTrainingIntegrationTest()
         {
-            var host = Host.CreateDefaultBuilder()
-                .ConfigureServices((context, services) =>
+            // Create host and configure services
+            var host = ContentUnderstandingBootstrapper.CreateHost(
+                configureServices: (context, services) =>
                 {
-                    services.AddHttpClient<ContentUnderstandingClient>();
                     services.AddSingleton<IAnalyzerTrainingService, AnalyzerTrainingService>();
-                })
-                .Build();
+                }
+            );
 
             service = host.Services.GetService<IAnalyzerTrainingService>()!;
             // Optionally override SAS URL from environment variable
@@ -54,49 +50,177 @@ namespace AzureAiContentUnderstanding.Tests
         public async Task RunAsync()
         {
             Exception? serviceException = null;
-            AnalyzeResult? result = null;
-            var analyzerId = string.Empty;
+            JsonDocument? result = null;
+            string analyzerId = $"test_analyzer_training_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
 
             try
-            {   // Step 1: Generate training data and upload to blob storage
+            {
+                // Step 1: Generate training data and upload to blob storage
                 await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
 
                 // Step 2: Validate that all local files are uploaded to blob storage
                 var files = Directory.GetFiles(trainingDocsFolder, "*.*", SearchOption.AllDirectories).ToList().ToHashSet();
-                // check if the training data is uploaded to the blob storage
+
+                // Check if the training data is uploaded to the blob storage
                 var blobClient = new BlobContainerClient(new Uri(trainingDataSasUrl));
                 var blobFiles = new HashSet<string>();
-                await foreach (BlobItem blobItem in blobClient.GetBlobsAsync(prefix: trainingDataPath))
+
+                // Ensure trainingDataPath ends with "/"
+                var normalizedPrefix = trainingDataPath.EndsWith("/") ? trainingDataPath : trainingDataPath + "/";
+
+                await foreach (BlobItem blobItem in blobClient.GetBlobsAsync(prefix: normalizedPrefix))
                 {
-                    var name = blobItem.Name.Substring(trainingDataPath.Length);
+                    var name = blobItem.Name.Substring(normalizedPrefix.Length);
                     if (!string.IsNullOrEmpty(name) && !name.EndsWith("/"))
                     {
                         blobFiles.Add(name);
                     }
                 }
 
-                var fileNames = files.Select(f => Path.GetRelativePath(trainingDocsFolder, f)).ToHashSet();
+                var fileNames = files.Select(f => Path.GetFileName(f)).ToHashSet();
+
                 // Assert: All local files are present in Blob
-                Assert.True(JsonSerializer.Serialize(fileNames) == JsonSerializer.Serialize(blobFiles), "Mismatch between local training data and uploaded blob files");
+                Assert.Equal(JsonSerializer.Serialize(fileNames.OrderBy(x => x)),
+                             JsonSerializer.Serialize(blobFiles.OrderBy(x => x)));
 
                 // Step 3: Create custom analyzer using training data and template
-                var analyzerTemplatePath = "./analyzer_templates/receipt.json";
-                var contentAnalyzer = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
+                // Define the analyzer as a dictionary (matching Python notebook structure)
+                var contentAnalyzer = new Dictionary<string, object>
+                {
+                    ["baseAnalyzerId"] = "prebuilt-document",
+                    ["description"] = "Extract useful information from receipt with labeled training data",
+                    ["config"] = new Dictionary<string, object>
+                    {
+                        ["returnDetails"] = true,
+                        ["enableLayout"] = true,
+                        ["enableFormula"] = false,
+                        ["estimateFieldSourceAndConfidence"] = true
+                    },
+                    ["fieldSchema"] = new Dictionary<string, object>
+                    {
+                        ["name"] = "receipt schema",
+                        ["description"] = "Schema for receipt",
+                        ["fields"] = new Dictionary<string, object>
+                        {
+                            ["MerchantName"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "string",
+                                ["method"] = "extract",
+                                ["description"] = "Name of the merchant"
+                            },
+                            ["Items"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "array",
+                                ["method"] = "generate",
+                                ["description"] = "List of items purchased",
+                                ["items"] = new Dictionary<string, object>
+                                {
+                                    ["type"] = "object",
+                                    ["method"] = "extract",
+                                    ["description"] = "Individual item details",
+                                    ["properties"] = new Dictionary<string, object>
+                                    {
+                                        ["Quantity"] = new Dictionary<string, object>
+                                        {
+                                            ["type"] = "string",
+                                            ["method"] = "extract",
+                                            ["description"] = "Quantity of the item"
+                                        },
+                                        ["Name"] = new Dictionary<string, object>
+                                        {
+                                            ["type"] = "string",
+                                            ["method"] = "extract",
+                                            ["description"] = "Name of the item"
+                                        },
+                                        ["Price"] = new Dictionary<string, object>
+                                        {
+                                            ["type"] = "string",
+                                            ["method"] = "extract",
+                                            ["description"] = "Price of the item"
+                                        }
+                                    }
+                                }
+                            },
+                            ["TotalPrice"] = new Dictionary<string, object>
+                            {
+                                ["type"] = "string",
+                                ["method"] = "extract",
+                                ["description"] = "Total price on the receipt"
+                            }
+                        }
+                    },
+                    ["tags"] = new Dictionary<string, object>
+                    {
+                        ["demo_type"] = "analyzer_training"
+                    },
+                    ["models"] = new Dictionary<string, object>
+                    {
+                        ["completion"] = "gpt-4.1",
+                        ["embedding"] = "text-embedding-3-large"  // Required when using knowledge sources
+                    }
+                };
+
+                // Create analyzer with the loaded definition
+                var analyzerResult = await service.CreateAnalyzerAsync(
+                    analyzerId,
+                    contentAnalyzer,
+                    trainingDataSasUrl,
+                    trainingDataPath);
+
+                Assert.NotNull(analyzerResult);
+                Assert.True(analyzerResult.RootElement.TryGetProperty("status", out var status));
 
                 // Step 4: Analyze sample document with custom analyzer and verify output
                 var customAnalyzerSampleFilePath = "./data/receipt.png";
-                result = await service.AnalyzeDocumentWithCustomAnalyzerAsync(contentAnalyzer.AnalyzerId, customAnalyzerSampleFilePath);
+                result = await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);
 
-                Assert.False(result?.Warnings.Any(), "The warnings array should be empty");
-                Assert.False(result?.Contents.Any(), "The contents array is empty");
+                Assert.NotNull(result);
 
-                var content = result?.Contents[0];
-                Assert.True(string.IsNullOrWhiteSpace(content?.Markdown), "The markdown content is empty");
-                Assert.False(content?.Fields.Any(), "The output content lacks the 'fields' field");
+                // Verify the result structure
+                Assert.True(result.RootElement.TryGetProperty("result", out var resultElement));
+
+                // Check warnings (should be empty or not exist)
+                if (resultElement.TryGetProperty("warnings", out var warnings) &&
+                    warnings.ValueKind == JsonValueKind.Array)
+                {
+                    Assert.Empty(warnings.EnumerateArray());
+                }
+
+                // Check contents (should exist and not be empty)
+                Assert.True(resultElement.TryGetProperty("contents", out var contents));
+                Assert.True(contents.ValueKind == JsonValueKind.Array);
+
+                var contentsArray = contents.EnumerateArray().ToList();
+                Assert.NotEmpty(contentsArray);
+
+                var content = contentsArray[0];
+
+                // Verify markdown content exists
+                Assert.True(content.TryGetProperty("markdown", out var markdown));
+                Assert.False(string.IsNullOrWhiteSpace(markdown.GetString()));
+
+                // Verify fields exist
+                Assert.True(content.TryGetProperty("fields", out var fields));
+                Assert.True(fields.EnumerateObject().Any());
             }
             catch (Exception ex)
             {
                 serviceException = ex;
+            }
+            finally
+            {
+                // Cleanup: Delete the analyzer if it was created
+                if (!string.IsNullOrEmpty(analyzerId) && serviceException == null)
+                {
+                    try
+                    {
+                        await service.DeleteAnalyzerAsync(analyzerId);
+                    }
+                    catch
+                    {
+                        // Ignore cleanup errors
+                    }
+                }
             }
 
             // Final assertion: No exception should be thrown during the workflow

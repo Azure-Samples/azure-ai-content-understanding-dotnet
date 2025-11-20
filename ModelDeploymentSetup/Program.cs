@@ -2,7 +2,6 @@ using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using System.Text;
 
 namespace ModelDeploymentSetup

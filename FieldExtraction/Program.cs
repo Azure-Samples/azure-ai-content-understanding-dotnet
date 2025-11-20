@@ -3,7 +3,6 @@ using ContentUnderstanding.Common.Extensions;
 using FieldExtraction.Interfaces;
 using FieldExtraction.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using System.Text;
 
 namespace FieldExtraction
