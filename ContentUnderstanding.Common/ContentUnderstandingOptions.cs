@@ -14,7 +14,7 @@ namespace ContentUnderstanding.Common
 
         public string SubscriptionKey { get; set; } = "";
 
-        public string UserAgent { get; set; } = "";
+        public string? UserAgent { get; set; } = "";
 
         public string TrainingDataSasUrl { get; set; } = "";
 
