@@ -54,8 +54,33 @@ namespace ContentUnderstanding.Common.Extensions
                 ?? "2025-11-01";
 
             // Read user agent from configuration or use default
-            string userAgent = configuration.GetValue<string>("AZURE_AI_USER_AGENT")
-                ?? "cu-dotnet-client";
+            // The user agent is used for tracking sample usage and does not provide identity information.
+            // You can customize this value or set it to null/empty string to opt out of tracking.
+            string? userAgent = null;
+            
+            // Check configuration first (appsettings.json)
+            var configValue = configuration["AZURE_AI_USER_AGENT"];
+            if (configValue != null)
+            {
+                // If explicitly set (even to empty string), use that value
+                // Empty string means opt out (will be converted to null)
+                userAgent = string.IsNullOrWhiteSpace(configValue) ? null : configValue;
+            }
+            else
+            {
+                // If not in config, check environment variable
+                var envValue = Environment.GetEnvironmentVariable("AZURE_AI_USER_AGENT");
+                if (envValue != null)
+                {
+                    // If explicitly set in env (even to empty string), use that value
+                    userAgent = string.IsNullOrWhiteSpace(envValue) ? null : envValue;
+                }
+                else
+                {
+                    // If not set anywhere, use default
+                    userAgent = "azure-ai-content-understanding-dotnet-sample-ga";
+                }
+            }
 
             // Configure ContentUnderstandingOptions
             services.Configure<ContentUnderstandingOptions>(options =>

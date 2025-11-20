@@ -324,6 +324,15 @@ After copying `appsettings.example.json` to `appsettings.json`, configure the fo
   - Default: `2025-11-01` (GA version)
   - Only change if you need to use a different API version
 
+- **`AZURE_AI_USER_AGENT`** (Optional)
+  - The user agent string sent with HTTP requests to the Content Understanding API
+  - Default: `azure-ai-content-understanding-dotnet-sample-ga`
+  - The user agent is used for tracking sample usage and does not provide identity information
+  - You can customize this value to any string you prefer
+  - **To opt out of tracking:** Set this to `null` or an empty string (`""`) to prevent the user agent header from being sent
+  - Can be set in `appsettings.json` or as an environment variable
+  - Example: `"AZURE_AI_USER_AGENT": "my-custom-user-agent"` or `"AZURE_AI_USER_AGENT": null`
+
 - **`TRAINING_DATA_SAS_URL`** (Optional - Only required for `AnalyzerTraining` sample)
   - SAS URL for the Azure Blob container containing training data
   - Format: `https://<storage-account-name>.blob.core.windows.net/<container-name>?<sas-token>`

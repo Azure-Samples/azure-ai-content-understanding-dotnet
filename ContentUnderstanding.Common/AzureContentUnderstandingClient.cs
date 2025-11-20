@@ -193,7 +193,11 @@ namespace ContentUnderstanding.Common
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             }
 
-            request.Headers.Add("x-ms-useragent", _options.Value.UserAgent);
+            // Only add user agent header if it's not null or empty
+            if (!string.IsNullOrEmpty(_options.Value.UserAgent))
+            {
+                request.Headers.Add("x-ms-useragent", _options.Value.UserAgent);
+            }
             request.Content = content;
             return request;
         }
