@@ -20,24 +20,31 @@ namespace AzureAiContentUnderstanding.Tests
     {
         private readonly IFieldExtractionProModeService service;
         private readonly AzureContentUnderstandingClient client;
-        private readonly string referenceDocSasUrl = "https://<your_storage_account_name>.blob.core.windows.net/<your_container_name>?<your_sas_token>";
+        // SAS URL for the Azure Blob Storage container to upload training data
+        private string accountName = "";
+        private string containerName = "";
 
         /// <summary>
         /// Sets up dependency injection, configures the test host, and validates required configurations.
         /// </summary>
         /// <exception cref="ArgumentException">
-        /// Thrown if required configuration values for "AZURE_CU_CONFIG:Endpoint" or "AZURE_CU_CONFIG:ApiVersion" are missing.
+        /// Thrown if required configuration values for "AZURE_CONTENT_UNDERSTANDING_ENDPOINT" or "AZURE_APIVERSION" are missing.
         /// </exception>
         public FieldExtractionProModeIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
+                .ConfigureAppConfiguration((context, config) =>
+                {
+                    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                    config.AddEnvironmentVariables();
+                })
                 .ConfigureServices((context, services) =>
                 {
                     // Load configuration from environment variables or appsettings.json
-                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_Endpoint") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
+                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") ?? context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_ENDPOINT");
 
                     // API version for Azure Content Understanding service
-                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_ApiVersion") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");
+                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_APIVERSION") ?? context.Configuration.GetValue<string>("AZURE_APIVERSION");
 
                     if (string.IsNullOrWhiteSpace(endpoint))
                     {
@@ -48,10 +55,28 @@ namespace AzureAiContentUnderstanding.Tests
                         throw new ArgumentException("API version must be provided in environment variable or appsettings.json.");
                     }
 
+                    // account name
+                    accountName = Environment.GetEnvironmentVariable("REFERENCE_DOC_STORAGE_ACCOUNT_NAME") ?? context.Configuration.GetValue<string>("REFERENCE_DOC_STORAGE_ACCOUNT_NAME") ?? "";
+
+                    // container name
+                    containerName = Environment.GetEnvironmentVariable("REFERENCE_DOC_CONTAINER_NAME") ?? context.Configuration.GetValue<string>("REFERENCE_DOC_CONTAINER_NAME") ?? "";
+
+                    if (string.IsNullOrWhiteSpace(accountName))
+                    {
+                        throw new ArgumentException("Storage account name must be provided in environment variable or appsettings.json.");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(containerName))
+                    {
+                        throw new ArgumentException("Storage container name must be provided in environment variable or appsettings.json.");
+                    }
+
                     services.AddConfigurations(opts =>
                     {
                         opts.Endpoint = endpoint;
                         opts.ApiVersion = apiVersion;
+                        opts.SubscriptionKey = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_KEY") ?? context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_KEY") ?? "";
+
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/field_extraction_pro_mode";
                     });
@@ -63,7 +88,6 @@ namespace AzureAiContentUnderstanding.Tests
 
             service = host.Services.GetService<IFieldExtractionProModeService>()!;
             client = host.Services.GetService<AzureContentUnderstandingClient>()!;
-            referenceDocSasUrl = Environment.GetEnvironmentVariable("REFERENCE_DOCS_SAS_URL") ?? referenceDocSasUrl;
         }
 
         /// <summary>
@@ -83,6 +107,8 @@ namespace AzureAiContentUnderstanding.Tests
                 var referenceDocsFolder = "./data/field_extraction_pro_mode/invoice_contract_verification/reference_docs";
                 var analyzer_template = "./analyzer_templates/invoice_contract_verification_pro_mode.json";
                 var input_docs = "./data/field_extraction_pro_mode/invoice_contract_verification/input_docs";
+                // Construct the SAS URL for the blob storage container
+                var referenceDocSasUrl = await service.GetReferenceContainerSasUrlAsync(accountName, containerName);
 
                 // Validate input files and templates exist
                 Assert.True(Directory.GetFiles(referenceDocsFolder).Length > 0);

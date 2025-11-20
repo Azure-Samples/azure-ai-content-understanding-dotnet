@@ -1,4 +1,5 @@
 ﻿using Azure.Storage.Blobs;
+using Azure.Storage.Sas;
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Models;
 using FieldExtractionProMode.Interfaces;
@@ -21,6 +22,30 @@ namespace FieldExtractionProMode.Services
             {
                 Directory.CreateDirectory(OutputPath);
             }
+        }
+
+        /// <summary>
+        /// Get a Shared Access Signature (SAS) URL for a specified Azure Blob Storage container.
+        /// </summary>
+        /// <remarks>The generated SAS URL grants access to the specified container with the specified
+        /// permissions for the specified duration. The method uses the Azure Identity library to authenticate and
+        /// generate the SAS token.</remarks>
+        /// <param name="accountName">The name of the Azure Storage account. This value cannot be null, empty, or whitespace.</param>
+        /// <param name="containerName">The name of the blob container for which the SAS URL is generated. This value cannot be null, empty, or
+        /// whitespace.</param>
+        /// <param name="permissions">The permissions to include in the SAS token. If not specified, the default permissions are  <see
+        /// cref="BlobContainerSasPermissions.Read"/>, <see cref="BlobContainerSasPermissions.Write"/>, and <see
+        /// cref="BlobContainerSasPermissions.List"/>.</param>
+        /// <param name="expiryHours">The number of hours until the SAS token expires. The default value is 1 hour. Must be a positive integer.</param>
+        /// <returns>A string containing the SAS URL for the specified container, including the SAS token.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="accountName"/> or <paramref name="containerName"/> is null, empty, or consists
+        /// only of whitespace.</exception>
+        public async Task<string> GetReferenceContainerSasUrlAsync(string accountName,
+            string containerName,
+            BlobContainerSasPermissions? permissions = null,
+            int expiryHours = 1)
+        {
+            return await _client.GenerateContainerSasUrlAsync(accountName, containerName, permissions, expiryHours);
         }
 
         /// <summary>
@@ -182,7 +207,7 @@ namespace FieldExtractionProMode.Services
         public async Task<JsonDocument> AnalyzeDocumentWithDefinedSchemaForProModeAsync(string analyzerId, string fileLocation)
         {
             var response = await _client.BeginAnalyzeAsync(analyzerId, fileLocation).ConfigureAwait(false);
-            JsonDocument resultJson = await _client.PollResultAsync(response, timeoutSeconds: 1200).ConfigureAwait(false);
+            JsonDocument resultJson = await _client.PollResultAsync(response, timeoutSeconds: 3600).ConfigureAwait(false);
 
             if (resultJson.RootElement.TryGetProperty("error", out JsonElement errorElement))
             {

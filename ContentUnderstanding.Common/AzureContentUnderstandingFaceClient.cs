@@ -33,14 +33,24 @@ namespace ContentUnderstanding.Common
         /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task<HttpResponseMessage> CreatePersonDirectoryAsync(string personDirectoryId, string description = "", Dictionary<string, dynamic>? tags = null)
         {
-            var requestBody = new Dictionary<string, dynamic>
+            try
             {
-                ["description"] = description,
-                ["tags"] = tags ?? new Dictionary<string, dynamic>()
-            };
+                var requestBody = new Dictionary<string, dynamic>
+                {
+                    ["description"] = description,
+                    ["tags"] = tags ?? new Dictionary<string, dynamic>()
+                };
 
-            var request = await CreateRequestAsync(HttpMethod.Put, $"personDirectories/{personDirectoryId}", requestBody);
-            return await SendRequestAsync<HttpResponseMessage>(request);
+                var request = await CreateRequestAsync(HttpMethod.Put, $"personDirectories/{personDirectoryId}", requestBody);
+                var response = await SendRequestAsync<HttpResponseMessage>(request);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating person directory: {ex.Message}");
+                throw;
+            }
         }
 
         /// <summary>
@@ -316,6 +326,8 @@ namespace ContentUnderstanding.Common
             // Add authentication
             if (!string.IsNullOrEmpty(_options.Value.SubscriptionKey))
             {
+                Console.WriteLine("======================Using subscription key for authentication.===========================");
+                Console.WriteLine($"{string.IsNullOrWhiteSpace(_options.Value.SubscriptionKey)}");
                 request.Headers.Add("Ocp-Apim-Subscription-Key", _options.Value.SubscriptionKey);
             }
             else if (_tokenProvider != null)
@@ -328,11 +340,8 @@ namespace ContentUnderstanding.Common
             request.Headers.Add("x-ms-useragent", _options.Value.UserAgent);
 
             // Serialize content if provided
-            if (content != null)
-            {
-                var json = JsonSerializer.Serialize(content);
-                request.Content = new StringContent(json, Encoding.UTF8, new MediaTypeHeaderValue("application/json"));
-            }
+            var json = JsonSerializer.Serialize(content);
+            request.Content = new StringContent(json, Encoding.UTF8, new MediaTypeHeaderValue("application/json"));
 
             return request;
         }

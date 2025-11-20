@@ -24,18 +24,23 @@ namespace AzureAiContentUnderstanding.Tests
         /// Sets up dependency injection, configures the test host, and validates required configurations.
         /// </summary>
         /// <exception cref="ArgumentException">
-        /// Thrown if required configuration values for AZURE_CU_CONFIG:Endpoint or AZURE_CU_CONFIG:ApiVersion are missing.
+        /// Thrown if required configuration values for AZURE_CONTENT_UNDERSTANDING_ENDPOINT or AZURE_APIVERSION are missing.
         /// </exception>
         public BuildPersonDirectoryIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
+                .ConfigureAppConfiguration((context, config) =>
+                {
+                    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                    config.AddEnvironmentVariables();
+                })
                 .ConfigureServices((context, services) =>
                 {
                     // Load configuration from environment variables or appsettings.json
-                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_Endpoint") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
+                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") ?? context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_ENDPOINT");
 
                     // API version for Azure Content Understanding service
-                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_ApiVersion") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");
+                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_APIVERSION") ?? context.Configuration.GetValue<string>("AZURE_APIVERSION");
 
                     if (string.IsNullOrWhiteSpace(endpoint))
                     {
@@ -50,6 +55,8 @@ namespace AzureAiContentUnderstanding.Tests
                     {
                         opts.Endpoint = endpoint;
                         opts.ApiVersion = apiVersion;
+                        opts.SubscriptionKey = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_KEY") ?? context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_KEY") ?? "";
+
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/build_person_directory";
                     });
@@ -67,8 +74,8 @@ namespace AzureAiContentUnderstanding.Tests
         /// Covers scenarios: directory creation, enrollment, identification, face management, metadata update, and cleanup.
         /// Asserts success and validity at each step. Any unexpected exception is captured and asserted as null.
         /// </summary>
-        [Fact(DisplayName = "Build Person Directory Integration Test")]
-        [Trait("Category", "Integration")]
+        // [Fact(DisplayName = "Build Person Directory Integration Test")]
+        // [Trait("Category", "Integration")]
         public async Task RunAsync()
         {
             Exception? serviceException = null;

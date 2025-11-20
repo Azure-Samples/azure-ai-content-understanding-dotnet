@@ -1,0 +1,55 @@
+name: Unit Test Check
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Every day at 08:00 UTC
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allows manual run from GitHub UI
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test-apis:
+    runs-on: ubuntu-latest
+    environment: MMI-Samples
+    env: 
+      AZURE_CONTENT_UNDERSTANDING_ENDPOINT: ${{ secrets.AZURE_CONTENT_UNDERSTANDING_ENDPOINT }}
+      TRAINING_DATA_STORAGE_ACCOUNT_NAME: ${{ secrets.TRAINING_DATA_STORAGE_ACCOUNT_NAME }}
+      TRAINING_DATA_CONTAINER_NAME: ${{ secrets.TRAINING_DATA_CONTAINER_NAME }}
+      REFERENCE_DOC_STORAGE_ACCOUNT_NAME: ${{ secrets.REFERENCE_DOC_STORAGE_ACCOUNT_NAME }}
+      REFERENCE_DOC_CONTAINER_NAME: ${{ secrets.REFERENCE_DOC_CONTAINER_NAME }}
+      
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:         
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Pull LFS files
+        run: git lfs pull
+          
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Run Tests
+        run: dotnet test --no-build --verbosity normal

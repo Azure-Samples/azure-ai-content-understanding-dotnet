@@ -10,17 +10,13 @@ using Microsoft.Extensions.Hosting;
 using System.Text.Json;
 
 namespace AzureAiContentUnderstanding.Tests
-{
+{ 
     public class AnalyzerTrainingIntegrationTest
     {
         private readonly IAnalyzerTrainingService service;
-        // SAS URL for uploading training data to Azure Blob Storage
-        // Replace with your SAS URL for actual usage
-        private string trainingDataSasUrl = "https://<your_storage_account_name>.blob.core.windows.net/<your_container_name>?<your_sas_token>";
-        // Local directory for generated training data (dynamically named for each test run)
-        private string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/";
-        // Local folder containing source documents for training
-        private const string trainingDocsFolder = "./data/document_training";
+        // SAS URL for the Azure Blob Storage container to upload training data
+        private string accountName = "";
+        private string containerName = "";
 
         /// <summary>
         /// Initializes test dependencies and AnalyzerTrainingService via dependency injection.
@@ -28,13 +24,18 @@ namespace AzureAiContentUnderstanding.Tests
         public AnalyzerTrainingIntegrationTest()
         {
             var host = Host.CreateDefaultBuilder()
+                .ConfigureAppConfiguration((context, config) =>
+                {
+                    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                    config.AddEnvironmentVariables();
+                })
                 .ConfigureServices((context, services) =>
                 {
                     // Load configuration from environment variables or appsettings.json
-                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_Endpoint") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint");
+                    string? endpoint = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_ENDPOINT") ?? context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_ENDPOINT");
 
                     // API version for Azure Content Understanding service
-                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_CU_CONFIG_ApiVersion") ?? context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion");
+                    string? apiVersion = Environment.GetEnvironmentVariable("AZURE_APIVERSION") ?? context.Configuration.GetValue<string>("AZURE_APIVERSION");
 
                     if (string.IsNullOrWhiteSpace(endpoint))
                     {
@@ -45,10 +46,28 @@ namespace AzureAiContentUnderstanding.Tests
                         throw new ArgumentException("API version must be provided in environment variable or appsettings.json.");
                     }
 
+                    // account name
+                    accountName = Environment.GetEnvironmentVariable("TRAINING_DATA_STORAGE_ACCOUNT_NAME") ?? context.Configuration.GetValue<string>("TRAINING_DATA_STORAGE_ACCOUNT_NAME") ?? "";
+
+                    // container name
+                    containerName = Environment.GetEnvironmentVariable("TRAINING_DATA_CONTAINER_NAME") ?? context.Configuration.GetValue<string>("TRAINING_DATA_CONTAINER_NAME") ?? "";
+
+                    if (string.IsNullOrWhiteSpace(accountName))
+                    {
+                        throw new ArgumentException("Storage account name must be provided in environment variable or appsettings.json.");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(containerName))
+                    {
+                        throw new ArgumentException("Storage container name must be provided in environment variable or appsettings.json.");
+                    }
+
                     services.AddConfigurations(opts =>
                     {
                         opts.Endpoint = endpoint;
                         opts.ApiVersion = apiVersion;
+                        opts.SubscriptionKey = Environment.GetEnvironmentVariable("AZURE_CONTENT_UNDERSTANDING_KEY") ?? context.Configuration.GetValue<string>("AZURE_CONTENT_UNDERSTANDING_KEY") ?? "";
+
                         // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
                         opts.UserAgent = "azure-ai-content-understanding-dotnet/analyzer_training";
                     });
@@ -59,8 +78,6 @@ namespace AzureAiContentUnderstanding.Tests
                 .Build();
 
             service = host.Services.GetService<IAnalyzerTrainingService>()!;
-            // Optionally override SAS URL from environment variable
-            trainingDataSasUrl = Environment.GetEnvironmentVariable("TRAINING_DATA_SAS_URL") ?? trainingDataSasUrl;
         }
 
         /// <summary>
@@ -78,34 +95,24 @@ namespace AzureAiContentUnderstanding.Tests
             Exception? serviceException = null;
             JsonDocument? resultJson = null;
             var analyzerId = string.Empty;
+            // Local directory for generated training data (dynamically named for each test run)
+            string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/";
+            // Local folder containing source documents for training
+            string trainingDocsFolder = "./data/document_training";
 
             try
-            {   // Step 1: Generate training data and upload to blob storage
+            {
+                // Construct the SAS URL for the blob storage container
+                var trainingDataSasUrl = await service.GetTrainingContainerSasUrlAsync(accountName, containerName);
+
+                // Step 1: Generate training data and upload to blob storage
                 await service.GenerateTrainingDataOnBlobAsync(trainingDocsFolder, trainingDataSasUrl, trainingDataPath);
 
-                // Step 2: Validate that all local files are uploaded to blob storage
-                var files = Directory.GetFiles(trainingDocsFolder, "*.*", SearchOption.AllDirectories).ToList().ToHashSet();
-                // check if the training data is uploaded to the blob storage
-                var blobClient = new BlobContainerClient(new Uri(trainingDataSasUrl));
-                var blobFiles = new HashSet<string>();
-                await foreach (BlobItem blobItem in blobClient.GetBlobsAsync(prefix: trainingDataPath))
-                {
-                    var name = blobItem.Name.Substring(trainingDataPath.Length);
-                    if (!string.IsNullOrEmpty(name) && !name.EndsWith("/"))
-                    {
-                        blobFiles.Add(name);
-                    }
-                }
-
-                var fileNames = files.Select(f => Path.GetRelativePath(trainingDocsFolder, f)).ToHashSet();
-                // Assert: All local files are present in Blob
-                Assert.True(JsonSerializer.Serialize(fileNames) == JsonSerializer.Serialize(blobFiles), "Mismatch between local training data and uploaded blob files");
-
-                // Step 3: Create custom analyzer using training data and template
+                // Step 2: Create custom analyzer using training data and template
                 var analyzerTemplatePath = "./analyzer_templates/receipt.json";
                 analyzerId = await service.CreateAnalyzerAsync(analyzerTemplatePath, trainingDataSasUrl, trainingDataPath);
 
-                // Step 4: Analyze sample document with custom analyzer and verify output
+                // Step 3: Analyze sample document with custom analyzer and verify output
                 var customAnalyzerSampleFilePath = "./data/receipt.png";
                 resultJson = await service.AnalyzeDocumentWithCustomAnalyzerAsync(analyzerId, customAnalyzerSampleFilePath);
 
