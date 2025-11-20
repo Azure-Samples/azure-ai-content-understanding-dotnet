@@ -2,7 +2,7 @@
 
 This sample demonstrates how to enhance your analyzer's performance by training it with labeled data. Labeled data consists of samples that have been tagged with one or more labels to add context or meaning, which improves the analyzer's accuracy.
 
-> **Note**: Currently, this feature is only available when the analyzer scenario is set to `document`.
+> **Note**: Currently, this feature is only available when the baseAnalyzerId is set to `prebuilt-document`.
 
 In your own projects, you can use [Azure Content Understanding Studio](https://contentunderstanding.ai.azure.com/home) to annotate your data with the labeling tool.
 
@@ -28,11 +28,36 @@ The Analyzer Training sample demonstrates how to:
 
 4. **Set up Training Data Storage**:
    - Create an Azure Storage Account and Blob Container (see [Set up training data](../docs/set_env_for_training_data_and_reference_doc.md) for detailed instructions)
-   - Generate a SAS URL for your blob container with Read, Write, and List permissions
-   - Set the following environment variables (or provide them when prompted):
-     - `TRAINING_DATA_SAS_URL` - The SAS URL for your Azure Blob container
+   - Configure training data settings in `appsettings.json` or as environment variables:
+     
+     **Option 1: Use SAS URL directly**
+     - `TRAINING_DATA_SAS_URL` - The full SAS URL for your Azure Blob container (e.g., `https://mystorageaccount.blob.core.windows.net/mycontainer?sv=2023-01-03&ss=b&srt=co&sp=rwl&se=...`)
      - `TRAINING_DATA_PATH` - The folder path within the container (e.g., `training_data/` or `labeling-data/`)
-     - Optionally: `TRAINING_DATA_STORAGE_ACCOUNT_NAME` and `TRAINING_DATA_CONTAINER_NAME` (for automatic SAS URL generation - not yet implemented in C#)
+     
+     **Option 2: Use Storage Account and Container Names** (for automatic SAS URL generation)
+     - `TRAINING_DATA_STORAGE_ACCOUNT_NAME` - The name of your Azure Storage account (e.g., `mystorageaccount`)
+     - `TRAINING_DATA_CONTAINER_NAME` - The name of your blob container (e.g., `mycontainer`)
+     - `TRAINING_DATA_PATH` - The folder path within the container (e.g., `training_data/` or `labeling-data/`). If not set or empty, defaults to container root.
+     
+     **Important Notes:**
+     - The storage account name is **not** a container URL. It's just the account name.
+     - When using storage account and container names, the sample will automatically generate a SAS URL using Azure AD authentication (`DefaultAzureCredential`). Ensure your Azure credentials have permissions to generate SAS tokens for the storage account.
+     - To extract the account name and container name from a storage URL:
+       - Storage URL format: `https://{account-name}.blob.core.windows.net/{container-name}/...`
+       - Example: From `https://mystorageaccount.blob.core.windows.net/mycontainer/training_data/`
+         - Account name: `mystorageaccount`
+         - Container name: `mycontainer`
+         - Path: `training_data/`
+     - The `TRAINING_DATA_PATH` value will automatically have a trailing `/` added if not present. An empty value uses the container root.
+     - Example `appsettings.json` configuration:
+       ```json
+       {
+         "TRAINING_DATA_SAS_URL": null,
+         "TRAINING_DATA_STORAGE_ACCOUNT_NAME": "mystorageaccount",
+         "TRAINING_DATA_CONTAINER_NAME": "mycontainer",
+         "TRAINING_DATA_PATH": "training_data/"
+       }
+       ```
 
 5. **Prepare Training Data**:
    - The training folder should contain a flat (one-level) directory of labeled receipt documents
@@ -269,7 +294,17 @@ var knowledgeSourceConfig = new Dictionary<string, object>
 analyzerDefinition["knowledgeSources"] = new List<Dictionary<string, object>> { knowledgeSourceConfig };
 ```
 
-**Source:** [`AnalyzerTrainingService.cs`](Services/AnalyzerTrainingService.cs#L100-L130)
+When creating the analyzer, the sample displays the knowledge source information:
+
+```
+Creating custom analyzer 'analyzer_training_sample_...'...
+   Knowledge source: Training data uploaded to https://mystorageaccount.blob.core.windows.net/mycontainer
+   Data path: training_data/
+```
+
+Note that the container URL is displayed without the SAS token for security. The actual SAS URL (with token) is used internally for API calls.
+
+**Source:** [`AnalyzerTrainingService.cs`](Services/AnalyzerTrainingService.cs#L100-L145)
 
 ### Analyzer Creation Process
 
@@ -313,8 +348,10 @@ public async Task<JsonDocument> AnalyzeDocumentWithCustomAnalyzerAsync(
 
 2. **Set up Training Data Storage**:
    - Create an Azure Storage Account and Blob Container
-   - Generate a SAS URL with Read, Write, and List permissions
-   - Set `TRAINING_DATA_SAS_URL` and `TRAINING_DATA_PATH` environment variables (or provide them when prompted)
+   - Configure training data settings in `appsettings.json`:
+     - **Option 1**: Set `TRAINING_DATA_SAS_URL` (full SAS URL) and `TRAINING_DATA_PATH`
+     - **Option 2**: Set `TRAINING_DATA_STORAGE_ACCOUNT_NAME`, `TRAINING_DATA_CONTAINER_NAME`, and `TRAINING_DATA_PATH`
+   - See the [Prerequisites](#prerequisites) section above for detailed configuration instructions and how to extract account/container names from storage URLs
 
 3. **Build the project:**
    ```bash
@@ -329,10 +366,13 @@ public async Task<JsonDocument> AnalyzeDocumentWithCustomAnalyzerAsync(
    
    The sample will:
    - Ask you to confirm that model deployments have been configured
-   - Prompt for training data SAS URL and path (if not set in environment variables)
+   - Display current training data configuration from `appsettings.json` or environment variables
+   - Prompt for missing training data configuration (SAS URL or storage account/container names, and path if not set)
+   - Automatically generate SAS URL from storage account and container name if needed (using Azure AD authentication)
    - Upload training data to Azure Blob Storage
-   - Create a custom analyzer with labeled training data
+   - Create a custom analyzer with labeled training data (showing knowledge source container URL and data path)
    - Analyze a sample document using the trained analyzer
+   - Display extracted fields (the main purpose of the sample)
    - Optionally delete the analyzer
 
 ## Output
@@ -341,20 +381,14 @@ The sample saves full analysis results as JSON files in the `sample_output/analy
 
 - **Extracted fields** - Structured data matching your field schema
 - **Field metadata** - Confidence scores, source locations, and bounding boxes
-- **Content metadata** - Pages, timing information, and other content details
 - **Full analysis result** - Complete JSON response from the API
 
 ### Displaying Analysis Results
 
-The sample automatically displays analysis results in a readable format:
+The sample focuses on displaying the extracted fields, which is the main purpose of analyzer training:
 
 ```
-📄 Markdown Content:
-==================================================
-[Document content preview...]
-==================================================
-
-📊 Analyzer Training Results:
+Analyzer Training Results:
 
 MerchantName:
   Value: CONTOSO LTD.
@@ -372,14 +406,11 @@ Items:
 
 TotalPrice:
   Value: 30.00
-
-📋 Content Metadata:
-   Category: receipt
-   Start Page Number: 1
-   End Page Number: 1
 ```
 
-**Source:** [`AnalyzerTrainingService.cs`](Services/AnalyzerTrainingService.cs#L320-L450)
+The sample does not display document/page/table information, as the focus is on demonstrating the trained analyzer's field extraction capabilities.
+
+**Source:** [`AnalyzerTrainingService.cs`](Services/AnalyzerTrainingService.cs#L300-L404)
 
 ## Key Implementation Details
 
@@ -441,7 +472,16 @@ if (!string.IsNullOrEmpty(fileListPath))
 analyzerDefinition["knowledgeSources"] = new List<Dictionary<string, object>> { knowledgeSourceConfig };
 ```
 
-**Source:** [`AnalyzerTrainingService.cs`](Services/AnalyzerTrainingService.cs#L100-L130)
+When creating the analyzer, the sample displays the knowledge source information showing the container URL (without the SAS token) and the data path:
+
+```csharp
+// Extract container URL from SAS URL (remove SAS token)
+var containerUrl = ExtractContainerUrlFromSasUrl(trainingStorageContainerSasUrl);
+Console.WriteLine($"   Knowledge source: Training data uploaded to {containerUrl}");
+Console.WriteLine($"   Data path: {trainingStorageContainerPathPrefix}");
+```
+
+**Source:** [`AnalyzerTrainingService.cs`](Services/AnalyzerTrainingService.cs#L100-L145)
 
 ### Analyzer Lifecycle
 
@@ -464,7 +504,7 @@ The sample includes comprehensive error handling:
 try
 {
     await service.GenerateTrainingDataOnBlobAsync(...);
-    Console.WriteLine($"✅ Training data upload completed!");
+    Console.WriteLine("Training data upload completed.");
 }
 catch (FileNotFoundException ex)
 {
@@ -476,7 +516,9 @@ catch (Exception ex)
 }
 ```
 
-**Source:** [`Program.cs`](Program.cs#L140-L150)
+Note: Emojis are only used for warnings (⚠️) and errors (❌). Informational messages do not use emojis.
+
+**Source:** [`Program.cs`](Program.cs#L213-L223)
 
 ### Asynchronous Operations
 

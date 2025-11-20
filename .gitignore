@@ -24,6 +24,5 @@ BenchmarkDotNet.Artifacts/
 appsettings.*.json
 !appsettings.example.json
 /ContentUnderstanding.Common/appsettings.json
-/ContentUnderstanding.Common/appsettings.json
 **/sample_output/
 **/test_output/
