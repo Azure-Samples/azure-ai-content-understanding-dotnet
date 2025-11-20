@@ -1,24 +1,19 @@
-﻿using ContentExtraction.Interfaces;
+﻿using Azure;
+using ContentExtraction.Interfaces;
 using ContentUnderstanding.Common;
+using ContentUnderstanding.Common.Helpers;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace ContentExtraction.Services
 {
     public class ContentExtractionService : IContentExtractionService
     {
         private readonly AzureContentUnderstandingClient _client;
-        private const string CacheDir = ".cache";
-        private readonly string OutputPath = "./outputs/content_extraction/";
+        private const string OutputPath = "./sample_output/";
 
         public ContentExtractionService(AzureContentUnderstandingClient client)
         {
             _client = client;
-
-            if (!Directory.Exists(CacheDir))
-            {
-                Directory.CreateDirectory(CacheDir);
-            }
 
             if (!Directory.Exists(OutputPath))
             {
@@ -27,304 +22,744 @@ namespace ContentExtraction.Services
         }
 
         /// <summary>
-        /// Document Content
-        /// <remarks>Content Understanding API is designed to extract all textual content from a specified document file. 
-        /// In addition to text extraction, it conducts a comprehensive layout analysis to identify and categorize tables and figures within the document. 
-        /// The output is then presented in a structured markdown format, ensuring clarity and ease of interpretation.</remarks>
+        /// Resolves the path to a data file, checking multiple locations.
         /// </summary>
-        /// <param name="filePath">The path to the document file to be analyzed. Must be a valid file path.</param>
-        /// <returns>A task representing the asynchronous operation. The task completes when the document analysis is finished.</returns>
+        private static string ResolveDataFilePath(string fileName)
+        {
+            // Try current directory first
+            var currentDirPath = Path.Combine("./data", fileName);
+            if (File.Exists(currentDirPath))
+            {
+                return currentDirPath;
+            }
+
+            // Try assembly directory (where ContentUnderstanding.Common.dll is located)
+            var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            if (!string.IsNullOrEmpty(assemblyLocation))
+            {
+                var assemblyDir = Path.GetDirectoryName(assemblyLocation);
+                if (!string.IsNullOrEmpty(assemblyDir))
+                {
+                    var assemblyDataPath = Path.Combine(assemblyDir, "data", fileName);
+                    if (File.Exists(assemblyDataPath))
+                    {
+                        return assemblyDataPath;
+                    }
+                }
+            }
+
+            // Try ContentUnderstanding.Common/data relative to current directory
+            var commonDataPath = Path.Combine("..", "ContentUnderstanding.Common", "data", fileName);
+            if (File.Exists(commonDataPath))
+            {
+                return commonDataPath;
+            }
+
+            // Return the original path if not found (will throw error later)
+            return currentDirPath;
+        }
+
+        /// <summary>
+        /// Analyzes the document at the specified file path.
+        /// </summary>
+        /// <param name="filePath">The path to the document file to be analyzed.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        /// <exception cref="FileNotFoundException"></exception>
         public async Task<JsonDocument> AnalyzeDocumentAsync(string filePath)
         {
-            Console.WriteLine("Document Content Extraction Sample is running...");
-
-            const string analyzerId = "prebuilt-documentAnalyzer";
-            var apiNameDescription = "extract document content";
-            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            // Resolve the file path to handle different execution contexts
+            var resolvedPath = ResolveDataFilePath(Path.GetFileName(filePath));
+            
+            // Check if file exists
+            if (!File.Exists(resolvedPath))
             {
-                Console.WriteLine($"Use {analyzerId} to {apiNameDescription} from the file: {filePath}");
+                Console.WriteLine($"❌ File '{resolvedPath}' not found.");
+                Console.WriteLine("Sample files should be in: ContentUnderstanding.Common/data/");
+                Console.WriteLine("   Available sample files: invoice.pdf, mixed_financial_docs.pdf");
+                Console.WriteLine("   Please ensure you're running from the correct directory or update the filePath variable.");
+
+                throw new FileNotFoundException($"File '{resolvedPath}' not found.");
             }
-            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath);
-            var resultJson = await _client.PollResultAsync(response);
-            var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
-            // write to json file.
-            var output = $"{Path.Combine(OutputPath, $"{nameof(AnalyzeDocumentAsync)}_{DateTime.Now.ToString("yyyyMMddHHmmss")}.json")}";
-            await File.WriteAllTextAsync(output, serializedJson);
+            filePath = resolvedPath;
 
-            Console.WriteLine("\n===== Document Extraction has been saved to the following output file path =====");
-            Console.WriteLine($"\n{output}");
+            var analyzerId = "prebuilt-documentSearch";
 
-            var resultData = resultJson.RootElement.GetProperty("result");
-            var contents = resultData.GetProperty("contents");
-            var firstContent = contents.EnumerateArray().First();
+            Console.WriteLine($"Analyzing local file: {filePath} with {analyzerId}...");
 
-            Console.WriteLine("\n===== The markdown output contains layout information, which is very useful for Retrieval-Augmented Generation (RAG) scenarios. You can paste the markdown into a viewer such as Visual Studio Code and preview the layout structure. =====");
-            Console.WriteLine(firstContent.GetProperty("markdown").GetString());
-            Console.WriteLine("\n===== This statement allows you to get structural information of the tables in the documents. =====");
-            Console.WriteLine("\nFor example, the following code will print the first table in the document.");
-            var tables = firstContent.GetProperty("tables");
-            Console.WriteLine(JsonSerializer.Serialize(tables[0], new JsonSerializerOptions { WriteIndented = true }));
+            try
+            {
+                // Analyze the document
+                var response = await _client.BeginAnalyzeBinaryAsync(analyzerId, filePath);
+                JsonDocument result = await _client.PollResultAsync(response);
 
-            // Return the result JSON document
-            return resultJson;
+                Console.WriteLine("\nMarkdown Content:");
+                Console.WriteLine(new string('=', 50));
+
+                // Extract markdown from the first content element
+                var resultProperty = result.RootElement.GetProperty("result");
+                var contents = resultProperty.GetProperty("contents");
+
+                JsonElement? content = null;
+                string? markdown = null;
+
+                if (contents.GetArrayLength() > 0)
+                {
+                    content = contents[0];
+                    if (content.Value.TryGetProperty("markdown", out var markdownProp))
+                    {
+                        markdown = markdownProp.GetString();
+                        Console.WriteLine(markdown);
+                    }
+                }
+                Console.WriteLine(new string('=', 50));
+
+                // Check if this is document content to access document-specific properties
+                if (content.HasValue && content.Value.TryGetProperty("kind", out var kind) && kind.GetString() == "document")
+                {
+                    var documentContent = content.Value;
+                    Console.WriteLine("\nDocument Information:");
+
+                    int startPage = documentContent.GetProperty("startPageNumber").GetInt32();
+                    int endPage = documentContent.GetProperty("endPageNumber").GetInt32();
+
+                    Console.WriteLine($"Start page: {startPage}");
+                    Console.WriteLine($"End page: {endPage}");
+                    Console.WriteLine($"Total pages: {endPage - startPage + 1}");
+
+                    // Check for pages
+                    if (documentContent.TryGetProperty("pages", out var pages))
+                    {
+                        int pageCount = pages.GetArrayLength();
+                        Console.WriteLine($"\nPages ({pageCount}):");
+
+                        string unit = documentContent.TryGetProperty("unit", out var unitProp)
+                            ? unitProp.GetString() ?? "units"
+                            : "units";
+
+                        foreach (var page in pages.EnumerateArray())
+                        {
+                            int pageNumber = page.GetProperty("pageNumber").GetInt32();
+                            double width = page.GetProperty("width").GetDouble();
+                            double height = page.GetProperty("height").GetDouble();
+
+                            Console.WriteLine($"  Page {pageNumber}: {width} x {height} {unit}");
+                        }
+                    }
+
+                    // Check if there are tables in the document
+                    if (documentContent.TryGetProperty("tables", out var tables))
+                    {
+                        int tableCount = tables.GetArrayLength();
+                        Console.WriteLine($"\nTables ({tableCount}):");
+
+                        int tableCounter = 1;
+                        foreach (var table in tables.EnumerateArray())
+                        {
+                            int rowCount = table.GetProperty("rowCount").GetInt32();
+                            int colCount = table.GetProperty("columnCount").GetInt32();
+
+                            Console.WriteLine($"  Table {tableCounter}: {rowCount} rows x {colCount} columns");
+                            tableCounter++;
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("\nDocument Information: Not available for this content type");
+                }
+
+                // Save the result
+                string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_analyze_binary");
+                Console.WriteLine($"\nFull analysis result saved. Review the complete JSON at: {savedJsonPath}");
+
+                return result;
+            }
+            catch (RequestFailedException ex)
+            {
+                Console.WriteLine($"\n❌ Request failed:");
+                Console.WriteLine($"Status: {ex.Status}");
+                Console.WriteLine($"Error Code: {ex.ErrorCode}");
+                Console.WriteLine($"Message: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n❌ Error occurred:");
+                Console.WriteLine($"Type: {ex.GetType().Name}");
+                Console.WriteLine($"Message: {ex.Message}");
+                throw;
+            }
         }
 
         /// <summary>
-        /// Audio Content
-        /// <remarks>Our API output facilitates detailed analysis of spoken language, allowing developers to utilize the data for various applications, such as voice recognition, customer service analytics, and conversational AI. The structure of the output makes it easy to extract and analyze different components of the conversation for further processing or insights.
-        /// 1. Speaker Identification: Each phrase is attributed to a specific speaker(in this case, "Speaker 2"). This allows for clarity in conversations with multiple participants.
-        /// 2. Timing Information: Each transcription includes precise timing data:
-        ///     - startTimeMs: The time (in milliseconds) when the phrase begins.
-        ///     - endTimeMs: The time (in milliseconds) when the phrase ends.
-        /// 3. This information is crucial for applications like video subtitles, allowing synchronization between the audio and the text.
-        /// 4. Text Content: The actual spoken text is provided, which in this instance is "Thank you for calling Woodgrove Travel." This is the main content of the transcription.
-        /// 5. Confidence Score: Each transcription phrase includes a confidence score (0.933 in this case), indicating the likelihood that the transcription is accurate.A higher score suggests greater reliability.
-        /// 6. Word-Level Breakdown: The transcription is further broken down into individual words, each with its own timing information. This allows for detailed analysis of speech patterns and can be useful for applications such as language processing or speech recognition improvement.
-        /// 7. Locale Specification: The locale is specified as "en-US," indicating that the transcription is in American English. This is important for ensuring that the transcription algorithms account for regional dialects and pronunciations.</remarks>
+        /// Analyzes a document from a specified URL using a prebuilt document analyzer.
         /// </summary>
-        /// <remarks>This method uses a prebuilt audio analyzer to extract content and metadata from the specified
-        /// audio file. The analysis results are serialized and displayed in the console.</remarks>
-        /// <param name="filePath">The path to the audio file to be analyzed. The file must exist and be accessible.</param>
-        /// <returns>A task that represents the asynchronous operation. The task completes when the analysis is finished.</returns>
+        /// <remarks>This method performs an analysis of a document located at a predefined URL using a
+        /// specific analyzer. The analysis extracts content such as markdown, document metadata, pages, and tables, and
+        /// outputs the results to the console. The full analysis result is saved as a JSON file for further
+        /// review.</remarks>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        public async Task<JsonDocument> AnalyzeDocumentFromUrlAsync(string documentUrl)
+        {
+            // Analyze document from URL
+            string analyzerId = "prebuilt-documentSearch";
+
+            Console.WriteLine($"Analyzing document from URL: {documentUrl}");
+            Console.WriteLine($"Using analyzer: {analyzerId}\n");
+
+            var response = await _client.BeginAnalyzeUrlAsync(
+                analyzerId: analyzerId,
+                url: documentUrl
+            );
+
+            var result = await _client.PollResultAsync(response);
+
+            Console.WriteLine("\nMarkdown Content:");
+            Console.WriteLine(new string('=', 50));
+
+            // Extract markdown from the first content element
+            var resultProperty = result.RootElement.GetProperty("result");
+            var contents = resultProperty.GetProperty("contents");
+
+            JsonElement? content = null;
+            string? markdown = null;
+
+            if (contents.GetArrayLength() > 0)
+            {
+                content = contents[0];
+                if (content.Value.TryGetProperty("markdown", out var markdownProp))
+                {
+                    markdown = markdownProp.GetString();
+                    Console.WriteLine(markdown);
+                }
+            }
+            Console.WriteLine(new string('=', 50));
+
+            // Check if this is document content to access document-specific properties
+            if (content.HasValue && content.Value.TryGetProperty("kind", out var kind) && kind.GetString() == "document")
+            {
+                var documentContent = content.Value;
+                Console.WriteLine("\nDocument Information:");
+
+                int startPage = documentContent.GetProperty("startPageNumber").GetInt32();
+                int endPage = documentContent.GetProperty("endPageNumber").GetInt32();
+
+                Console.WriteLine($"Start page: {startPage}");
+                Console.WriteLine($"End page: {endPage}");
+                Console.WriteLine($"Total pages: {endPage - startPage + 1}");
+
+                // Check for pages
+                if (documentContent.TryGetProperty("pages", out var pages))
+                {
+                    int pageCount = pages.GetArrayLength();
+                    Console.WriteLine($"\nPages ({pageCount}):");
+
+                    string unit = documentContent.TryGetProperty("unit", out var unitProp)
+                        ? unitProp.GetString() ?? "units"
+                        : "units";
+
+                    foreach (var page in pages.EnumerateArray())
+                    {
+                        int pageNumber = page.GetProperty("pageNumber").GetInt32();
+                        double width = page.GetProperty("width").GetDouble();
+                        double height = page.GetProperty("height").GetDouble();
+
+                        Console.WriteLine($"  Page {pageNumber}: {width} x {height} {unit}");
+                    }
+                }
+
+                // Check if there are tables in the document
+                if (documentContent.TryGetProperty("tables", out var tables))
+                {
+                    int tableCount = tables.GetArrayLength();
+                        Console.WriteLine($"\nTables ({tableCount}):");
+
+                    int tableCounter = 1;
+                    foreach (var table in tables.EnumerateArray())
+                    {
+                        int rowCount = table.GetProperty("rowCount").GetInt32();
+                        int colCount = table.GetProperty("columnCount").GetInt32();
+
+                        Console.WriteLine($"  Table {tableCounter}: {rowCount} rows x {colCount} columns");
+                        tableCounter++;
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("\nDocument Information: Not available for this content type");
+            }
+
+            // Save the result
+            string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_url_document");
+            Console.WriteLine($"\nFull analysis result saved. Review the complete JSON at: {savedJsonPath}");
+
+            return result;
+        }
+
+        /// <summary>
+        /// Analyzes an audio file using a prebuilt audio analyzer and processes the results.
+        /// </summary>
+        /// <remarks>This method performs the following steps: <list type="bullet">
+        /// <item><description>Initiates an audio analysis operation using a specified analyzer.</description></item>
+        /// <item><description>Waits for the analysis to complete and retrieves the results.</description></item>
+        /// <item><description>Processes the analysis results, including extracting markdown content and audio-visual
+        /// details such as transcript phrases and timing information.</description></item> </list> The method outputs
+        /// relevant information to the console, including a preview of the markdown content, transcript phrases, and
+        /// audio-visual metadata.  The full analysis result is saved as a JSON file for further review.</remarks>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         public async Task<JsonDocument> AnalyzeAudioAsync(string filePath)
         {
-            Console.WriteLine("\nAudio Content Extraction Sample is running...");
-
-            const string analyzerId = "prebuilt-audioAnalyzer";
-            var apiNameDescription = "extract audio content";
-            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            // Resolve the file path to handle different execution contexts
+            var resolvedPath = ResolveDataFilePath(Path.GetFileName(filePath));
+            
+            if (!File.Exists(resolvedPath))
             {
-                Console.WriteLine($"Use {analyzerId} to {apiNameDescription} from the file: {filePath}");
+                throw new FileNotFoundException($"Audio file '{resolvedPath}' not found.");
             }
-            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath);
-            var resultJson = await _client.PollResultAsync(response);
-            var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
-            // write to json file.
-            var output = $"{Path.Combine(OutputPath, $"{nameof(AnalyzeAudioAsync)}_{DateTime.Now.ToString("yyyyMMddHHmmss")}.json")}";
-            await File.WriteAllTextAsync(output, serializedJson);
+            filePath = resolvedPath;
+            string analyzerId = "prebuilt-audio";
 
-            Console.WriteLine("\n===== Audio Extraction has been saved to the following output file path =====");
-            Console.WriteLine($"\n{output}");
+            // Analyze audio file with the created analyzer
+            Console.WriteLine($"Analyzing audio file from path: {filePath} with analyzer '{analyzerId}'...");
 
-            // Return the result JSON document
-            return resultJson;
+            // Begin audio analysis operation
+            Console.WriteLine($"Starting audio analysis with analyzer '{analyzerId}'...");
+            var analysisResponse = await _client.BeginAnalyzeBinaryAsync(
+                analyzerId: analyzerId,
+                fileLocation: filePath
+            );
+
+            // Wait for analysis completion
+            Console.WriteLine("Waiting for audio analysis to complete...");
+            var result = await _client.PollResultAsync(analysisResponse);
+            Console.WriteLine("Audio analysis completed successfully!");
+
+            Console.WriteLine("\nMarkdown Content:");
+            Console.WriteLine(new string('=', 50));
+
+            // Extract markdown from the first content element
+            var resultProperty = result.RootElement.GetProperty("result");
+            var contents = resultProperty.GetProperty("contents");
+
+            string? markdown = null;
+            JsonElement? content = null;
+
+            if (contents.GetArrayLength() > 0)
+            {
+                content = contents[0];
+                if (content.Value.TryGetProperty("markdown", out var markdownProp))
+                {
+                    markdown = markdownProp.GetString();
+                    Console.WriteLine(markdown);
+                }
+            }
+            Console.WriteLine(new string('=', 50));
+
+            // Check if this is audio-visual content to access audio-visual properties
+            if (content.HasValue && content.Value.TryGetProperty("kind", out var kind) && kind.GetString() == "audioVisual")
+            {
+                var audioVisualContent = content.Value;
+                Console.WriteLine("\nAudio-Visual Information:");
+
+                // Basic Audio-Visual Details
+                try
+                {
+                    long startTime = audioVisualContent.GetProperty("startTimeMs").GetInt64();
+                    long endTime = audioVisualContent.GetProperty("endTimeMs").GetInt64();
+                    double durationSec = (endTime - startTime) / 1000.0;
+                    Console.WriteLine($"Start Time: {startTime} ms");
+                    Console.WriteLine($"End Time: {endTime} ms");
+                    Console.WriteLine($"Duration: {durationSec:F2} seconds");
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("❌ Missing basic audio-visual content details.");
+                }
+
+                // Transcript Phrases (limit to 10)
+                if (audioVisualContent.TryGetProperty("transcriptPhrases", out var transcriptPhrases))
+                {
+                    int phrasesCount = transcriptPhrases.GetArrayLength();
+                    Console.WriteLine($"\nTranscript Phrases ({Math.Min(phrasesCount, 10)}):");
+
+                    int idx = 0;
+                    foreach (var phrase in transcriptPhrases.EnumerateArray().Take(10))
+                    {
+                        idx++;
+                        Console.WriteLine($"  {idx}. Speaker: {phrase.GetProperty("speaker").GetString()}");
+                        Console.WriteLine($"     Text: {phrase.GetProperty("text").GetString()}");
+                        Console.WriteLine($"     Start: {phrase.GetProperty("startTimeMs").GetInt64()} ms, " +
+                                        $"End: {phrase.GetProperty("endTimeMs").GetInt64()} ms");
+                        double confidence = phrase.GetProperty("confidence").GetDouble();
+                        Console.WriteLine($"     Confidence: {confidence:P2}");
+                        Console.WriteLine($"     Locale: {phrase.GetProperty("locale").GetString()}");
+                    }
+
+                    if (phrasesCount > 10)
+                    {
+                        Console.WriteLine($"  ... and {phrasesCount - 10} more.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("\nNo transcript phrases available.");
+                }
+
+                // Markdown Preview
+                if (!string.IsNullOrEmpty(markdown))
+                {
+                    Console.WriteLine("\nMarkdown Content Preview:");
+                    string preview = markdown.Length > 200 ? markdown.Substring(0, 200) + "..." : markdown;
+                    Console.WriteLine(preview);
+                }
+                else
+                {
+                    Console.WriteLine("\nNo Markdown content available.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("\nAudio-Visual Information: Not available for this content type.");
+            }
+
+            // Save the result
+            string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_audio");
+            Console.WriteLine($"\nFull analysis result saved. Review the complete JSON at: {savedJsonPath}");
+
+            return result;
         }
 
         /// <summary>
-        /// Video Content
-        /// <remarks>Video output provides detailed information about audiovisual content, specifically video shots. Here are the key features it offers:
-        /// 1. Shot Information: Each shot is defined by a start and end time, along with a unique identifier.For example, Shot 0:0.0 to 0:2.800 includes a transcript and key frames.
-        /// 2. Transcript: The API includes a transcript of the audio, formatted in WEBVTT, which allows for easy synchronization with the video.It captures spoken content and specifies the timing of the dialogue.
-        /// 3. Key Frames: It provides a series of key frames (images) that represent important moments in the video shot, allowing users to visualize the content at specific timestamps.
-        /// 4. Description: Each shot is accompanied by a description, providing context about the visuals presented. This helps in understanding the scene or subject matter without watching the video.
-        /// 5. Audio Visual Metadata: Details about the video such as dimensions (width and height), type(audiovisual), and the presence of key frame timestamps are included.
-        /// 6. Transcript Phrases: The output includes specific phrases from the transcript, along with timing and speaker information, enhancing the usability for applications like closed captioning or search functionalities.</remarks>
+        /// Analyzes a video file using a prebuilt video analyzer and processes the analysis results.
         /// </summary>
-        /// <remarks>This method uses a prebuilt video analyzer to process the video file and extract relevant
-        /// content. The analysis results include metadata and key frames, which are saved for further use. Ensure the
-        /// provided <paramref name="filePath"/> points to a valid video file.</remarks>
-        /// <param name="filePath">The path to the video file to be analyzed. The file must exist and be accessible.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
+        /// <remarks>This method performs the following steps: <list type="bullet">
+        /// <item><description>Initiates a video analysis operation using a specified analyzer.</description></item>
+        /// <item><description>Polls for the completion of the analysis operation.</description></item>
+        /// <item><description>Extracts and displays key information, such as markdown content, transcript phrases, and
+        /// key frames.</description></item> <item><description>Saves the full analysis result to a JSON file and
+        /// processes keyframe images if available.</description></item> </list> The method assumes the video file is
+        /// located at a predefined path and uses a specific analyzer ID.</remarks>
+        /// <returns></returns>
         public async Task<JsonDocument> AnalyzeVideoAsync(string filePath)
         {
-            Console.WriteLine("\nVideo Content Extraction Sample is running");
-
-            const string analyzerId = "prebuilt-videoAnalyzer";
-            var apiNameDescription = "extract video content";
-            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            // Resolve the file path to handle different execution contexts
+            var resolvedPath = ResolveDataFilePath(Path.GetFileName(filePath));
+            
+            if (!File.Exists(resolvedPath))
             {
-                Console.WriteLine($"Use {analyzerId} to {apiNameDescription} from the file: {filePath}");
+                throw new FileNotFoundException($"Video file '{resolvedPath}' not found.");
             }
-            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath);
-            var resultJson = await _client.PollResultAsync(response);
-            var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
-            // write to json file.
-            var output = $"{Path.Combine(OutputPath, $"{nameof(AnalyzeVideoAsync)}_{DateTime.Now.ToString("yyyyMMddHHmmss")}.json")}";
-            await File.WriteAllTextAsync(output, serializedJson);
+            filePath = resolvedPath;
+            string analyzerId = "prebuilt-videoSearch";
 
-            Console.WriteLine("\n===== Video Extraction has been saved to the following output file path =====");
-            Console.WriteLine($"\n{output}");
+            // Analyze video file with the created analyzer
+            Console.WriteLine($"Analyzing video file from path: {filePath} with analyzer '{analyzerId}'...");
 
-            // keep key frames
-            await SaveKeyFrames(resultJson, response);
+            // Begin video analysis operation
+            Console.WriteLine($"Starting video analysis with analyzer '{analyzerId}'...");
+            var analysisResponse = await _client.BeginAnalyzeBinaryAsync(
+                analyzerId: analyzerId,
+                fileLocation: filePath
+            );
 
-            // Return the result JSON document
-            return resultJson;
+            // Wait for analysis completion
+            Console.WriteLine("Waiting for video analysis to complete...");
+            var result = await _client.PollResultAsync(analysisResponse);
+            Console.WriteLine("Video analysis completed successfully!");
+
+            Console.WriteLine("\nMarkdown Content:");
+            Console.WriteLine(new string('=', 50));
+
+            // Extract markdown from the first content element
+            var resultProperty = result.RootElement.GetProperty("result");
+            var contents = resultProperty.GetProperty("contents");
+
+            string? markdown = null;
+            JsonElement? content = null;
+
+            if (contents.GetArrayLength() > 0)
+            {
+                content = contents[0];
+                if (content.Value.TryGetProperty("markdown", out var markdownProp))
+                {
+                    markdown = markdownProp.GetString();
+                    Console.WriteLine(markdown);
+                }
+            }
+            Console.WriteLine(new string('=', 50));
+
+            // Check if this is video-visual content to access video-visual properties
+            if (content.HasValue && content.Value.TryGetProperty("kind", out var kind) && kind.GetString() == "audioVisual")
+            {
+                var videoVisualContent = content.Value;
+                Console.WriteLine("\nVideo-Visual Information:");
+
+                // Basic Video-Visual Details
+                try
+                {
+                    long startTime = videoVisualContent.GetProperty("startTimeMs").GetInt64();
+                    long endTime = videoVisualContent.GetProperty("endTimeMs").GetInt64();
+                    double durationSec = (endTime - startTime) / 1000.0;
+                    Console.WriteLine($"Start Time: {startTime} ms");
+                    Console.WriteLine($"End Time: {endTime} ms");
+                    Console.WriteLine($"Duration: {durationSec:F2} seconds");
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("❌ Missing basic audio-visual content details.");
+                }
+
+                // Transcript Phrases (limit to 10)
+                if (videoVisualContent.TryGetProperty("transcriptPhrases", out var transcriptPhrases))
+                {
+                    int phrasesCount = transcriptPhrases.GetArrayLength();
+                    Console.WriteLine($"\nTranscript Phrases ({Math.Min(phrasesCount, 10)}):");
+
+                    int idx = 0;
+                    foreach (var phrase in transcriptPhrases.EnumerateArray().Take(10))
+                    {
+                        idx++;
+                        Console.WriteLine($"  {idx}. Speaker: {phrase.GetProperty("speaker").GetString()}");
+                        Console.WriteLine($"     Text: {phrase.GetProperty("text").GetString()}");
+                        Console.WriteLine($"     Start: {phrase.GetProperty("startTimeMs").GetInt64()} ms, " +
+                                        $"End: {phrase.GetProperty("endTimeMs").GetInt64()} ms");
+                        double confidence = phrase.GetProperty("confidence").GetDouble();
+                        Console.WriteLine($"     Confidence: {confidence:P2}");
+                        Console.WriteLine($"     Locale: {phrase.GetProperty("locale").GetString()}");
+                    }
+
+                    if (phrasesCount > 10)
+                    {
+                        Console.WriteLine($"  ... and {phrasesCount - 10} more.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("\nNo transcript phrases available.");
+                }
+
+                // Key Frames (support both keyFrameTimesMs and KeyFrameTimesMs for forward compatibility)
+                JsonElement keyFrameTimesMs;
+                bool hasKeyFrames = videoVisualContent.TryGetProperty("keyFrameTimesMs", out keyFrameTimesMs) ||
+                                   videoVisualContent.TryGetProperty("KeyFrameTimesMs", out keyFrameTimesMs);
+
+                if (hasKeyFrames && keyFrameTimesMs.GetArrayLength() > 0)
+                {
+                    int keyFrameCount = keyFrameTimesMs.GetArrayLength();
+                    Console.WriteLine($"\nKey Frames ({keyFrameCount}):");
+
+                    int idx = 0;
+                    foreach (var keyFrameTime in keyFrameTimesMs.EnumerateArray().Take(5))
+                    {
+                        idx++;
+                        Console.WriteLine($"  Frame {idx}: Time {keyFrameTime.GetInt64()} ms");
+                    }
+
+                    if (keyFrameCount > 5)
+                    {
+                        Console.WriteLine($"  ... and {keyFrameCount - 5} more.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("\nNo key frame data available.");
+                }
+
+                // Markdown Preview
+                if (!string.IsNullOrEmpty(markdown))
+                {
+                    Console.WriteLine("\nMarkdown Content Preview:");
+                    string preview = markdown.Length > 200 ? markdown.Substring(0, 200) + "..." : markdown;
+                    Console.WriteLine(preview);
+                }
+                else
+                {
+                    Console.WriteLine("\nNo Markdown content available.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("\nVideo-Visual Information: Not available for this content type.");
+            }
+
+            // Save the result
+            string savedJsonPath = SampleHelper.SaveJsonToFile(result, OutputPath, "content_analyzers_video");
+            Console.WriteLine($"\nFull analysis result saved. Review the complete JSON at: {savedJsonPath}");
+
+            // Keyframe Processing
+            var keyframeIds = ExtractKeyframeIds(result);
+            if (keyframeIds.Count > 0)
+            {
+                await DownloadKeyframeImagesAsync(analysisResponse, keyframeIds, analyzerId);
+            }
+            else
+            {
+                Console.WriteLine("\n❌ No keyframe IDs found in analysis result.");
+            }
+
+            return result;
         }
 
         /// <summary>
-        /// Video Content With Face
-        /// <remarks>This is a gated feature, please go through process [Azure AI Resource Face Gating](https://learn.microsoft.com/en-us/legal/cognitive-services/computer-vision/limited-access-identity?context=%2Fazure%2Fai-services%2Fcomputer-vision%2Fcontext%2Fcontext#registration-process) Select `[Video Indexer] Facial Identification (1:N or 1:1 matching) to search for a face in a media or entertainment video archive to find a face within a video and generate metadata for media or entertainment use cases only` in the registration form.</remarks>
+        /// Extracts a list of keyframe IDs from the provided analysis result.
         /// </summary>
-        /// <param name="filePath">The path to the video file to be analyzed. Must be a valid file path.</param>
-        /// <returns>A task that represents the asynchronous operation. The task completes when the analysis is finished and the
-        /// extracted content, including key frames and face data, has been processed.</returns>
-        public async Task<JsonDocument> AnalyzeVideoWithFaceAsync(string filePath)
+        /// <remarks>This method processes the "contents" array within the "result" property of the
+        /// provided  <paramref name="analysisResult"/>. It identifies elements of kind "audioVisual" and extracts 
+        /// keyframe timestamps from the "keyFrameTimesMs" or "KeyFrameTimesMs" properties. If neither  property is
+        /// present, no keyframe IDs are extracted for that element.</remarks>
+        /// <param name="analysisResult">A <see cref="JsonDocument"/> representing the analysis result. The document must contain a  "result"
+        /// property with a "contents" array, where each element may include keyframe timestamps.</param>
+        /// <returns>List of keyframe IDs (e.g., 'keyframes/1000', 'keyframes/2000').</returns>
+        private List<string> ExtractKeyframeIds(JsonDocument analysisResult)
         {
-            Console.WriteLine("\nVideo Content(with face) Extraction Sample is running...");
-            Console.WriteLine("\nThis is a gated feature: FaceID will not be extracted unless your account has been approved for Face API access.");
-            Console.WriteLine("\nFor details on the gating logic, refer to the comments in the AnalyzeVideoWithFaceAsync() method.");
+            Console.WriteLine("Starting keyframe extraction from analysis result...");
+            var keyframeIds = new List<string>();
 
-            const string analyzerId = "prebuilt-videoAnalyzer";
-            var apiNameDescription = "extract video content with face";
-            if (!string.IsNullOrWhiteSpace(apiNameDescription))
+            var resultProperty = analysisResult.RootElement.GetProperty("result");
+            var contents = resultProperty.GetProperty("contents");
+
+            for (int idx = 0; idx < contents.GetArrayLength(); idx++)
             {
-                Console.WriteLine($"Use {analyzerId} to {apiNameDescription} from the file: {filePath}");
+                var content = contents[idx];
+                if (content.TryGetProperty("kind", out var kind) && kind.GetString() == "audioVisual")
+                {
+                    Console.WriteLine($"Found audioVisual content at index {idx}:");
+
+                    // Support both keyFrameTimesMs and KeyFrameTimesMs for forward compatibility
+                    JsonElement keyFrameTimesMs;
+                    bool hasKeyFrames = content.TryGetProperty("keyFrameTimesMs", out keyFrameTimesMs) ||
+                                       content.TryGetProperty("KeyFrameTimesMs", out keyFrameTimesMs);
+
+                    if (hasKeyFrames)
+                    {
+                        int keyFrameCount = keyFrameTimesMs.GetArrayLength();
+                        Console.WriteLine($"  Found {keyFrameCount} keyframe timestamps");
+
+                        foreach (var timeMs in keyFrameTimesMs.EnumerateArray())
+                        {
+                            string keyframeId = $"keyframes/{timeMs.GetInt64()}";
+                            keyframeIds.Add(keyframeId);
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("  No keyframe timestamps found in this audioVisual content.");
+                    }
+                }
             }
-            var response = await _client.BeginAnalyzeAsync(analyzerId, filePath);
-            var resultJson = await _client.PollResultAsync(response);
-            var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions { WriteIndented = true });
 
-            // write to json file.
-            var output = $"{Path.Combine(OutputPath, $"{nameof(AnalyzeVideoWithFaceAsync)}_{DateTime.Now.ToString("yyyyMMddHHmmss")}.json")}";
-            await File.WriteAllTextAsync(output, serializedJson);
-
-            Console.WriteLine("\n===== Video with face Extraction has been saved to the following output file path =====");
-            Console.WriteLine($"\n{output}");
-
-            // Save key frames and face pictures
-            await SaveFacesAndKeyFrames(resultJson, response);
-
-            // Return the result JSON document
-            return resultJson;
+            Console.WriteLine($"Extracted {keyframeIds.Count} total keyframe IDs: {string.Join(", ", keyframeIds)}");
+            return keyframeIds;
         }
 
         /// <summary>
-        /// Get and Save Key Frames.
+        /// Downloads and saves a subset of keyframe images associated with the specified analysis response.
         /// </summary>
-        /// <remarks>This method processes the "contents" array in the JSON document to identify keyframe IDs
-        /// embedded in markdown content. It then attempts to download and save each keyframe image to the local cache
-        /// directory. If an error occurs while saving a keyframe, the exception is logged, but the method continues
-        /// processing other keyframes.</remarks>
-        /// <param name="resultJson">A <see cref="JsonDocument"/> containing the result data from which keyframe IDs will be extracted. The JSON
-        /// document must include a "result" property with a "contents" array containing markdown elements.</param>
-        /// <param name="response">The <see cref="HttpResponseMessage"/> associated with the analyze operation, used to retrieve keyframe images.</param>
+        /// <remarks>This method retrieves the image content for up to three keyframes from the provided
+        /// analysis response  and saves each image to a file. If no image content is retrieved for a keyframe, it is
+        /// skipped.  The saved file paths are logged to the console.</remarks>
+        /// <param name="analysisResponse">The HTTP response message containing the analysis results. This is used to retrieve the keyframe images.</param>
+        /// <param name="keyframeIds">A list of keyframe identifiers representing the images to be downloaded. Only the first three keyframes  (or
+        /// fewer, if the list contains less than three) will be processed.</param>
+        /// <param name="analyzerId">A unique identifier for the analyzer, used to organize and name the saved keyframe image files.</param>
         /// <returns></returns>
-        public async Task SaveKeyFrames(JsonDocument resultJson, HttpResponseMessage response)
+        private async Task DownloadKeyframeImagesAsync(
+            HttpResponseMessage analysisResponse,
+            List<string> keyframeIds,
+            string analyzerId)
         {
-            // Save keyframes (optional)
-            var keyframeIds = new HashSet<string>();
-            var resultData = resultJson.RootElement.GetProperty("result");
-            var contents = resultData.GetProperty("contents");
+            Console.WriteLine($"\nDownloading {keyframeIds.Count} keyframe images...");
 
-            // Iterate over contents to find keyframes if available
-            foreach (var content in contents.EnumerateArray())
+            var filesToDownload = keyframeIds.Take(Math.Min(3, keyframeIds.Count)).ToList();
+            Console.WriteLine($"Files to download (first {filesToDownload.Count}): {string.Join(", ", filesToDownload)}");
+
+            foreach (var keyframeId in filesToDownload)
             {
-                // Extract keyframe IDs from "markdown" if it exists and is a string
-                if (content.TryGetProperty("markdown", out var markdownElement))
-                {
-                    string? markdown = markdownElement.GetString()!;
+                Console.WriteLine($"Getting result file: {keyframeId}");
 
-                    var matches = Regex.Matches(markdown, @"(keyFrame\.\d+)\.jpg");
-                    foreach (Match match in matches)
-                    {
-                        keyframeIds.Add(match.Groups[1].Value);
-                    }
+                // Get the result file (keyframe image)
+                var imageContent = await _client.GetResultFileAsync(analysisResponse, keyframeId);
+
+                if (imageContent != null)
+                {
+                    Console.WriteLine($"Retrieved image file for {keyframeId} ({imageContent.Length} bytes)");
+
+                    // Save the image file
+                    string savedFilePath = SaveKeyframeImageToFile(
+                        imageContent: imageContent,
+                        keyframeId: keyframeId,
+                        testName: "content_extraction_video",
+                        identifier: analyzerId
+                    );
+                    Console.WriteLine($"Saved keyframe image to: {savedFilePath}");
                 }
-            }
-
-            // Output the results
-            Console.WriteLine($"\nUnique Keyframe IDs: {string.Join(", ", keyframeIds)}");
-
-            // Save all keyframes images
-            foreach (var keyframeId in keyframeIds)
-            {
-                try
+                else
                 {
-                    var imageBytes = await _client.GetImageFromAnalyzeOperationAsync(response, keyframeId);
-                    await File.WriteAllBytesAsync($"{CacheDir}/{keyframeId}.jpg", imageBytes);
-                    Console.WriteLine($"Saved keyframe: {keyframeId}.jpg");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to save keyframe ({keyframeId}): {ex.Message}");
-                    throw;
+                    Console.WriteLine($"❌ No image content retrieved for keyframe: {keyframeId}");
                 }
             }
         }
 
         /// <summary>
-        /// Get and Save Key Frames and Face Thumbnails.
+        /// Saves the provided image content to a file with a generated name based on the keyframe ID, test name, and
+        /// optional identifier.
         /// </summary>
-        /// <remarks>This method processes the JSON response from an analysis operation to identify face and
-        /// keyframe IDs.  It retrieves the associated images using the provided HTTP response and saves them to the local
-        /// cache directory. If an image cannot be retrieved or saved, an error message is logged to the console.</remarks>
-        /// <param name="resultJson">The JSON document containing the analysis results. Must include "result" and "contents" properties.</param>
-        /// <param name="response">The HTTP response message used to retrieve images for the identified face and keyframe IDs.</param>
-        /// <returns></returns>
-        public async Task SaveFacesAndKeyFrames(JsonDocument resultJson, HttpResponseMessage response)
+        /// <remarks>The method generates a unique file name using the current timestamp, the keyframe ID,
+        /// and the test name. If the specified output directory does not exist, it is created automatically.</remarks>
+        /// <param name="imageContent">The binary content of the image to be saved.</param>
+        /// <param name="keyframeId">The identifier of the keyframe, which may include a path segment. The last segment is used in the file name.</param>
+        /// <param name="testName">The name of the test, used as part of the generated file name.</param>
+        /// <param name="identifier">An optional identifier to include in the file name to avoid conflicts. If null or empty, it is omitted.</param>
+        /// <param name="outputDir">The relative output directory where the file will be saved. Defaults to <see cref="OutputPath"/>.</param>
+        /// <returns>The full path of the saved image file.</returns>
+        private string SaveKeyframeImageToFile(
+            byte[] imageContent,
+            string keyframeId,
+            string testName,
+            string? identifier = null,
+            string outputDir = OutputPath)
         {
-            // Initialize sets for unique face IDs and keyframe IDs
-            var faceIds = new HashSet<string>();
-            var keyframeIds = new HashSet<string>();
-            // Extract unique face IDs safely
-            var resultData = resultJson.RootElement.GetProperty("result");
-            var contents = resultData.GetProperty("contents");
+            // Generate timestamp and frame ID
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 
-            // Iterate over contents to find faces and keyframes if available
-            foreach (var content in contents.EnumerateArray())
+            // Extract the frame time from the keyframe path (e.g., "keyframes/733" -> "733")
+            string frameId;
+            if (keyframeId.Contains("/"))
             {
-                // Safely retrieve face IDs if "faces" exists and is a list
-                if (content.TryGetProperty("faces", out var faces))
-                {
-                    foreach (var face in faces.EnumerateArray())
-                    {
-                        var faceId = face.GetProperty("faceId").GetString();
-                        faceIds.Add($"face.{faceId}");
-                    }
-                }
-
-                // Extract keyframe IDs from "markdown" if it exists and is a string
-                if (content.TryGetProperty("markdown", out var markdownElement))
-                {
-                    var markdown = markdownElement.GetString()!;
-
-                    var matches = Regex.Matches(markdown, @"(keyFrame\.\d+)\.jpg");
-                    foreach (Match match in matches)
-                    {
-                        keyframeIds.Add(match.Groups[1].Value);
-                    }
-                }
+                frameId = keyframeId.Split('/').Last();
+            }
+            else
+            {
+                // Fallback: use as-is if no slash found
+                frameId = keyframeId;
             }
 
-            // Output the results
-            Console.WriteLine($"\nFound face IDs: {string.Join(", ", faceIds)}");
-            Console.WriteLine($"Found keyframe IDs: {string.Join(", ", keyframeIds)}");
+            // Create output directory if it doesn't exist
+            string outputDirPath = Path.Combine(Directory.GetCurrentDirectory(), outputDir);
+            Directory.CreateDirectory(outputDirPath);
 
-            // Save all face images
-            foreach (var faceId in faceIds)
+            // Generate output filename with optional identifier to avoid conflicts
+            string outputFileName;
+            if (!string.IsNullOrEmpty(identifier))
             {
-                try
-                {
-                    var imageBytes = await _client.GetImageFromAnalyzeOperationAsync(response, faceId);
-                    await File.WriteAllBytesAsync($"{CacheDir}/{faceId}.jpg", imageBytes);
-                    Console.WriteLine($"Saved face image: {faceId}.jpg");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to save face image ({faceId}): {ex.Message}");
-                    throw;
-                }
+                outputFileName = $"{testName}_{identifier}_{timestamp}_{frameId}.jpg";
+            }
+            else
+            {
+                outputFileName = $"{testName}_{timestamp}_{frameId}.jpg";
             }
 
-            // Save all keyframes images
-            foreach (var keyframeId in keyframeIds)
-            {
-                try
-                {
-                    var imageBytes = await _client.GetImageFromAnalyzeOperationAsync(response, keyframeId);
-                    await File.WriteAllBytesAsync($"{CacheDir}/{keyframeId}.jpg", imageBytes);
-                    Console.WriteLine($"Saved keyframe: {keyframeId}.jpg");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to save keyframe ({keyframeId}): {ex.Message}");
-                    throw;
-                }
-            }
+            string savedFilePath = Path.Combine(outputDirPath, outputFileName);
+
+            // Write the image content to file
+            File.WriteAllBytes(savedFilePath, imageContent);
+
+            Console.WriteLine($"Image file saved to: {savedFilePath}");
+            return savedFilePath;
         }
     }
 }

@@ -2,9 +2,8 @@
 using ContentExtraction.Services;
 using ContentUnderstanding.Common;
 using ContentUnderstanding.Common.Extensions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using System.Text;
 
 namespace ContentExtraction
 {
@@ -12,61 +11,80 @@ namespace ContentExtraction
     {
         public static async Task Main(string[] args)
         {
-            var host = Host.CreateDefaultBuilder(args)
-                .ConfigureServices((context, services) =>
+            Console.OutputEncoding = Encoding.UTF8;
+
+            // Create host and configure services (without deployment configuration)
+            var host = ContentUnderstandingBootstrapper.CreateHost(
+                configureServices: (context, services) =>
                 {
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:Endpoint")))
-                    {
-                        throw new ArgumentException("Endpoint must be provided in appsettings.json.");
-                    }
-
-                    if (string.IsNullOrWhiteSpace(context.Configuration.GetValue<string>("AZURE_CU_CONFIG:ApiVersion")))
-                    {
-                        throw new ArgumentException("API version must be provided in appsettings.json.");
-                    }
-
-                    services.AddConfigurations(opts =>
-                    {
-                        context.Configuration.GetSection("AZURE_CU_CONFIG").Bind(opts);
-                        // This header is used for sample usage telemetry, please comment out this line if you want to opt out.
-                        opts.UserAgent = "azure-ai-content-understanding-dotnet/content_extraction";
-                    });
-                    services.AddTokenProvider();
-                    services.AddHttpClient<AzureContentUnderstandingClient>();
                     services.AddSingleton<IContentExtractionService, ContentExtractionService>();
+                }
+            );
 
-                })
-                .Build();
+            // Verify client is available
+            var client = host.Services.GetService<AzureContentUnderstandingClient>();
+            if (client == null)
+            {
+                Console.WriteLine("❌ Failed to resolve AzureContentUnderstandingClient from DI container.");
+                Console.WriteLine("   Please ensure AddContentUnderstandingClient() is called in ConfigureServices.");
+                return;
+            }
 
-            var service = host.Services.GetService<IContentExtractionService>()!;
+            // Print message about ModelDeploymentSetup
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine("Azure AI Content Understanding - Content Extraction Sample");
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine();
+            Console.WriteLine("⚠️  IMPORTANT: Before using prebuilt analyzers, you must configure model deployments.");
+            Console.WriteLine();
+            Console.WriteLine("   If you haven't already, please run the ModelDeploymentSetup sample first:");
+            Console.WriteLine("   1. cd ../ModelDeploymentSetup");
+            Console.WriteLine("   2. dotnet run");
+            Console.WriteLine();
+            Console.WriteLine("   This is a one-time setup that maps your deployed models to prebuilt analyzers.");
+            Console.WriteLine("   See the main README.md for more details.");
+            Console.WriteLine();
+            Console.WriteLine("=".PadRight(80, '='));
+            Console.WriteLine();
+            Console.Write("Have you already configured model deployments? (y/n): ");
+            var answer = Console.ReadLine()?.Trim().ToLower();
+            if (answer != "y" && answer != "yes")
+            {
+                Console.WriteLine();
+                Console.WriteLine("Please run the ModelDeploymentSetup sample first and then try again.");
+                return;
+            }
+            Console.WriteLine();
 
-            while(true)
+            var service = host.Services.GetRequiredService<IContentExtractionService>();
+
+            while (true)
             {
                 Console.WriteLine("Please enter a number to run sample: ");
                 Console.WriteLine("[1] - Extract Document Content");
-                Console.WriteLine("[2] - Extract Audio Content");
-                Console.WriteLine("[3] - Extract Video Content");
-                Console.WriteLine("[4] - Extract Video Content With Face ");
+                Console.WriteLine("[2] - Extract Document Content from URL");
+                Console.WriteLine("[3] - Extract Audio Content");
+                Console.WriteLine("[4] - Extract Video Content");
                 
                 string? input = Console.ReadLine();
 
                 switch (input)
                 {
                     case "1":
-                        var docFilePath = "./data/invoice.pdf";
+                        var docFilePath = "invoice.pdf";
                         await service.AnalyzeDocumentAsync(docFilePath);
                         break;
                     case "2":
-                        var audioFilePath = "./data/audio.wav";
-                        await service.AnalyzeAudioAsync(audioFilePath);
+                        var documentUrl = "https://github.com/Azure-Samples/azure-ai-content-understanding-python/raw/refs/heads/main/data/invoice.pdf";
+                        await service.AnalyzeDocumentFromUrlAsync(documentUrl);
                         break;
                     case "3":
-                        var videoFilePath = "./data/FlightSimulator.mp4";
-                        await service.AnalyzeVideoAsync(videoFilePath);
+                        var audioFilePath = "audio.wav";
+                        await service.AnalyzeAudioAsync(audioFilePath);
                         break;
                     case "4":
-                        var videoWithFaceFilePath = "./data/FlightSimulator.mp4";
-                        await service.AnalyzeVideoWithFaceAsync(videoWithFaceFilePath);
+                        var videoFilePath = "FlightSimulator.mp4";
+                        await service.AnalyzeVideoAsync(videoFilePath);
                         break;
                     default:
                         Console.WriteLine("Invalid number, please retry to input");

@@ -10,21 +10,24 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="xunit" Version="2.5.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.10" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\AnalyzerTraining\AnalyzerTraining.csproj" />
-    <ProjectReference Include="..\BuildPersonDirectory\BuildPersonDirectory.csproj" />
     <ProjectReference Include="..\Classifier\Classifier.csproj" />
     <ProjectReference Include="..\ContentExtraction\ContentExtraction.csproj" />
     <ProjectReference Include="..\ContentUnderstanding.Common\ContentUnderstanding.Common.csproj" />
-    <ProjectReference Include="..\ConversationalFieldExtraction\ConversationalFieldExtraction.csproj" />
-    <ProjectReference Include="..\FieldExtractionProMode\FieldExtractionProMode.csproj" />
     <ProjectReference Include="..\FieldExtraction\FieldExtraction.csproj" />
     <ProjectReference Include="..\Management\Management.csproj" />
   </ItemGroup>

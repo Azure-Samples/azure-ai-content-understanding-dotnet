@@ -22,18 +22,16 @@ namespace AnalyzerTraining.Interfaces
         Task GenerateTrainingDataOnBlobAsync(string trainingDocsFolder, string storageContainerSasUrl, string storageContainerPathPrefix);
 
         /// <summary>
-        /// Create analyzer with defined schema.
+        /// Create analyzer with defined schema and labeled training data.
         /// <remarks>Before creating the custom fields analyzer, you should fill the constant ANALYZER_ID with a business-related name. Here we randomly generate a name for demo purpose.
         /// We use **TRAINING_DATA_SAS_URL** and **TRAINING_DATA_PATH** that's set in the prerequisite step.</remarks>
         /// </summary>
-        /// configuration.</param>
-        /// <param name="trainingStorageContainerSasUrl">An optional SAS URL for the storage container containing the training data. If not provided, the method will use
-        /// a default value.</param>
-        /// <param name="trainingStorageContainerPathPrefix">An optional path prefix within the storage container to locate the training data. If not provided, the method
-        /// will use a default value.</param>
-        /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation. The result contains the unique identifier
-        /// of the created analyzer.</returns>
-        Task<string> CreateAnalyzerAsync(string analyzerTemplatePath, string trainingStorageContainerSasUrl, string trainingStorageContainerPathPrefix);
+        /// <param name="analyzerId">The unique identifier for the analyzer.</param>
+        /// <param name="analyzerDefinition">The analyzer definition as a dictionary.</param>
+        /// <param name="trainingStorageContainerSasUrl">The SAS URL for the storage container containing the training data.</param>
+        /// <param name="trainingStorageContainerPathPrefix">The path prefix within the storage container to locate the training data.</param>
+        /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation. The result contains the analyzer details as JsonDocument.</returns>
+        Task<JsonDocument> CreateAnalyzerAsync(string analyzerId, Dictionary<string, object> analyzerDefinition, string trainingStorageContainerSasUrl, string trainingStorageContainerPathPrefix);
 
         /// <summary>
         /// ## Use created analyzer to extract document content.
@@ -41,7 +39,7 @@ namespace AnalyzerTraining.Interfaces
         /// <remarks>After the analyzer is successfully created, we can use it to analyze our input files.</remarks>
         /// <param name="analyzerId">The unique identifier of the custom analyzer to use for document analysis. This value must not be null or empty.</param>
         /// <param name="filePath">The file path of the document to analyze. The file must exist and be accessible.</param>
-        /// <returns>A task that represents the asynchronous operation. The task completes when the document analysis is finished.</returns>
+        /// <returns>A task that represents the asynchronous operation. The task completes when the document analysis is finished and returns the result as JsonDocument.</returns>
         Task<JsonDocument> AnalyzeDocumentWithCustomAnalyzerAsync(string analyzerId, string filePath);
 
         /// <summary>

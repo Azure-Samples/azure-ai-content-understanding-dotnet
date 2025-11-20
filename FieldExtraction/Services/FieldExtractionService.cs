@@ -1,13 +1,15 @@
 ﻿using ContentUnderstanding.Common;
+using ContentUnderstanding.Common.Helpers;
 using FieldExtraction.Interfaces;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace FieldExtraction.Services
 {
     public class FieldExtractionService : IFieldExtractionService
     {
         private readonly AzureContentUnderstandingClient _client;
-        private readonly string OutputPath = "./outputs/field_extraction/";
+        private readonly string OutputPath = "./sample_output/field_extraction/";
 
         public FieldExtractionService(AzureContentUnderstandingClient client) 
         { 
@@ -20,234 +22,323 @@ namespace FieldExtraction.Services
         }
 
         /// <summary>
-        /// Create Analyzer from the Template.
+        /// Analyze a file using a prebuilt analyzer.
         /// </summary>
-        /// <param name="analyzerId">The unique identifier for the analyzer to be created. This value must be non-null and unique  within the system.</param>
-        /// <param name="analyzerTemplatePath">The file path to the analyzer template used for creating the analyzer. The path must point to  a valid template
-        /// file.</param>
-        /// <param name="sampleFilePath">The file path to the sample file to be analyzed. The path must point to a valid file that can  be processed by
-        /// the analyzer.</param>
-        /// <returns></returns>
-        public async Task<JsonDocument> CreateAndUseAnalyzer(string analyzerId, string analyzerTemplatePath, string sampleFilePath)
+        public async Task<JsonDocument> AnalyzeWithPrebuiltAnalyzer(string prebuiltAnalyzerId, string fileName, string filenamePrefix)
         {
-            Console.WriteLine("Creating Analyzer...");
-            Console.WriteLine($"Template: {Path.GetFileName(analyzerTemplatePath)}");
-            Console.WriteLine($"Analyzer ID: {analyzerId}");
-
-            // Create analyzer from template
-            var createResponse = await _client.BeginCreateAnalyzerAsync(
-                analyzerId: analyzerId,
-                analyzerTemplatePath: analyzerTemplatePath
-            );
-
-            // Poll for creation result
-            await _client.PollResultAsync(createResponse);
-            Console.WriteLine("\nAnalyzer created successfully");
-
-            Console.WriteLine("\n===== Analyzing Sample File =====");
-            Console.WriteLine($"Input file: {Path.GetFileName(sampleFilePath)}");
-
-            // Extract Fields Using the Analyzer.
-            // After the analyzer is successfully created, we can use it to analyze our input files.
-            var analyzeResponse = await _client.BeginAnalyzeAsync(analyzerId, sampleFilePath);
-            JsonDocument resultJson = await _client.PollResultAsync(analyzeResponse);
-
-            Console.WriteLine("\n===== Extraction Results =====");
-            PrintExtractionResults(resultJson, sampleFilePath);
-
-            // // Optionally, delete the sample analyzer from your resource. In typical usage scenarios, you would analyze multiple files using the same analyzer.
-            Console.WriteLine("\n===== Cleaning Up =====");
-            await _client.DeleteAnalyzerAsync(analyzerId);
-            Console.WriteLine($"Analyzer {analyzerId} deleted");
-
-            return resultJson;
-        }
-
-        public void PrintExtractionResults(JsonDocument resultJson, string filePath)
-        {
-            string extension = Path.GetExtension(filePath).ToLower();
-            string fileName = Path.GetFileName(filePath);
-
-            Console.WriteLine($"File: {fileName}");
-            Console.WriteLine($"Type: {GetFileTypeDescription(extension)}");
-            Console.WriteLine($"Analyzer completed at: {DateTime.Now}");
-            Console.WriteLine("\nExtracted Fields:");
-
-            var serializedJson = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions
+            // Resolve file path
+            string resolvedFilePath = ResolveDataFilePath(fileName);
+            if (!File.Exists(resolvedFilePath))
             {
-                WriteIndented = true,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            Console.WriteLine("\nField Extraction Results:");
-            try
-            {
-                if (!resultJson.RootElement.TryGetProperty("result", out JsonElement result))
-                {
-                    Console.WriteLine("No 'result' property found in response.");
-                    return;
-                }
-
-                if (!result.TryGetProperty("contents", out JsonElement contents))
-                {
-                    Console.WriteLine("No 'contents' property found in result.");
-                    return;
-                }
-
-                var contentsArray = contents.EnumerateArray().ToArray();
-                if (contentsArray.Length == 0)
-                {
-                    Console.WriteLine("No content items found.");
-                    return;
-                }
-
-                var firstContent = contentsArray[0];
-                if (!firstContent.TryGetProperty("fields", out JsonElement fields))
-                {
-                    Console.WriteLine("No fields extracted from the document.");
-                    return;
-                }
-
-                foreach (var field in fields.EnumerateObject())
-                {
-                    PrintFieldValue(field.Name, field.Value, 0);
-                }
-            }
-            catch (JsonException ex)
-            {
-                Console.WriteLine($"Error parsing the result JSON: {ex.Message}");
-                return;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Unexpected error processing results: {ex.Message}");
-                return;
-            }
-        }
-
-        /// <summary>
-        /// Prints a field value with proper formatting based on its type.
-        /// </summary>
-        /// <param name="fieldName">The name of the field</param>
-        /// <param name="fieldValue">The JSON element containing the field value and type information</param>
-        /// <param name="indentLevel">The indentation level for nested structures</param>
-        private static void PrintFieldValue(string fieldName, JsonElement fieldValue, int indentLevel)
-        {
-            string indent = new string(' ', indentLevel * 2);
-
-            if (!fieldValue.TryGetProperty("type", out JsonElement typeElement))
-            {
-                Console.WriteLine($"{indent}- {fieldName}: [Unknown type]");
-                return;
+                Console.WriteLine($"❌ Error: Sample file not found at {resolvedFilePath}");
+                throw new FileNotFoundException("Sample file not found.", resolvedFilePath);
             }
 
-            string fieldType = typeElement.GetString() ?? "unknown";
+            Console.WriteLine($"Sample file: {resolvedFilePath}");
 
             try
             {
-                switch (fieldType.ToLower())
-                {
-                    case "string":
-                    case "number":
-                    case "boolean":
-                    case "date":
-                        var simpleValue = GetSimpleTypeValue(fieldValue, fieldType);
-                        Console.WriteLine($"{indent}- {fieldName} ({fieldType}): {simpleValue}");
-                        break;
+                // Analyze the file
+                var analyzeResponse = await _client.BeginAnalyzeBinaryAsync(prebuiltAnalyzerId, resolvedFilePath);
+                var analysisResult = await _client.PollResultAsync(analyzeResponse);
 
-                    case "array":
-                        Console.WriteLine($"{indent}- {fieldName} (array):");
-                        if (fieldValue.TryGetProperty("valueArray", out JsonElement arrayValue))
-                        {
-                            var arrayItems = arrayValue.EnumerateArray().ToArray();
-                            if (arrayItems.Length == 0)
-                            {
-                                Console.WriteLine($"{indent}  [Empty array]");
-                            }
-                            else
-                            {
-                                for (int i = 0; i < arrayItems.Length; i++)
-                                {
-                                    Console.WriteLine($"{indent}  Item {i + 1}:");
-                                    PrintFieldValue($"", arrayItems[i], indentLevel + 2);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine($"{indent}  [No array value]");
-                        }
-                        break;
+                // Display extracted fields (shows how to navigate the result)
+                DisplayExtractedFields(analysisResult, isPrebuilt: true);
 
-                    case "object":
-                        Console.WriteLine($"{indent}- {fieldName} (object):");
-                        if (fieldValue.TryGetProperty("valueObject", out JsonElement objectValue))
-                        {
-                            foreach (var property in objectValue.EnumerateObject())
-                            {
-                                PrintFieldValue(property.Name, property.Value, indentLevel + 1);
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine($"{indent}  [No object value]");
-                        }
-                        break;
+                // Save result
+                SampleHelper.SaveJsonToFile(analysisResult, OutputPath, filenamePrefix);
 
-                    default:
-                        Console.WriteLine($"{indent}- {fieldName} ({fieldType}): [Unsupported type]");
-                        break;
-                }
+                return analysisResult;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"{indent}- {fieldName} ({fieldType}): [Error reading value: {ex.Message}]");
+                Console.WriteLine($"❌ Analysis failed: {ex.Message}");
                 throw;
             }
         }
 
         /// <summary>
-        /// Gets the value for simple types (string, number, boolean, date) based on the pattern "value<Type>".
+        /// Display extracted fields from the analysis result.
+        /// Shows how to navigate and extract values from the fields structure.
         /// </summary>
-        /// <param name="fieldValue">The JSON element containing the field value and type information</param>
-        /// <param name="fieldType">The type of the field</param>
-        /// <returns>A string representation of the value or an error message</returns>
-        private static string GetSimpleTypeValue(JsonElement fieldValue, string fieldType)
+        private void DisplayExtractedFields(JsonDocument result, bool isPrebuilt = false)
         {
-            var typeToPropertyMap = new Dictionary<string, string>
-            {
-                { "string", "valueString" },
-                { "number", "valueNumber" },
-                { "boolean", "valueBoolean" },
-                { "date", "valueDate" }
-            };
+            if (!result.RootElement.TryGetProperty("result", out var resultProperty))
+                return;
 
-            string fieldTypeLower = fieldType.ToLower();
-            if (!typeToPropertyMap.TryGetValue(fieldTypeLower, out string? propertyName))
+            if (!resultProperty.TryGetProperty("contents", out var contents) || contents.GetArrayLength() == 0)
             {
-                return "[Unknown type]";
+                Console.WriteLine("No content found in analysis result.");
+                return;
             }
 
-            if (!fieldValue.TryGetProperty(propertyName, out JsonElement valueElement))
+            var firstContent = contents[0];
+            if (!firstContent.TryGetProperty("fields", out var fields))
             {
-                return "[No value]";
+                Console.WriteLine("No fields extracted.");
+                return;
             }
 
+            int fieldCount = 0;
+            foreach (var _ in fields.EnumerateObject())
+            {
+                fieldCount++;
+            }
+
+            // Show partial list message if there are many fields (only for prebuilt)
+            if (isPrebuilt && fieldCount > 10)
+            {
+                Console.WriteLine($"\nExtracted Fields (showing first 10 of {fieldCount} - see output file for complete results):");
+            }
+            else
+            {
+                Console.WriteLine("\nExtracted Fields:");
+            }
+            Console.WriteLine("-".PadRight(80, '-'));
+
+            int displayedCount = 0;
+            int maxDisplay = isPrebuilt ? 10 : int.MaxValue; // Show all fields for custom analyzers
+
+            foreach (var field in fields.EnumerateObject())
+            {
+                if (displayedCount >= maxDisplay)
+                    break;
+
+                var fieldValue = field.Value;
+                if (!fieldValue.TryGetProperty("type", out var fieldType))
+                    continue;
+
+                var typeStr = fieldType.GetString();
+                switch (typeStr)
+                {
+                    case "string":
+                        if (fieldValue.TryGetProperty("valueString", out var valueString))
+                        {
+                            Console.WriteLine($"{field.Name}: {valueString.GetString()}");
+                        }
+                        break;
+                    case "number":
+                        if (fieldValue.TryGetProperty("valueNumber", out var valueNumber))
+                        {
+                            Console.WriteLine($"{field.Name}: {valueNumber.GetDouble()}");
+                        }
+                        break;
+                    case "date":
+                        if (fieldValue.TryGetProperty("valueDate", out var valueDate))
+                        {
+                            Console.WriteLine($"{field.Name}: {valueDate.GetString()}");
+                        }
+                        break;
+                    case "array":
+                        if (fieldValue.TryGetProperty("valueArray", out var valueArray))
+                        {
+                            Console.WriteLine($"{field.Name} (array with {valueArray.GetArrayLength()} items):");
+                            int idx = 1;
+                            foreach (var item in valueArray.EnumerateArray())
+                            {
+                                if (item.TryGetProperty("type", out var itemType))
+                                {
+                                    var itemTypeStr = itemType.GetString();
+                                    if (itemTypeStr == "object")
+                                    {
+                                        Console.WriteLine($"  Item {idx}:");
+                                        if (item.TryGetProperty("valueObject", out var valueObject))
+                                        {
+                                            foreach (var objField in valueObject.EnumerateObject())
+                                            {
+                                                if (objField.Value.TryGetProperty("type", out var objType))
+                                                {
+                                                    var objTypeStr = objType.GetString();
+                                                    if (objTypeStr == "string" && objField.Value.TryGetProperty("valueString", out var objString))
+                                                    {
+                                                        Console.WriteLine($"    {objField.Name}: {objString.GetString()}");
+                                                    }
+                                                    else if (objTypeStr == "number" && objField.Value.TryGetProperty("valueNumber", out var objNumber))
+                                                    {
+                                                        Console.WriteLine($"    {objField.Name}: {objNumber.GetDouble()}");
+                                                    }
+                                                }
+                                                // Display confidence and source for nested fields (especially for prebuilt)
+                                                if (isPrebuilt)
+                                                {
+                                                    if (objField.Value.TryGetProperty("confidence", out var objConfidence))
+                                                    {
+                                                        Console.WriteLine($"      Confidence: {objConfidence.GetDouble():F3}");
+                                                    }
+                                                    if (objField.Value.TryGetProperty("source", out var objSource))
+                                                    {
+                                                        Console.WriteLine($"      Bounding Box: {objSource}");
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else if (itemTypeStr == "string" && item.TryGetProperty("valueString", out var itemString))
+                                    {
+                                        Console.WriteLine($"  {idx}. {itemString.GetString()}");
+                                    }
+                                    else if (itemTypeStr == "number" && item.TryGetProperty("valueNumber", out var itemNumber))
+                                    {
+                                        Console.WriteLine($"  {idx}. {itemNumber.GetDouble()}");
+                                    }
+                                    else if (itemTypeStr == "date" && item.TryGetProperty("valueDate", out var itemDate))
+                                    {
+                                        Console.WriteLine($"  {idx}. {itemDate.GetString()}");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"  {idx}. {item}");
+                                    }
+                                }
+                                idx++;
+                            }
+                        }
+                        break;
+                    case "object":
+                        if (fieldValue.TryGetProperty("valueObject", out var fieldValueObject))
+                        {
+                            Console.WriteLine($"{field.Name}: {fieldValueObject}");
+                        }
+                        break;
+                }
+
+                // Display confidence and source if available (especially important for prebuilt analyzers)
+                if (isPrebuilt)
+                {
+                    if (fieldValue.TryGetProperty("confidence", out var confidence))
+                    {
+                        Console.WriteLine($"  Confidence: {confidence.GetDouble():F3}");
+                    }
+                    if (fieldValue.TryGetProperty("source", out var source))
+                    {
+                        Console.WriteLine($"  Bounding Box: {source}");
+                    }
+                }
+                Console.WriteLine();
+                displayedCount++;
+            }
+
+            if (isPrebuilt && fieldCount > maxDisplay)
+            {
+                Console.WriteLine($"... and {fieldCount - maxDisplay} more fields. See output file for complete results.");
+                Console.WriteLine();
+            }
+        }
+
+        /// <summary>
+        /// Create Analyzer and use it to analyze a file.
+        /// </summary>
+        public async Task<JsonDocument> CreateAndUseAnalyzer(string analyzerId, Dictionary<string, object> analyzerDefinition, string fileName)
+        {
+            // Convert analyzer definition to JSON and save to temp file
+            string tempTemplatePath = Path.Combine(Path.GetTempPath(), $"analyzer_{Guid.NewGuid()}.json");
             try
             {
-                return fieldTypeLower switch
+                var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+                await File.WriteAllTextAsync(tempTemplatePath, JsonSerializer.Serialize(analyzerDefinition, jsonOptions));
+
+                // Create analyzer using thin client
+                var createResponse = await _client.BeginCreateAnalyzerAsync(
+                    analyzerId: analyzerId,
+                    analyzerTemplatePath: tempTemplatePath);
+
+                // Poll for analyzer creation completion
+                var analyzerResult = await _client.PollResultAsync(createResponse);
+
+                // Display any warnings
+                if (analyzerResult.RootElement.TryGetProperty("warnings", out var warnings) && warnings.ValueKind == JsonValueKind.Array)
                 {
-                    "string" => valueElement.GetString() ?? "[Null string]",
-                    "number" => valueElement.GetDecimal().ToString(),
-                    "boolean" => valueElement.GetBoolean().ToString(),
-                    "date" => valueElement.GetString() ?? "[Null date]",
-                    _ => "[Unknown type]"
-                };
+                    if (warnings.GetArrayLength() > 0)
+                    {
+                        Console.WriteLine("⚠️  Warnings:");
+                        foreach (var warning in warnings.EnumerateArray())
+                        {
+                            var code = warning.TryGetProperty("code", out var codeProp) ? codeProp.GetString() : "";
+                            var message = warning.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "";
+                            Console.WriteLine($"   - {code}: {message}");
+                        }
+                    }
+                }
+
+                // Resolve file path
+                string resolvedFilePath = ResolveDataFilePath(fileName);
+                if (!File.Exists(resolvedFilePath))
+                {
+                    Console.WriteLine($"❌ Error: Sample file not found at {resolvedFilePath}");
+                    throw new FileNotFoundException("Sample file not found.", resolvedFilePath);
+                }
+
+                Console.WriteLine($"Sample file: {resolvedFilePath}");
+
+                // Analyze the file
+                var analyzeResponse = await _client.BeginAnalyzeBinaryAsync(analyzerId, resolvedFilePath);
+                var analysisResult = await _client.PollResultAsync(analyzeResponse);
+
+                // Display extracted fields (shows how to navigate the result)
+                DisplayExtractedFields(analysisResult, isPrebuilt: false);
+
+                // Save result
+                SampleHelper.SaveJsonToFile(analysisResult, OutputPath, $"field_extraction_{analyzerId}");
+
+                // Clean up the created analyzer
+                await _client.DeleteAnalyzerAsync(analyzerId);
+
+                return analysisResult;
             }
-            catch (Exception ex)
+            finally
             {
-                return $"[Error reading {fieldType}: {ex.Message}]";
+                // Clean up temp file
+                if (File.Exists(tempTemplatePath))
+                {
+                    File.Delete(tempTemplatePath);
+                }
             }
+        }
+
+        /// <summary>
+        /// Resolves the data file path by checking multiple locations.
+        /// </summary>
+        private static string ResolveDataFilePath(string fileName)
+        {
+            // Try current directory
+            string currentDirPath = Path.Combine(Directory.GetCurrentDirectory(), "data", fileName);
+            if (File.Exists(currentDirPath))
+            {
+                return currentDirPath;
+            }
+
+            // Try assembly directory (output directory)
+            var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            if (!string.IsNullOrEmpty(assemblyLocation))
+            {
+                var assemblyDir = Path.GetDirectoryName(assemblyLocation);
+                if (!string.IsNullOrEmpty(assemblyDir))
+                {
+                    string assemblyPath = Path.Combine(assemblyDir, "data", fileName);
+                    if (File.Exists(assemblyPath))
+                    {
+                        return assemblyPath;
+                    }
+                }
+            }
+
+            // Try ContentUnderstanding.Common/data/
+            var commonDataPath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "..", "..", "..", "..", "ContentUnderstanding.Common", "data", fileName);
+            if (File.Exists(commonDataPath))
+            {
+                return commonDataPath;
+            }
+
+            // Try as-is (absolute path or relative to current directory)
+            if (File.Exists(fileName))
+            {
+                return fileName;
+            }
+
+            // If not found, return the original path (will throw FileNotFoundException later)
+            return fileName;
         }
 
         public string GetFileTypeDescription(string extension) => extension switch

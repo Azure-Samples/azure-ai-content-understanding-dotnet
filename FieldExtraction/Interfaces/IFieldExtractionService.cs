@@ -5,14 +5,21 @@ namespace FieldExtraction.Interfaces
     public interface IFieldExtractionService
     {
         /// <summary>
-        /// Create Analyzer from the Template.
+        /// Analyze a file using a prebuilt analyzer.
         /// </summary>
-        /// <param name="analyzerId">The unique identifier for the analyzer to be created. This value must be non-null and unique  within the system.</param>
-        /// <param name="analyzerTemplatePath">The file path to the analyzer template used for creating the analyzer. The path must point to  a valid template
-        /// file.</param>
-        /// <param name="sampleFilePath">The file path to the sample file to be analyzed. The path must point to a valid file that can  be processed by
-        /// the analyzer.</param>
-        /// <returns></returns>
-        Task<JsonDocument> CreateAndUseAnalyzer(string analyzerId, string analyzerTemplatePath, string sampleFilePath);
+        /// <param name="prebuiltAnalyzerId">The prebuilt analyzer ID (e.g., "prebuilt-invoice", "prebuilt-receipt").</param>
+        /// <param name="fileName">The file path to the sample file to be analyzed.</param>
+        /// <param name="filenamePrefix">Prefix for the output file name.</param>
+        /// <returns>The analysis result as a JsonDocument.</returns>
+        Task<JsonDocument> AnalyzeWithPrebuiltAnalyzer(string prebuiltAnalyzerId, string fileName, string filenamePrefix);
+
+        /// <summary>
+        /// Create Analyzer and use it to analyze a file.
+        /// </summary>
+        /// <param name="analyzerId">The unique identifier for the analyzer to be created.</param>
+        /// <param name="analyzerDefinition">The analyzer definition as a dictionary (JSON structure).</param>
+        /// <param name="fileName">The file path to the sample file to be analyzed.</param>
+        /// <returns>The analysis result as a JsonDocument.</returns>
+        Task<JsonDocument> CreateAndUseAnalyzer(string analyzerId, Dictionary<string, object> analyzerDefinition, string fileName);
     }
 }
