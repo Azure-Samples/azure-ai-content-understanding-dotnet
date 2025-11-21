@@ -13,7 +13,7 @@ namespace AzureAiContentUnderstanding.Tests
         private readonly IAnalyzerTrainingService service;
         // SAS URL for uploading training data to Azure Blob Storage
         // Replace with your SAS URL for actual usage
-        private string trainingDataSasUrl = "https://mmisamplevendorsstorage.blob.core.windows.net/mmi-sample-vendors-container?sv=2025-07-05&spr=https&st=2025-11-20T02%3A07%3A52Z&se=2025-11-21T02%3A07%3A52Z&skoid=9fd079de-7a31-4919-82e5-2ff3a6a022b1&sktid=72f988bf-86f1-41af-91ab-2d7cd011db47&skt=2025-11-20T02%3A07%3A52Z&ske=2025-11-21T02%3A07%3A52Z&sks=b&skv=2025-07-05&sr=c&sp=rcwdl&sig=9Fo%2Fy2gMhoE9qW4FyGif%2BAPPBa%2FSr2wF2CsdLLNcioo%3D";
+        private string trainingDataSasUrl = "https://<your-storage-account-name>.blob.core.windows.net/<your-container-name>?<your-sas-token>";
         // Local directory for generated training data (dynamically named for each test run)
         private string trainingDataPath = $"test_training_data_dotnet_{DateTime.Now.ToString("yyyyMMddHHmmss")}/";
         // Local folder containing source documents for training

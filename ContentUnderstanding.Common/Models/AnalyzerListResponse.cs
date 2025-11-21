@@ -7,5 +7,8 @@ namespace ContentUnderstanding.Common.Models
     {
         [JsonPropertyName("value")]
         public JsonElement[]? Value { get; set; }
+
+        [JsonPropertyName("nextLink")]
+        public string? NextLink { get; set; }
     }
 }
