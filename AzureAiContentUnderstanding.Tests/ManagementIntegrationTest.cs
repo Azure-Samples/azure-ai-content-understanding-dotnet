@@ -69,11 +69,74 @@ namespace AzureAiContentUnderstanding.Tests
                 Assert.NotNull(createResult);
 
                 // Validate creation result structure
-                Assert.True(createResult.RootElement.TryGetProperty("analyzerId", out var createdId));
+                var rootElement = createResult.RootElement;
+
+                // Validate operation status
+                Assert.True(rootElement.TryGetProperty("status", out var operationStatus),
+                    "Create result should contain 'status' property");
+                var operationStatusValue = operationStatus.GetString();
+                Console.WriteLine($"✓ Operation status: {operationStatusValue}");
+                Assert.Equal("Succeeded", operationStatusValue);
+
+                // Validate result object exists
+                Assert.True(rootElement.TryGetProperty("result", out var resultObject),
+                    "Create result should contain 'result' property");
+
+                // Validate analyzerId in the result object
+                Assert.True(resultObject.TryGetProperty("analyzerId", out var createdId),
+                    "Result should contain 'analyzerId' property");
                 var createdAnalyzerId = createdId.GetString();
                 Assert.Equal(analyzerId, createdAnalyzerId);
-
                 Console.WriteLine($"✅ Analyzer '{analyzerId}' created successfully");
+
+                // Validate analyzer status in result
+                Assert.True(resultObject.TryGetProperty("status", out var analyzerStatus),
+                    "Result should contain analyzer 'status' property");
+                var analyzerStatusValue = analyzerStatus.GetString();
+                Console.WriteLine($"✓ Analyzer status: {analyzerStatusValue}");
+
+                // Validate description
+                if (resultObject.TryGetProperty("description", out var createDescription))
+                {
+                    Console.WriteLine($"✓ Description: {createDescription.GetString()}");
+                }
+
+                // Validate baseAnalyzerId
+                if (resultObject.TryGetProperty("baseAnalyzerId", out var createBaseAnalyzerId))
+                {
+                    Console.WriteLine($"✓ Base Analyzer: {createBaseAnalyzerId.GetString()}");
+                }
+
+                // Validate warnings array exists (should be empty)
+                if (resultObject.TryGetProperty("warnings", out var createWarnings))
+                {
+                    if (createWarnings.ValueKind == JsonValueKind.Array)
+                    {
+                        var warningsArray = createWarnings.EnumerateArray().ToList();
+                        if (warningsArray.Any())
+                        {
+                            Console.WriteLine($"⚠️  Found {warningsArray.Count} warning(s) during creation");
+                            foreach (var warning in warningsArray)
+                            {
+                                Console.WriteLine($"  - {warning}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"✓ No warnings");
+                        }
+                    }
+                }
+
+                // Validate fieldSchema in creation result
+                if (resultObject.TryGetProperty("fieldSchema", out var createFieldSchema))
+                {
+                    if (createFieldSchema.TryGetProperty("fields", out var createFields))
+                    {
+                        var createFieldsCount = createFields.EnumerateObject().Count();
+                        Console.WriteLine($"✓ Field schema contains {createFieldsCount} field(s)");
+                    }
+                }
 
                 // Step 2: Get analyzer details and validate structure/content
                 Console.WriteLine("\n🔍 Step 2: Retrieving analyzer details...");
@@ -82,13 +145,14 @@ namespace AzureAiContentUnderstanding.Tests
                 Assert.False(string.IsNullOrWhiteSpace(detailsJson), "Details JSON should not be empty");
 
                 // Parse the JSON string to validate structure
-                var details = JsonDocument.Parse(detailsJson);
+                using var details = JsonDocument.Parse(detailsJson);
                 Assert.NotNull(details);
 
                 var detailsRoot = details.RootElement;
 
                 // Validate analyzer ID
-                Assert.True(detailsRoot.TryGetProperty("analyzerId", out var detailAnalyzerId));
+                Assert.True(detailsRoot.TryGetProperty("analyzerId", out var detailAnalyzerId),
+                    "Analyzer details should contain 'analyzerId' property");
                 Assert.Equal(analyzerId, detailAnalyzerId.GetString());
 
                 // Validate warnings (should be empty or absent)
@@ -113,18 +177,22 @@ namespace AzureAiContentUnderstanding.Tests
                 }
 
                 // Validate status (should be 'ready' or 'succeeded')
-                Assert.True(detailsRoot.TryGetProperty("status", out var status));
+                Assert.True(detailsRoot.TryGetProperty("status", out var status),
+                    "Analyzer details should contain 'status' property");
                 var statusValue = status.GetString();
                 Assert.True(
-                    statusValue == "ready" || statusValue == "succeeded",
+                    statusValue == "ready" || statusValue == "succeeded" || statusValue == "Succeeded",
                     $"Expected status 'ready' or 'succeeded', but got '{statusValue}'"
                 );
                 Console.WriteLine($"✓ Status: {statusValue}");
 
                 // Validate fieldSchema exists and has fields
-                Assert.True(detailsRoot.TryGetProperty("fieldSchema", out var fieldSchema));
-                Assert.True(fieldSchema.TryGetProperty("fields", out var fields));
-                Assert.True(fields.ValueKind == JsonValueKind.Object);
+                Assert.True(detailsRoot.TryGetProperty("fieldSchema", out var fieldSchema),
+                    "Analyzer details should contain 'fieldSchema' property");
+                Assert.True(fieldSchema.TryGetProperty("fields", out var fields),
+                    "Field schema should contain 'fields' property");
+                Assert.True(fields.ValueKind == JsonValueKind.Object,
+                    "Fields should be an object");
 
                 var fieldsCount = fields.EnumerateObject().Count();
                 Assert.True(fieldsCount > 0, "Field schema should contain at least one field");
@@ -182,7 +250,7 @@ namespace AzureAiContentUnderstanding.Tests
                         return id.GetString();
                     }
                     return null;
-                }).Where(id => id != null).ToList() ?? new List<string>();
+                }).Where(id => id != null).ToList() ?? new List<string?>();
 
                 Assert.DoesNotContain(analyzerId, analyzerIdsAfterDelete);
                 Console.WriteLine($"✅ Verified analyzer is no longer in the list");
@@ -249,19 +317,19 @@ namespace AzureAiContentUnderstanding.Tests
                         ["CustomerName"] = new Dictionary<string, object>
                         {
                             ["type"] = "string",
-                            ["method"] = "extract",
+                            ["method"] = "generate",
                             ["description"] = "Name of the customer"
                         },
                         ["AgentName"] = new Dictionary<string, object>
                         {
                             ["type"] = "string",
-                            ["method"] = "extract",
+                            ["method"] = "generate",
                             ["description"] = "Name of the agent"
                         },
                         ["CallDuration"] = new Dictionary<string, object>
                         {
                             ["type"] = "string",
-                            ["method"] = "extract",
+                            ["method"] = "generate",
                             ["description"] = "Duration of the call"
                         },
                         ["Topics"] = new Dictionary<string, object>
