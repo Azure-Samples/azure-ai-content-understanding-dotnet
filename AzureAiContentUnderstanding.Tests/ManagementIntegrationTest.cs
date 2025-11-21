@@ -39,13 +39,18 @@ namespace AzureAiContentUnderstanding.Tests
         }
 
         /// <summary>
-        /// Runs the analyzer management workflow:
-        /// 1. Creates an analyzer.
-        /// 2. Retrieves and validates analyzer details.
-        /// 3. Lists all analyzers.
-        /// 4. Deletes the created analyzer.
-        /// Ensures no exceptions occur and validates expected structure and content of responses.
+        /// Executes an integration test for the management operations of analyzers, including creation, retrieval,
+        /// listing, and deletion.
         /// </summary>
+        /// <remarks>This test performs the following steps: <list type="number">
+        /// <item><description>Creates a new analyzer with a unique identifier and validates the creation
+        /// result.</description></item> <item><description>Retrieves the details of the created analyzer and validates
+        /// its structure and content.</description></item> <item><description>Lists all analyzers and verifies the
+        /// presence of the created analyzer in the list.</description></item> <item><description>Deletes the created
+        /// analyzer and verifies its removal from the list of analyzers.</description></item> </list> Any exceptions
+        /// encountered during the test are logged, and cleanup is attempted to ensure no residual analyzers
+        /// remain.</remarks>
+        /// <returns></returns>
         [Fact(DisplayName = "Management Integration Test")]
         [Trait("Category", "Integration")]
         public async Task RunAsync()
@@ -69,9 +74,59 @@ namespace AzureAiContentUnderstanding.Tests
                 Assert.NotNull(createResult);
 
                 // Validate creation result structure
-                Assert.True(createResult.RootElement.TryGetProperty("analyzerId", out var createdId));
+                // The response has structure: { "id": "...", "status": "Succeeded", "result": { "analyzerId": "...", ... } }
+                Assert.True(createResult.RootElement.TryGetProperty("status", out var operationStatus));
+                var operationStatusValue = operationStatus.GetString();
+                Assert.Equal("Succeeded", operationStatusValue);
+                Console.WriteLine($"✓ Operation Status: {operationStatusValue}");
+
+                // Get the actual analyzer result from the "result" property
+                Assert.True(createResult.RootElement.TryGetProperty("result", out var resultElement));
+
+                Assert.True(resultElement.TryGetProperty("analyzerId", out var createdId));
                 var createdAnalyzerId = createdId.GetString();
                 Assert.Equal(analyzerId, createdAnalyzerId);
+
+                // Validate analyzer status within result
+                Assert.True(resultElement.TryGetProperty("status", out var analyzerStatus));
+                var analyzerStatusValue = analyzerStatus.GetString();
+                Console.WriteLine($"✓ Analyzer Status: {analyzerStatusValue}");
+
+                // Check for warnings in the creation result
+                if (resultElement.TryGetProperty("warnings", out var createWarnings))
+                {
+                    if (createWarnings.ValueKind == JsonValueKind.Array)
+                    {
+                        var warningsArray = createWarnings.EnumerateArray().ToList();
+                        if (warningsArray.Any())
+                        {
+                            Console.WriteLine($"⚠️  Found {warningsArray.Count} warning(s) during creation");
+                            foreach (var warning in warningsArray)
+                            {
+                                if (warning.TryGetProperty("code", out var code))
+                                {
+                                    Console.WriteLine($"  - {code.GetString()}");
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Validate basic properties from creation result
+                if (resultElement.TryGetProperty("description", out var createDescription))
+                {
+                    Console.WriteLine($"✓ Description: {createDescription.GetString()}");
+                }
+
+                if (resultElement.TryGetProperty("baseAnalyzerId", out var createBaseAnalyzerId))
+                {
+                    Console.WriteLine($"✓ Base Analyzer: {createBaseAnalyzerId.GetString()}");
+                }
+
+                if (resultElement.TryGetProperty("createdAt", out var createdAt))
+                {
+                    Console.WriteLine($"✓ Created At: {createdAt.GetString()}");
+                }
 
                 Console.WriteLine($"✅ Analyzer '{analyzerId}' created successfully");
 
@@ -104,7 +159,9 @@ namespace AzureAiContentUnderstanding.Tests
                             {
                                 if (warning.TryGetProperty("code", out var code))
                                 {
-                                    Console.WriteLine($"  - {code.GetString()}");
+                                    var warningCode = code.GetString();
+                                    var message = warning.TryGetProperty("message", out var msg) ? msg.GetString() : "";
+                                    Console.WriteLine($"  - {warningCode}: {message}");
                                 }
                             }
                         }
@@ -116,7 +173,7 @@ namespace AzureAiContentUnderstanding.Tests
                 Assert.True(detailsRoot.TryGetProperty("status", out var status));
                 var statusValue = status.GetString();
                 Assert.True(
-                    statusValue == "ready" || statusValue == "succeeded",
+                    statusValue == "ready" || statusValue == "succeeded" || statusValue == "Ready" || statusValue == "Succeeded",
                     $"Expected status 'ready' or 'succeeded', but got '{statusValue}'"
                 );
                 Console.WriteLine($"✓ Status: {statusValue}");
@@ -130,6 +187,10 @@ namespace AzureAiContentUnderstanding.Tests
                 Assert.True(fieldsCount > 0, "Field schema should contain at least one field");
                 Console.WriteLine($"✓ Field schema contains {fieldsCount} field(s)");
 
+                // List all field names
+                var fieldNames = fields.EnumerateObject().Select(f => f.Name).ToList();
+                Console.WriteLine($"✓ Fields: {string.Join(", ", fieldNames)}");
+
                 // Validate base analyzer ID
                 if (detailsRoot.TryGetProperty("baseAnalyzerId", out var baseAnalyzerId))
                 {
@@ -140,6 +201,39 @@ namespace AzureAiContentUnderstanding.Tests
                 if (detailsRoot.TryGetProperty("description", out var description))
                 {
                     Console.WriteLine($"✓ Description: {description.GetString()}");
+                }
+
+                // Validate config
+                if (detailsRoot.TryGetProperty("config", out var config))
+                {
+                    if (config.TryGetProperty("locales", out var locales) && locales.ValueKind == JsonValueKind.Array)
+                    {
+                        var localesArray = locales.EnumerateArray().Select(l => l.GetString()).ToList();
+                        Console.WriteLine($"✓ Config Locales: {string.Join(", ", localesArray)}");
+                    }
+                    if (config.TryGetProperty("returnDetails", out var returnDetails))
+                    {
+                        Console.WriteLine($"✓ Config ReturnDetails: {returnDetails.GetBoolean()}");
+                    }
+                }
+
+                // Validate tags
+                if (detailsRoot.TryGetProperty("tags", out var tags))
+                {
+                    Console.WriteLine($"✓ Tags:");
+                    foreach (var tag in tags.EnumerateObject())
+                    {
+                        Console.WriteLine($"    {tag.Name}: {tag.Value.GetString()}");
+                    }
+                }
+
+                // Validate models
+                if (detailsRoot.TryGetProperty("models", out var models))
+                {
+                    if (models.TryGetProperty("completion", out var completionModel))
+                    {
+                        Console.WriteLine($"✓ Completion Model: {completionModel.GetString()}");
+                    }
                 }
 
                 Console.WriteLine($"✅ Analyzer details retrieved and validated successfully");
@@ -182,7 +276,7 @@ namespace AzureAiContentUnderstanding.Tests
                         return id.GetString();
                     }
                     return null;
-                }).Where(id => id != null).ToList() ?? new List<string>();
+                }).Where(id => id != null).ToList() ?? new List<string?>();
 
                 Assert.DoesNotContain(analyzerId, analyzerIdsAfterDelete);
                 Console.WriteLine($"✅ Verified analyzer is no longer in the list");
@@ -224,6 +318,7 @@ namespace AzureAiContentUnderstanding.Tests
 
         /// <summary>
         /// Creates an analyzer definition for call recording analytics.
+        /// Fixed to use only supported methods for prebuilt-callCenter.
         /// </summary>
         private Dictionary<string, object> CreateCallRecordingAnalyzerDefinition()
         {
@@ -249,20 +344,20 @@ namespace AzureAiContentUnderstanding.Tests
                         ["CustomerName"] = new Dictionary<string, object>
                         {
                             ["type"] = "string",
-                            ["method"] = "extract",
-                            ["description"] = "Name of the customer"
+                            ["method"] = "generate",  // Changed from "extract" to "generate"
+                            ["description"] = "Name of the customer mentioned in the call"
                         },
                         ["AgentName"] = new Dictionary<string, object>
                         {
                             ["type"] = "string",
-                            ["method"] = "extract",
-                            ["description"] = "Name of the agent"
+                            ["method"] = "generate",  // Changed from "extract" to "generate"
+                            ["description"] = "Name of the agent handling the call"
                         },
                         ["CallDuration"] = new Dictionary<string, object>
                         {
                             ["type"] = "string",
-                            ["method"] = "extract",
-                            ["description"] = "Duration of the call"
+                            ["method"] = "generate",  // Changed from "extract" to "generate"
+                            ["description"] = "Duration of the call in minutes"
                         },
                         ["Topics"] = new Dictionary<string, object>
                         {
